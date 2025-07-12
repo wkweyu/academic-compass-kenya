@@ -1,0 +1,263 @@
+
+{% extends 'base.html' %}
+
+{% block title %}{{ student.full_name }} - CBC System{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <!-- Student Header -->
+    <div class="bg-white rounded-lg shadow-lg mb-6">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    {% if student.photo %}
+                        <img class="h-20 w-20 rounded-full object-cover" src="{{ student.photo.url }}" alt="{{ student.full_name }}">
+                    {% else %}
+                        <div class="h-20 w-20 rounded-full bg-gray-300 flex items-center justify-center">
+                            <span class="text-gray-600 text-2xl font-bold">{{ student.full_name|slice:":1" }}</span>
+                        </div>
+                    {% endif %}
+                    <div>
+                        <h1 class="text-3xl font-bold text-gray-900">{{ student.full_name }}</h1>
+                        <p class="text-gray-600">{{ student.admission_number }} • {{ student.get_gender_display }} • Age {{ student.age }}</p>
+                        <p class="text-blue-600 font-medium">{{ student.current_class_stream }}</p>
+                    </div>
+                </div>
+                <div class="flex space-x-3">
+                    <a href="{% url 'students:student_edit' student.pk %}" 
+                       class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">
+                        Edit Student
+                    </a>
+                    <a href="{% url 'students:student_list' %}" 
+                       class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors">
+                        Back to List
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Basic Information Grid -->
+        <div class="px-6 py-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div>
+                    <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Personal Information</h3>
+                    <dl class="mt-2 space-y-2">
+                        <div>
+                            <dt class="text-sm text-gray-600">Date of Birth</dt>
+                            <dd class="text-sm font-medium text-gray-900">{{ student.date_of_birth|date:"F d, Y" }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm text-gray-600">KCPE Index</dt>
+                            <dd class="text-sm font-medium text-gray-900">{{ student.kcpe_index|default:"Not provided" }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm text-gray-600">Admission Year</dt>
+                            <dd class="text-sm font-medium text-gray-900">{{ student.admission_year }}</dd>
+                        </div>
+                    </dl>
+                </div>
+                
+                <div>
+                    <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Guardian Information</h3>
+                    <dl class="mt-2 space-y-2">
+                        <div>
+                            <dt class="text-sm text-gray-600">Name</dt>
+                            <dd class="text-sm font-medium text-gray-900">{{ student.guardian_name }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm text-gray-600">Phone</dt>
+                            <dd class="text-sm font-medium text-gray-900">{{ student.guardian_phone }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm text-gray-600">Email</dt>
+                            <dd class="text-sm font-medium text-gray-900">{{ student.guardian_email|default:"Not provided" }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm text-gray-600">Relationship</dt>
+                            <dd class="text-sm font-medium text-gray-900">{{ student.guardian_relationship }}</dd>
+                        </div>
+                    </dl>
+                </div>
+                
+                <div>
+                    <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Academic Status</h3>
+                    <dl class="mt-2 space-y-2">
+                        <div>
+                            <dt class="text-sm text-gray-600">Current Class</dt>
+                            <dd class="text-sm font-medium text-gray-900">{{ student.current_class.name|default:"Not Assigned" }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm text-gray-600">Current Stream</dt>
+                            <dd class="text-sm font-medium text-gray-900">{{ student.current_stream.name|default:"Not Assigned" }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm text-gray-600">Status</dt>
+                            <dd class="text-sm font-medium">
+                                {% if student.is_active %}
+                                    <span class="text-green-600">Active</span>
+                                {% else %}
+                                    <span class="text-red-600">Inactive</span>
+                                {% endif %}
+                            </dd>
+                        </div>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tabs Section -->
+    <div class="bg-white rounded-lg shadow-lg">
+        <div class="border-b border-gray-200">
+            <nav class="flex space-x-8 px-6" aria-label="Tabs">
+                <button class="tab-button active py-4 px-1 border-b-2 border-blue-500 font-medium text-sm text-blue-600" data-tab="scores">
+                    Recent Scores
+                </button>
+                <button class="tab-button py-4 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="transfers">
+                    Transfer History
+                </button>
+                <button class="tab-button py-4 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="promotions">
+                    Promotion History
+                </button>
+            </nav>
+        </div>
+        
+        <!-- Recent Scores Tab -->
+        <div id="scores-tab" class="tab-content p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Recent Exam Scores</h3>
+            {% if recent_scores %}
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Exam</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grade</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for score in recent_scores %}
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                        {{ score.exam.name }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {{ score.exam.subject.name }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        {% if score.is_absent %}
+                                            <span class="text-red-500">Absent</span>
+                                        {% else %}
+                                            {{ score.marks }}/{{ score.exam.max_marks }} ({{ score.percentage }}%)
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        {% if not score.is_absent %}
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                                {% if score.grade == 'A' %}bg-green-100 text-green-800
+                                                {% elif score.grade == 'B' %}bg-blue-100 text-blue-800
+                                                {% elif score.grade == 'C' %}bg-yellow-100 text-yellow-800
+                                                {% elif score.grade == 'D' %}bg-orange-100 text-orange-800
+                                                {% else %}bg-red-100 text-red-800
+                                                {% endif %}">
+                                                {{ score.grade }}
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {{ score.exam.exam_date|date:"M d, Y" }}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="text-gray-500">No exam scores recorded yet.</p>
+            {% endif %}
+        </div>
+        
+        <!-- Transfer History Tab -->
+        <div id="transfers-tab" class="tab-content p-6 hidden">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Transfer History</h3>
+            {% if transfers %}
+                <div class="space-y-4">
+                    {% for transfer in transfers %}
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="font-medium text-gray-900">
+                                        From: {{ transfer.from_class.name }} {{ transfer.from_stream.name }}
+                                        → {{ transfer.to_class.name }} {{ transfer.to_stream.name }}
+                                    </p>
+                                    <p class="text-sm text-gray-500 mt-1">{{ transfer.transfer_date|date:"F d, Y" }}</p>
+                                    {% if transfer.reason %}
+                                        <p class="text-sm text-gray-600 mt-2">{{ transfer.reason }}</p>
+                                    {% endif %}
+                                </div>
+                                <span class="text-xs text-gray-500">
+                                    by {{ transfer.created_by.full_name|default:transfer.created_by.username }}
+                                </span>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-gray-500">No transfer history recorded.</p>
+            {% endif %}
+        </div>
+        
+        <!-- Promotion History Tab -->
+        <div id="promotions-tab" class="tab-content p-6 hidden">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Promotion History</h3>
+            {% if promotions %}
+                <div class="space-y-4">
+                    {% for promotion in promotions %}
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="font-medium text-gray-900">
+                                        Promoted from {{ promotion.from_class.name }} to {{ promotion.to_class.name }}
+                                    </p>
+                                    <p class="text-sm text-gray-500 mt-1">
+                                        Academic Year {{ promotion.academic_year }} • {{ promotion.promotion_date|date:"F d, Y" }}
+                                    </p>
+                                    {% if promotion.notes %}
+                                        <p class="text-sm text-gray-600 mt-2">{{ promotion.notes }}</p>
+                                    {% endif %}
+                                </div>
+                                <span class="text-xs text-gray-500">
+                                    by {{ promotion.created_by.full_name|default:promotion.created_by.username }}
+                                </span>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-gray-500">No promotion history recorded.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    // Tab functionality
+    $('.tab-button').click(function() {
+        var targetTab = $(this).data('tab');
+        
+        // Remove active class from all tabs and buttons
+        $('.tab-button').removeClass('active').removeClass('text-blue-600').removeClass('border-blue-500')
+                        .addClass('text-gray-500').addClass('border-transparent');
+        $('.tab-content').addClass('hidden');
+        
+        // Add active class to clicked button and show corresponding tab
+        $(this).addClass('active').removeClass('text-gray-500').removeClass('border-transparent')
+               .addClass('text-blue-600').addClass('border-blue-500');
+        $('#' + targetTab + '-tab').removeClass('hidden');
+    });
+});
+</script>
+{% endblock %}

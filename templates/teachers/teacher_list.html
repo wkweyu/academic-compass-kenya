@@ -1,0 +1,119 @@
+
+{% extends 'base.html' %}
+
+{% block title %}Teachers - CBC System{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-lg">
+    <!-- Header -->
+    <div class="px-6 py-4 border-b border-gray-200">
+        <div class="flex items-center justify-between">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-900">Teachers</h2>
+                <p class="text-gray-600">Manage teacher records and assignments</p>
+            </div>
+            <a href="{% url 'teachers:teacher_add' %}" class="btn-admin px-4 py-2 rounded-lg hover:shadow-md transition-shadow">
+                Add New Teacher
+            </a>
+        </div>
+    </div>
+    
+    <!-- Search -->
+    <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
+        <form method="get" class="flex gap-4">
+            <div class="flex-1">
+                <input type="text" 
+                       name="search" 
+                       value="{{ search_query }}" 
+                       placeholder="Search by name, TSC number, or email..." 
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                Search
+            </button>
+            <a href="{% url 'teachers:teacher_list' %}" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors">
+                Clear
+            </a>
+        </form>
+    </div>
+    
+    <!-- Statistics -->
+    <div class="px-6 py-3 bg-blue-50 border-b border-gray-200">
+        <p class="text-sm text-blue-800">
+            <strong>{{ total_teachers }}</strong> teacher{{ total_teachers|pluralize }} found
+            {% if search_query %} for "{{ search_query }}"{% endif %}
+        </p>
+    </div>
+    
+    <!-- Teachers Table -->
+    <div class="overflow-x-auto">
+        <table class="min-w-full admin-table">
+            <thead>
+                <tr class="admin-table">
+                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                        TSC Number
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                        Full Name
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                        Gender
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                        Contact
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                        Years of Service
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                        Actions
+                    </th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for teacher in page_obj %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {{ teacher.tsc_number }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div>
+                                <div class="text-sm font-medium text-gray-900">{{ teacher.full_name }}</div>
+                                <div class="text-sm text-gray-500">Age: {{ teacher.age }}</div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ teacher.get_gender_display }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">{{ teacher.phone }}</div>
+                            <div class="text-sm text-gray-500">{{ teacher.email }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ teacher.years_of_service }} year{{ teacher.years_of_service|pluralize }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div class="flex space-x-2">
+                                <a href="{% url 'teachers:teacher_detail' teacher.pk %}" 
+                                   class="text-blue-600 hover:text-blue-900 transition-colors">View</a>
+                                <a href="{% url 'teachers:teacher_edit' teacher.pk %}" 
+                                   class="text-green-600 hover:text-green-900 transition-colors">Edit</a>
+                                <a href="{% url 'teachers:teacher_delete' teacher.pk %}" 
+                                   class="text-red-600 hover:text-red-900 transition-colors"
+                                   onclick="return confirmDelete('Are you sure you want to deactivate this teacher?')">Delete</a>
+                            </div>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-12 text-center text-gray-500">
+                            <div class="text-lg">No teachers found</div>
+                            <p class="mt-2">Try adjusting your search criteria or <a href="{% url 'teachers:teacher_add' %}" class="text-blue-600 hover:text-blue-800">add a new teacher</a>.</p>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

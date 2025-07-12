@@ -1,0 +1,154 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}CBC Student Exam Management System{% endblock %}</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    
+    <!-- Custom CSS -->
+    <style>
+        /* Django Admin inspired styling */
+        .admin-header {
+            background: linear-gradient(to right, #417690, #4a90a4);
+        }
+        
+        .admin-nav {
+            background: #f8f8f8;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .admin-table th {
+            background: #417690;
+            color: white;
+        }
+        
+        .admin-table tr:hover {
+            background: #f5f5f5;
+        }
+        
+        .btn-admin {
+            background: #417690;
+            color: white;
+            border: 1px solid #417690;
+        }
+        
+        .btn-admin:hover {
+            background: #2e5866;
+            border-color: #2e5866;
+        }
+        
+        .form-admin input, .form-admin select, .form-admin textarea {
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        
+        .form-admin input:focus, .form-admin select:focus, .form-admin textarea:focus {
+            border-color: #417690;
+            box-shadow: 0 0 0 2px rgba(65, 118, 144, 0.2);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans">
+    <!-- Header -->
+    <header class="admin-header text-white shadow-lg">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <h1 class="text-2xl font-bold">
+                        <a href="{% url 'students:student_list' %}" class="hover:text-gray-200">
+                            CBC Student Management
+                        </a>
+                    </h1>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    {% if user.is_authenticated %}
+                        <span class="text-sm">Welcome, {{ user.first_name|default:user.username }}</span>
+                        <a href="{% url 'admin:index' %}" class="text-sm hover:text-gray-200">Admin</a>
+                        <a href="/auth/logout/" class="text-sm hover:text-gray-200">Logout</a>
+                    {% else %}
+                        <a href="/auth/login/" class="text-sm hover:text-gray-200">Login</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </header>
+    
+    <!-- Navigation -->
+    <nav class="admin-nav">
+        <div class="container mx-auto px-4">
+            <div class="flex space-x-8 py-3">
+                <a href="{% url 'students:student_list' %}" 
+                   class="text-gray-700 hover:text-blue-600 py-2 px-1 border-b-2 {% if request.resolver_match.app_name == 'students' %}border-blue-600 text-blue-600{% else %}border-transparent{% endif %}">
+                    Students
+                </a>
+                <a href="{% url 'teachers:teacher_list' %}" 
+                   class="text-gray-700 hover:text-blue-600 py-2 px-1 border-b-2 {% if request.resolver_match.app_name == 'teachers' %}border-blue-600 text-blue-600{% else %}border-transparent{% endif %}">
+                    Teachers
+                </a>
+                <a href="{% url 'subjects:subject_list' %}" 
+                   class="text-gray-700 hover:text-blue-600 py-2 px-1 border-b-2 {% if request.resolver_match.app_name == 'subjects' %}border-blue-600 text-blue-600{% else %}border-transparent{% endif %}">
+                    Subjects
+                </a>
+                <a href="{% url 'exams:exam_list' %}" 
+                   class="text-gray-700 hover:text-blue-600 py-2 px-1 border-b-2 {% if request.resolver_match.app_name == 'exams' %}border-blue-600 text-blue-600{% else %}border-transparent{% endif %}">
+                    Exams
+                </a>
+                <a href="{% url 'grading:score_list' %}" 
+                   class="text-gray-700 hover:text-blue-600 py-2 px-1 border-b-2 {% if request.resolver_match.app_name == 'grading' %}border-blue-600 text-blue-600{% else %}border-transparent{% endif %}">
+                    Grading
+                </a>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Messages -->
+    {% if messages %}
+        <div class="container mx-auto px-4 py-2">
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} bg-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% elif message.tags == 'warning' %}yellow{% else %}blue{% endif %}-100 border border-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% elif message.tags == 'warning' %}yellow{% else %}blue{% endif %}-400 text-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% elif message.tags == 'warning' %}yellow{% else %}blue{% endif %}-700 px-4 py-3 rounded mb-4">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+    
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-6">
+        {% block content %}
+        {% endblock %}
+    </main>
+    
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white py-6 mt-12">
+        <div class="container mx-auto px-4 text-center">
+            <p>&copy; 2024 CBC Student Exam Management System. All rights reserved.</p>
+        </div>
+    </footer>
+    
+    <!-- Custom JavaScript -->
+    <script>
+        // Global JavaScript functions
+        function confirmDelete(message) {
+            return confirm(message || 'Are you sure you want to delete this item?');
+        }
+        
+        // Auto-hide messages after 5 seconds
+        $(document).ready(function() {
+            setTimeout(function() {
+                $('.alert').fadeOut();
+            }, 5000);
+        });
+    </script>
+    
+    {% block extra_js %}
+    {% endblock %}
+</body>
+</html>
