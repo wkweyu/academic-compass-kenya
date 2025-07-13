@@ -1,4 +1,3 @@
-
 # CBC Student Exam Management System
 
 A comprehensive Django-based web application for managing CBC (Competency-Based Curriculum) student records, exams, and academic performance.
@@ -6,6 +5,7 @@ A comprehensive Django-based web application for managing CBC (Competency-Based 
 ## Features
 
 ### 🎓 Student Management
+
 - Complete student registration with photo upload
 - Auto-generated admission numbers (YYYY-NNNN format)
 - Personal, academic, and guardian information tracking
@@ -14,12 +14,14 @@ A comprehensive Django-based web application for managing CBC (Competency-Based 
 - Transfer and promotion history tracking
 
 ### 👨‍🏫 Teacher Management
+
 - Teacher registration with TSC number validation
 - Contact information and employment history
 - Subject and class assignments
 - Years of service tracking
 
 ### 📚 Academic Management
+
 - Class and stream organization
 - Subject management with grade level specifications
 - Exam creation and management
@@ -27,12 +29,14 @@ A comprehensive Django-based web application for managing CBC (Competency-Based 
 - Student performance tracking
 
 ### 📊 Transfer & Promotion System
+
 - Individual student transfers between classes/streams
 - Batch promotion functionality
 - Complete history tracking
 - AJAX-powered dynamic stream loading
 
 ### 💯 Grading System
+
 - Exam score entry and management
 - Automatic grade calculation (A-E scale)
 - Student report generation
@@ -50,6 +54,7 @@ A comprehensive Django-based web application for managing CBC (Competency-Based 
 ## Installation & Setup
 
 ### Prerequisites
+
 - Python 3.13+
 - PostgreSQL
 - Node.js (for frontend dependencies)
@@ -57,28 +62,32 @@ A comprehensive Django-based web application for managing CBC (Competency-Based 
 ### Local Development Setup
 
 1. **Clone the repository**
+
    ```bash
    git clone <repository-url>
-   cd cbc_system
+   cd skooltrack_pro
    ```
 
 2. **Create virtual environment**
+
    ```bash
    python -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
 3. **Install dependencies**
+
    ```bash
    pip install -r requirements.txt
    ```
 
 4. **Environment Configuration**
    Create a `.env` file in the project root:
+
    ```env
    SECRET_KEY=your-secret-key-here
    DEBUG=True
-   DB_NAME=cbc_system
+   DB_NAME=skooltrack_pro
    DB_USER=postgres
    DB_PASSWORD=your-password
    DB_HOST=localhost
@@ -87,26 +96,30 @@ A comprehensive Django-based web application for managing CBC (Competency-Based 
    ```
 
 5. **Database Setup**
+
    ```bash
    # Create PostgreSQL database
-   createdb cbc_system
-   
+   createdb skooltrack_pro
+
    # Run migrations
    python manage.py makemigrations
    python manage.py migrate
    ```
 
 6. **Create Superuser**
+
    ```bash
    python manage.py createsuperuser
    ```
 
 7. **Load Sample Data (Optional)**
+
    ```bash
    python manage.py loaddata fixtures/sample_data.json
    ```
 
 8. **Run Development Server**
+
    ```bash
    python manage.py runserver
    ```
@@ -118,8 +131,8 @@ A comprehensive Django-based web application for managing CBC (Competency-Based 
 ## Project Structure
 
 ```
-cbc_system/
-├── cbc_system/          # Main project settings
+skooltrack_pro/
+├── skooltrack_pro/          # Main project settings
 ├── users/               # Custom user management
 ├── students/            # Student management app
 ├── teachers/            # Teacher management app
@@ -136,6 +149,7 @@ cbc_system/
 ## Key Features Usage
 
 ### Student Registration
+
 1. Navigate to Students → Add New Student
 2. Fill in personal, academic, and guardian information
 3. Upload student photo (optional)
@@ -143,6 +157,7 @@ cbc_system/
 5. Assign to class and stream
 
 ### Student Transfers
+
 1. Go to Students → Transfer Student
 2. Select student and target class/stream
 3. AJAX automatically loads available streams
@@ -150,6 +165,7 @@ cbc_system/
 5. System updates student record and logs history
 
 ### Batch Promotions
+
 1. Navigate to Students → Batch Promotion
 2. Select source class and stream
 3. Choose target class and stream
@@ -157,6 +173,7 @@ cbc_system/
 5. System updates all student records simultaneously
 
 ### Exam Management
+
 1. Create subjects in Subjects section
 2. Set up exams with term, class, and subject
 3. Enter student scores in Grading section
@@ -192,17 +209,20 @@ The Django admin interface provides comprehensive management capabilities:
 ## Customization
 
 ### Adding New Fields
+
 1. Update model in respective app
 2. Create and run migrations
 3. Update forms and templates
 4. Add to admin interface
 
 ### Styling Changes
+
 - Modify `templates/base.html` for global changes
 - Update Tailwind classes in templates
 - Add custom CSS in the `<style>` section
 
 ### Business Logic
+
 - Extend models with custom methods
 - Add validation in forms
 - Create custom management commands
@@ -224,6 +244,7 @@ coverage html
 ## Deployment
 
 ### Production Settings
+
 1. Set `DEBUG=False` in environment
 2. Configure proper database settings
 3. Set up static file serving
@@ -231,6 +252,7 @@ coverage html
 5. Set up backup procedures
 
 ### Docker Deployment (Optional)
+
 ```dockerfile
 # Dockerfile example
 FROM python:3.13-slim
@@ -252,6 +274,7 @@ CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 ## Support
 
 For technical support or feature requests:
+
 - Create an issue on GitHub
 - Contact the development team
 - Check documentation wiki
@@ -263,6 +286,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Changelog
 
 ### Version 1.0.0
+
 - Initial release with core functionality
 - Student and teacher management
 - Exam and grading system
