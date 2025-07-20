@@ -29,6 +29,10 @@ class StreamAdmin(admin.ModelAdmin):
     list_filter = ('class_assigned', 'year')
     search_fields = ('name', 'class_assigned__name')
     ordering = ('class_assigned', 'name')
+    
+    def get_queryset(self, request):
+        # Use base manager instead of school-scoped manager
+        return Stream._base_manager.all()
 
 @admin.register(Student)
 class StudentAdmin(ImportExportModelAdmin):
@@ -55,6 +59,19 @@ class StudentAdmin(ImportExportModelAdmin):
             'fields': ('is_active', 'created_at', 'updated_at')
         }),
     )
+    
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        # Filter stream dropdown to only current year + user’s school
+        if db_field.name == "current_stream":
+            try:
+                user_school = request.user.school
+                kwargs["queryset"] = Stream.objects.filter(
+                    school=user_school,
+                    year=now().year
+                )
+            except Exception:
+                kwargs["queryset"] = Stream.objects.none()
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 @admin.register(StudentTransfer)
 class StudentTransferAdmin(admin.ModelAdmin):
@@ -77,3 +94,15 @@ class StudentPromotionAdmin(admin.ModelAdmin):
     list_filter = ('academic_year', 'promotion_date', 'from_class', 'to_class')
     search_fields = ('student__full_name', 'student__admission_number')
     ordering = ('-promotion_date',)
+
+
+from django.contrib import admin
+from .models import ClassSubjectAllocation
+
+@admin.register(ClassSubjectAllocation)
+class ClassSubjectAllocationAdmin(admin.ModelAdmin):
+    list_display = ('academic_year', 'term', 'school_class', 'stream', 'subject', 'subject_teacher', 'class_teacher')
+    list_filter = ('academic_year', 'term', 'school_class')
+    search_fields = ('subject__name', 'school_class__name', 'stream__name')
+    ordering = ('-academic_year', 'term', 'school_class', 'stream')
+    

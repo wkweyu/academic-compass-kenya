@@ -6,6 +6,14 @@ from django.db.models import Q
 from django.core.paginator import Paginator
 from .models import Subject
 
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.db.models import Q
+from django.core.paginator import Paginator
+from .models import Subject
+from .forms import SubjectForm 
+
 @login_required
 def subject_list(request):
     """List all subjects"""
@@ -45,23 +53,44 @@ def subject_detail(request, pk):
 
 @login_required
 def subject_add(request):
-    """Add new subject - placeholder"""
+    """Add new subject"""
+    if request.method == 'POST':
+        form = SubjectForm(request.POST)
+        if form.is_valid():
+            subject = form.save()
+            messages.success(request, f'Subject {subject.name} added successfully!')
+            return redirect('subjects:subject_detail', pk=subject.pk)
+    else:
+        form = SubjectForm()
+    
     return render(request, 'subjects/subject_form.html', {
-        'title': 'Add New Subject'
+        'title': 'Add New Subject',
+        'form': form
     })
 
 @login_required
 def subject_edit(request, pk):
-    """Edit subject - placeholder"""
+    """Edit subject"""
     subject = get_object_or_404(Subject, pk=pk)
+    
+    if request.method == 'POST':
+        form = SubjectForm(request.POST, instance=subject)
+        if form.is_valid():
+            subject = form.save()
+            messages.success(request, f'Subject {subject.name} updated successfully!')
+            return redirect('subjects:subject_detail', pk=subject.pk)
+    else:
+        form = SubjectForm(instance=subject)
+    
     return render(request, 'subjects/subject_form.html', {
         'subject': subject,
-        'title': f'Edit {subject.name}'
+        'title': f'Edit {subject.name}',
+        'form': form
     })
-
+    
 @login_required
 def subject_delete(request, pk):
-    """Delete subject - placeholder"""
+    """Delete subject"""
     subject = get_object_or_404(Subject, pk=pk)
     
     if request.method == 'POST':

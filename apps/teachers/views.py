@@ -5,6 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.core.paginator import Paginator
 from .models import Teacher
+from .forms import TeacherForm 
 
 @login_required
 def teacher_list(request):
@@ -48,18 +49,39 @@ def teacher_detail(request, pk):
 
 @login_required
 def teacher_add(request):
-    """Add new teacher - placeholder view"""
+    """Add new teacher"""
+    if request.method == 'POST':
+        form = TeacherForm(request.POST)
+        if form.is_valid():
+            teacher = form.save()
+            messages.success(request, f'Teacher {teacher.full_name} added successfully!')
+            return redirect('teachers:teacher_detail', pk=teacher.pk)
+    else:
+        form = TeacherForm()
+    
     return render(request, 'teachers/teacher_form.html', {
-        'title': 'Add New Teacher'
+        'title': 'Add New Teacher',
+        'form': form  # Make sure to pass the form to the template
     })
 
 @login_required
 def teacher_edit(request, pk):
-    """Edit teacher - placeholder view"""
+    """Edit teacher"""
     teacher = get_object_or_404(Teacher, pk=pk)
+    
+    if request.method == 'POST':
+        form = TeacherForm(request.POST, instance=teacher)
+        if form.is_valid():
+            teacher = form.save()
+            messages.success(request, f'Teacher {teacher.full_name} updated successfully!')
+            return redirect('teachers:teacher_detail', pk=teacher.pk)
+    else:
+        form = TeacherForm(instance=teacher)
+    
     return render(request, 'teachers/teacher_form.html', {
         'teacher': teacher,
-        'title': f'Edit {teacher.full_name}'
+        'title': f'Edit {teacher.full_name}',
+        'form': form  # Make sure to pass the form to the template
     })
 
 @login_required

@@ -72,20 +72,22 @@ def student_detail(request, pk):
 
 @login_required
 def student_add(request):
-    """Add new student"""
     if request.method == 'POST':
-        form = StudentForm(request.POST, request.FILES)
+        form = StudentForm(request.POST or None, request.FILES or None, user=request.user)
         if form.is_valid():
-            student = form.save()
+            student = form.save(commit=False)
+            student.school = request.user.school  # ✅ Assign school here
+            student.save()
             messages.success(request, f'Student {student.full_name} has been added successfully.')
             return redirect('students:student_detail', pk=student.pk)
     else:
-        form = StudentForm()
-    
+        form = StudentForm(user=request.user)
+
     return render(request, 'students/student_form.html', {
         'form': form,
         'title': 'Add New Student'
     })
+
 
 @login_required
 def student_edit(request, pk):
@@ -93,13 +95,13 @@ def student_edit(request, pk):
     student = get_object_or_404(Student, pk=pk)
     
     if request.method == 'POST':
-        form = StudentForm(request.POST, request.FILES, instance=student)
+        form = StudentForm(request.POST, request.FILES, instance=student,user=request.user)
         if form.is_valid():
             form.save()
             messages.success(request, f'Student {student.full_name} has been updated successfully.')
             return redirect('students:student_detail', pk=student.pk)
     else:
-        form = StudentForm(instance=student)
+        form = StudentForm(instance=student, user=request.user)
     
     return render(request, 'students/student_form.html', {
         'form': form,
@@ -213,3 +215,32 @@ def get_streams(request, class_id):
     """AJAX endpoint to get streams for a class"""
     streams = Stream.objects.filter(class_assigned_id=class_id).values('id', 'name')
     return JsonResponse(list(streams), safe=False)
+
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from .forms import ClassSubjectAllocationForm
+from .models import ClassSubjectAllocation
+
+
+def class_subject_allocation_create(request):
+    if request.method == 'POST':
+        form = ClassSubjectAllocationForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Subject allocation saved successfully.")
+            return redirect('class_allocations')
+    else:
+        form = ClassSubjectAllocationForm()
+
+    return render(request, 'students/class_subject_allocation_form.html', {
+        'form': form,
+        'title': 'Allocate Subject to Class'
+    })
+
+
+def class_subject_allocation_list(request):
+    allocations = ClassSubjectAllocation.objects.all().order_by('-academic_year', 'term', 'school_class')
+    return render(request, 'classes/class_subject_allocation_list.html', {
+        'allocations': allocations,
+        'title': 'Class Subject Allocations'
+    })

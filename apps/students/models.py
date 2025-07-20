@@ -4,6 +4,11 @@ from django.core.validators import RegexValidator
 from django.utils import timezone
 import os
 from apps.schools.models import School
+from core.managers import SchoolManager
+from core.middleware import get_current_school
+from core.models import SchoolScopedModel
+from core.constants import SchoolLevels
+from transport.models import TransportRoute
 
 def student_photo_path(instance, filename):
     """Generate upload path for student photos"""
@@ -15,7 +20,8 @@ class Class(models.Model):
     grade_level = models.IntegerField()
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='classes')
+ 
     class Meta:
         db_table = 'classes'
         verbose_name = 'Class'
@@ -26,41 +32,52 @@ class Class(models.Model):
         return self.name
 
 class Stream(models.Model):
-    """Model for class streams (A, B, C, etc.)"""
     name = models.CharField(max_length=10)
     class_assigned = models.ForeignKey(Class, on_delete=models.CASCADE, related_name='streams')
     year = models.IntegerField(default=timezone.now().year)
     school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='streams')
     capacity = models.IntegerField(default=40)
     created_at = models.DateTimeField(auto_now_add=True)
-    
+
+    # Managers
+    objects = models.Manager()
+    school_objects = SchoolManager()  # Your custom manager using get_current_school
+
     class Meta:
         db_table = 'streams'
         verbose_name = 'Stream'
         verbose_name_plural = 'Streams'
         unique_together = ['name', 'class_assigned', 'year']
         ordering = ['class_assigned', 'name']
-    
+
     def __str__(self):
         return f"{self.class_assigned.name} {self.name} ({self.year})"
-    
+
     @property
     def current_enrollment(self):
         return self.students.filter(is_active=True).count()
 
-class Student(models.Model):
+class Student(SchoolScopedModel):
     """Model for students"""
     GENDER_CHOICES = [
         ('M', 'Male'),
         ('F', 'Female'),
     ]
     
+    is_on_transport = models.BooleanField(default=False)
+    transport_route = models.ForeignKey(TransportRoute, on_delete=models.SET_NULL, null=True, blank=True)
+    TRANSPORT_OPTIONS = (
+        ('one_way', 'One Way'),
+        ('two_way', 'Two Way'),
+    )
+    transport_type = models.CharField(max_length=8, choices=TRANSPORT_OPTIONS, null=True, blank=True)
+    
     # Auto-generated admission number
     admission_number = models.CharField(max_length=20, unique=True, editable=False)
-    
+    level = models.CharField(max_length=2, choices=SchoolLevels.choices)
     # Personal Information
     full_name = models.CharField(max_length=200)
-    gender = models.CharField(max_length=1, choices=GENDER_CHOICES)
+    gender = models.CharField(max_length=1, choices=[('M', 'Male'), ('F', 'Female')])
     date_of_birth = models.DateField()
     photo = models.ImageField(upload_to=student_photo_path, blank=True, null=True)
     
@@ -170,3 +187,20 @@ class StudentPromotion(models.Model):
     
     def __str__(self):
         return f"{self.student.full_name} promoted {self.academic_year}"
+class ClassSubjectAllocation(models.Model):
+    academic_year = models.IntegerField()
+    term = models.IntegerField(choices=[(1, 'Term 1'), (2, 'Term 2'), (3, 'Term 3')])
+    school_class = models.ForeignKey(Class, on_delete=models.CASCADE)
+    stream = models.ForeignKey(Stream, on_delete=models.CASCADE)
+    subject = models.ForeignKey('subjects.Subject', on_delete=models.CASCADE)
+    subject_teacher = models.ForeignKey('users.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='teaching_subjects')
+    class_teacher = models.ForeignKey('users.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='class_teacher_assignments')
+
+    class Meta:
+        unique_together = ['academic_year', 'term', 'school_class', 'stream', 'subject']
+        verbose_name = 'Class Subject Allocation'
+        verbose_name_plural = 'Class Subject Allocations'
+
+    def __str__(self):
+        return f"{self.school_class.name} {self.stream.name} - {self.subject.name} (T{self.term} {self.academic_year})"
+

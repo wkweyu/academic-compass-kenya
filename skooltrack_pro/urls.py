@@ -19,13 +19,18 @@ urlpatterns = [
     path('students/', include('students.urls')),
     path('teachers/', include('teachers.urls')),
     path('subjects/', include('subjects.urls')),
-    path('exams/', include('exams.urls')),
-    path('grading/', include('grading.urls')),
+    path('exams/', include('apps.exams.urls')),
+    path('grading/', include('apps.grading.urls')),
     
     
     path('api/schools/', include('apps.schools.urls')),
     path('api/users/', include('users.urls')),
     path('api/fees/', include('fees.urls')),
+    path('api/transport/', include('transport.urls')),
+    
+    #Procurement
+    path('api/procurement/', include('procurement.urls')),
+    
 ]
 
 # Serve media files during development

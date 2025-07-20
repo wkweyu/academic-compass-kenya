@@ -2,7 +2,9 @@
 from django.contrib import admin
 from import_export import resources
 from import_export.admin import ImportExportModelAdmin
-from .models import Exam
+from apps.exams.models import Exam 
+from django.contrib import admin
+#from apps.grading.models import GradeScale
 
 class ExamResource(resources.ModelResource):
     class Meta:
@@ -13,7 +15,7 @@ class ExamResource(resources.ModelResource):
 @admin.register(Exam)
 class ExamAdmin(ImportExportModelAdmin):
     resource_class = ExamResource
-    list_display = ('name', 'subject', 'class_stream', 'term', 'academic_year', 
+    list_display = ('name', 'subject', 'stream', 'term', 'academic_year', 
                    'exam_type', 'exam_date', 'total_students', 'submitted_count', 'is_published')
     list_filter = ('term', 'academic_year', 'exam_type', 'subject', 'class_assigned', 'is_published')
     search_fields = ('name', 'subject__name', 'class_assigned__name')
@@ -38,14 +40,20 @@ class ExamAdmin(ImportExportModelAdmin):
             'classes': ('collapse',)
         }),
     )
-    readonly_fields = ('total_students', 'submitted_count', 'average_score', 'created_at', 'updated_at')
+    readonly_fields = ('created_at', 'updated_at', 'get_total_students', 'get_submitted_count', 'get_average_score')
+
+    list_display = ('name', 'subject', 'stream', 'term', 'academic_year',
+                    'exam_type', 'exam_date', 'get_total_students', 'get_submitted_count', 'is_published')
+
+    def get_total_students(self, obj):
+        return obj.total_students
+    get_total_students.short_description = 'Total Students'
+
+    def get_submitted_count(self, obj):
+        return obj.submitted_count
+    get_submitted_count.short_description = 'Submitted'
+
+    def get_average_score(self, obj):
+        return obj.average_score
+    get_average_score.short_description = 'Average Score'
     
-    def class_stream(self, obj):
-        stream_info = f" {obj.stream.name}" if obj.stream else ""
-        return f"{obj.class_assigned.name}{stream_info}"
-    class_stream.short_description = 'Class/Stream'
-    
-    def get_queryset(self, request):
-        return super().get_queryset(request).select_related(
-            'subject', 'class_assigned', 'stream', 'created_by'
-        )

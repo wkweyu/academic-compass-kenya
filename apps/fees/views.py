@@ -96,6 +96,7 @@ class BulkDebitView(APIView):
 
         count = 0
         for student in students:
+            
             for vh in vote_heads:
                 # Example: transport charge varies, term fees from FeeStructure
                 if vh.name == 'Transport':
@@ -112,7 +113,24 @@ class BulkDebitView(APIView):
                             self.record_debit(school, student, vh, year, term, amount)
                     except FeeStructure.DoesNotExist:
                         continue
+            
+            if student.is_on_transport and student.transport_route:
+                votehead = VoteHead.objects.get(name="Transport")
+                if student.transport_type == 'one_way':
+                    charge = student.transport_route.one_way_charge
+                    
+                else:
+                    charge = student.transport_route.two_way_charge
 
+            if charge > 0:
+                DebitTransaction.objects.create(
+                    student=student,
+                    vote_head=votehead,
+                    amount=charge,
+                    year=year,
+                    term=term,
+                    description=f"Transport charge ({student.transport_type})"
+                )            
         return Response({'status': f"{count} debit transactions recorded."})
 
     def record_debit(self, school, student, vote_head, year, term, amount):
@@ -154,7 +172,7 @@ class InvoicePrintView(APIView):
         school = request.user.school
 
         try:
-            student = Student.objects.get(id=student_id, school=school)
+            student = Student.objects.get(id=student_id)
         except Student.DoesNotExist:
             return Response({"error": "Student not found."}, status=404)
 

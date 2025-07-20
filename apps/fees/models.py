@@ -3,6 +3,7 @@ from apps.schools.models import School
 from students.models import Student  # Assuming you have this in your students app
 from django.db.models import JSONField
 from django.utils import timezone
+from core.managers import SchoolManager
 
 
 class VoteHead(models.Model):
@@ -12,7 +13,8 @@ class VoteHead(models.Model):
     priority = models.PositiveSmallIntegerField(default=1, help_text="Lower number = higher payment priority")
     fee_applicable = models.BooleanField(default=True, help_text="If ticked, this votehead appears on fees structures and receipts")
     student_group = models.CharField(max_length=100, blank=True, help_text="E.g. Boarding, Day, Playgroup")
-
+    objects = models.Manager()  # Default manager
+    
     def __str__(self):
         return f"{self.name} ({self.school.name})"
 
@@ -27,6 +29,7 @@ class FeeStructure(models.Model):
     term = models.PositiveSmallIntegerField()
     vote_head = models.ForeignKey(VoteHead, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
+    objects = SchoolManager()
 
     class Meta:
         app_label = 'fees'
@@ -53,7 +56,8 @@ class PaymentTransaction(models.Model):
     date = models.DateTimeField(default=timezone.now)
     remarks = models.TextField(blank=True)
     apportion_log = JSONField(default=dict, help_text="Votehead-wise payment allocations")
-
+    objects = SchoolManager()
+    
     def __str__(self):
         return f"{self.student} | {self.amount} | {self.mode} | {self.transaction_code}"
 
@@ -67,7 +71,8 @@ class FeeBalance(models.Model):
     amount_invoiced = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     amount_paid = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     closing_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
-
+    from core.managers import SchoolManager
+    
     class Meta:
         unique_together = ('school', 'student', 'vote_head', 'year', 'term')
 
@@ -88,6 +93,7 @@ class DebitTransaction(models.Model):
     date = models.DateTimeField(default=timezone.now)
     remarks = models.TextField(blank=True)
     invoice_number = models.CharField(max_length=50)
+    objects = SchoolManager()
 
     class Meta:
         unique_together = ('school', 'student', 'vote_head', 'year', 'term')

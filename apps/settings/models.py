@@ -1,5 +1,6 @@
 from django.db import models
 from apps.schools.models import School
+from core.managers import SchoolManager
 
 # Create your models here.
 class TermSetting(models.Model):
@@ -8,6 +9,7 @@ class TermSetting(models.Model):
     term = models.PositiveSmallIntegerField()
     start_date = models.DateField()
     end_date = models.DateField()
+    objects = models.Manager()  # Default manager
 
     class Meta:
         unique_together = ('school', 'year', 'term')

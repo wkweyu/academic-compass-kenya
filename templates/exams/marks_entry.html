@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block title %}Enter Marks - {{ exam.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <h2 class="text-2xl font-bold mb-4">Enter Marks: {{ exam.name }} ({{ exam.subject.name }})</h2>
+
+    <form method="post">
+        {% csrf_token %}
+        <table class="table-auto w-full mb-6">
+            <thead>
+                <tr class="bg-gray-200">
+                    <th class="px-4 py-2">Student</th>
+                    <th class="px-4 py-2">Marks (Max: {{ exam.max_marks }})</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{ formset.management_form }}
+                {% for form in formset %}
+                <tr>
+                    <td class="border px-4 py-2">{{ form.instance.student.full_name }}</td>
+                    <td class="border px-4 py-2">{{ form.marks }}</td>
+                    {{ form.student }}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">Save Marks</button>
+    </form>
+</div>
+{% endblock %}

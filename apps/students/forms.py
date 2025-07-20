@@ -2,6 +2,9 @@
 from django import forms
 from .models import Student, Class, Stream, StudentTransfer
 
+from django.utils.timezone import now
+from students.models import Stream  # Make sure this import exists
+
 class StudentForm(forms.ModelForm):
     class Meta:
         model = Student
@@ -24,10 +27,25 @@ class StudentForm(forms.ModelForm):
             'guardian_email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'guardian@email.com'}),
             'guardian_relationship': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g., Parent, Guardian'}),
         }
-    
+
     def __init__(self, *args, **kwargs):
+        
+        user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
-        # Add CSS classes for Django admin styling
+
+        current_year = now().year
+
+        if user and hasattr(user, 'school') and user.school:
+            # When user is passed with valid school (e.g., from a view)
+            self.fields['current_stream'].queryset = Stream.school_objects.filter(
+                school=user.school,
+                year=current_year
+            )
+        else:
+            # Fallback for shell/admin/tests
+            self.fields['current_stream'].queryset = Stream.objects.filter(year=current_year)
+
+        # Apply form-control class to all fields
         for field in self.fields.values():
             field.widget.attrs.update({'class': 'form-control'})
 
@@ -53,3 +71,19 @@ class StudentTransferForm(forms.ModelForm):
                 self.fields['to_stream'].queryset = Stream.objects.filter(class_assigned_id=class_id)
             except (ValueError, TypeError):
                 pass
+from django import forms
+from .models import ClassSubjectAllocation
+
+class ClassSubjectAllocationForm(forms.ModelForm):
+    class Meta:
+        model = ClassSubjectAllocation
+        fields = '__all__'
+        widgets = {
+            'academic_year': forms.NumberInput(attrs={'class': 'form-control'}),
+            'term': forms.Select(attrs={'class': 'form-control'}),
+            'school_class': forms.Select(attrs={'class': 'form-control'}),
+            'stream': forms.Select(attrs={'class': 'form-control'}),
+            'subject': forms.Select(attrs={'class': 'form-control'}),
+            'subject_teacher': forms.Select(attrs={'class': 'form-control'}),
+            'class_teacher': forms.Select(attrs={'class': 'form-control'}),
+        }

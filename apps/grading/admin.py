@@ -2,7 +2,7 @@
 from django.contrib import admin
 from import_export import resources
 from import_export.admin import ImportExportModelAdmin
-from .models import Score, StudentReport
+from .models import Score, StudentReport, GradeScale
 
 class ScoreResource(resources.ModelResource):
     class Meta:
@@ -81,3 +81,10 @@ class StudentReportAdmin(admin.ModelAdmin):
         queryset.update(is_published=False)
         self.message_user(request, f"Unpublished {queryset.count()} reports.")
     unpublish_reports.short_description = "Unpublish selected reports"
+
+@admin.register(GradeScale)
+class GradeScaleAdmin(admin.ModelAdmin):
+    list_display = ('school', 'academic_year', 'grade', 'min_score', 'max_score', 'points', 'remarks')
+    list_filter = ('school', 'academic_year')
+    search_fields = ('grade', 'remarks')
+    ordering = ('-academic_year', '-min_score')

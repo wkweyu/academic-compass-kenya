@@ -35,20 +35,22 @@ THIRD_PARTY_APPS = [
     'allauth.socialaccount',
     'dj_rest_auth',
     'import_export',
+    'widget_tweaks'
 ]
 
 LOCAL_APPS = [
     'apps.users',
-    'apps.students',
-    'apps.teachers',
-    'apps.subjects',
-    'apps.exams',
-    'apps.grading',
     'apps.schools',
-    'apps.core',
-    'apps.fees',
+    'apps.students',
+    'apps.subjects',
+    'apps.teachers',
+    'apps.grading',
+    'apps.exams',
     'apps.settings',
-    
+    'apps.fees',
+    'apps.transport',
+    'apps.procurement',
+    'apps.core',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -62,6 +64,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'allauth.account.middleware.AccountMiddleware',
+    'core.middleware.SchoolContextMiddleware',
 ]
 
 ROOT_URLCONF = 'skooltrack_pro.urls'

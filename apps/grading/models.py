@@ -3,6 +3,26 @@ from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
 
+class GradeScale(models.Model):
+    """Customizable grading scale"""
+    school = models.ForeignKey('schools.School', on_delete=models.CASCADE)
+    academic_year = models.IntegerField(default=timezone.now().year)
+    grade = models.CharField(max_length=2)
+    min_score = models.DecimalField(max_digits=5, decimal_places=2)
+    max_score = models.DecimalField(max_digits=5, decimal_places=2)
+    points = models.DecimalField(max_digits=4, decimal_places=2, default=0)
+    remarks = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        app_label = 'exams'
+        db_table = 'grade_scales'
+        ordering = ['-min_score']
+        unique_together = ['school', 'academic_year', 'grade']
+
+    def __str__(self):
+        return f"{self.grade} ({self.min_score}-{self.max_score})"
+
+
 class Score(models.Model):
     """Model for student exam scores"""
     student = models.ForeignKey('students.Student', on_delete=models.CASCADE, related_name='scores')
@@ -13,58 +33,53 @@ class Score(models.Model):
         validators=[MinValueValidator(0)]
     )
     
-    # Additional fields
-    grade = models.CharField(max_length=2, blank=True)  # A, B, C, D, E
+    grade = models.CharField(max_length=5, blank=True)
+    position = models.PositiveIntegerField(null=True, blank=True)
     remarks = models.TextField(blank=True)
     is_absent = models.BooleanField(default=False)
     
-    # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     entered_by = models.ForeignKey('users.User', on_delete=models.SET_NULL, null=True)
-    
+
     class Meta:
+        app_label = 'grading'
         db_table = 'scores'
         verbose_name = 'Score'
         verbose_name_plural = 'Scores'
         unique_together = ['student', 'exam']
         ordering = ['-created_at']
-    
+
     def save(self, *args, **kwargs):
-        # Auto-calculate grade based on marks
         if not self.is_absent and self.marks is not None:
             self.grade = self.calculate_grade()
         super().save(*args, **kwargs)
-    
+
     def calculate_grade(self):
-        """Calculate grade based on marks percentage"""
+        """Lookup grade from GradeScale"""
         if self.exam.max_marks <= 0:
             return 'E'
-        
         percentage = (float(self.marks) / self.exam.max_marks) * 100
-        
-        if percentage >= 80:
-            return 'A'
-        elif percentage >= 70:
-            return 'B'
-        elif percentage >= 60:
-            return 'C'
-        elif percentage >= 50:
-            return 'D'
-        else:
-            return 'E'
-    
+        grade_scale = GradeScale.objects.filter(
+            school=self.exam.class_assigned.school,
+            academic_year=self.exam.academic_year,
+            min_score__lte=percentage,
+            max_score__gte=percentage
+        ).first()
+
+        return grade_scale.grade if grade_scale else 'E'
+
     @property
     def percentage(self):
-        """Calculate percentage score"""
         if self.exam.max_marks <= 0 or self.is_absent:
             return 0
         return round((float(self.marks) / self.exam.max_marks) * 100, 2)
-    
+
     def __str__(self):
         if self.is_absent:
             return f"{self.student.full_name} - {self.exam.name} (Absent)"
         return f"{self.student.full_name} - {self.exam.name}: {self.marks}/{self.exam.max_marks}"
+
 
 class StudentReport(models.Model):
     """Model for generating student reports"""
@@ -90,6 +105,7 @@ class StudentReport(models.Model):
     generated_by = models.ForeignKey('users.User', on_delete=models.SET_NULL, null=True)
     
     class Meta:
+        app_label = 'grading'
         db_table = 'student_reports'
         verbose_name = 'Student Report'
         verbose_name_plural = 'Student Reports'
