@@ -2,9 +2,27 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.http import HttpResponse
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
+def root_view(request):
+    return HttpResponse("""
+    <h1>SkoolTrack Pro API Server</h1>
+    <p>This is the Django backend API server.</p>
+    <p>For the frontend interface, please visit: <a href="http://localhost:5173">http://localhost:5173</a></p>
+    <p>Available API endpoints:</p>
+    <ul>
+        <li><a href="/admin/">Admin Panel</a></li>
+        <li><a href="/students/">Students</a></li>
+        <li><a href="/exams/">Exams</a></li>
+        <li><a href="/api/schools/">Schools API</a></li>
+    </ul>
+    """)
+
 urlpatterns = [
+    # Root
+    path('', root_view, name='root'),
+    
     # Admin
     path('admin/', admin.site.urls),
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
