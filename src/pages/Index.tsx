@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { CBCLayout } from '@/components/layout/CBCLayout';
 import { DashboardModule } from '@/components/modules/DashboardModule';
 import { ExamManagementModule } from '@/components/modules/ExamManagementModule';
+import { StudentManagementModule } from '@/components/modules/StudentManagementModule';
 import { Toaster } from '@/components/ui/toaster';
 
 const Index = () => {
@@ -20,7 +21,7 @@ const Index = () => {
       case 'results':
         return <div className="p-8 text-center text-muted-foreground">Student Results - Coming Soon</div>;
       case 'students':
-        return <div className="p-8 text-center text-muted-foreground">Student Management - Coming Soon</div>;
+        return <StudentManagementModule />;
       case 'settings':
         return <div className="p-8 text-center text-muted-foreground">Settings - Coming Soon</div>;
       default:
