@@ -1,13 +1,43 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from 'react';
+import { CBCLayout } from '@/components/layout/CBCLayout';
+import { DashboardModule } from '@/components/modules/DashboardModule';
+import { ExamManagementModule } from '@/components/modules/ExamManagementModule';
+import { Toaster } from '@/components/ui/toaster';
 
 const Index = () => {
+  const [activeModule, setActiveModule] = useState('dashboard');
+
+  const renderModule = () => {
+    switch (activeModule) {
+      case 'dashboard':
+        return <DashboardModule />;
+      case 'exams':
+        return <ExamManagementModule />;
+      case 'subjects':
+        return <div className="p-8 text-center text-muted-foreground">Subject Management - Coming Soon</div>;
+      case 'scores':
+        return <div className="p-8 text-center text-muted-foreground">Score Entry - Coming Soon</div>;
+      case 'results':
+        return <div className="p-8 text-center text-muted-foreground">Student Results - Coming Soon</div>;
+      case 'students':
+        return <div className="p-8 text-center text-muted-foreground">Student Management - Coming Soon</div>;
+      case 'settings':
+        return <div className="p-8 text-center text-muted-foreground">Settings - Coming Soon</div>;
+      default:
+        return <DashboardModule />;
+    }
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
-    </div>
+    <>
+      <CBCLayout 
+        activeModule={activeModule} 
+        onModuleChange={setActiveModule}
+      >
+        {renderModule()}
+      </CBCLayout>
+      <Toaster />
+    </>
   );
 };
 
