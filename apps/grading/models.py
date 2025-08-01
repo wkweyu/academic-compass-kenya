@@ -51,23 +51,43 @@ class Score(models.Model):
         ordering = ['-created_at']
 
     def save(self, *args, **kwargs):
+        # Allow grade_scale_rules to be passed in to avoid re-querying in loops
+        grade_scale_rules = kwargs.pop('grade_scale_rules', None)
+
         if not self.is_absent and self.marks is not None:
-            self.grade = self.calculate_grade()
+            self.grade = self.calculate_grade(grade_scale_rules=grade_scale_rules)
+
         super().save(*args, **kwargs)
 
-    def calculate_grade(self):
-        """Lookup grade from GradeScale"""
-        if self.exam.max_marks <= 0:
-            return 'E'
-        percentage = (float(self.marks) / self.exam.max_marks) * 100
+    def calculate_grade(self, grade_scale_rules=None):
+        """
+        Calculates the grade for the score based on the percentage.
+        Accepts an optional `grade_scale_rules` queryset to prevent N+1 queries in batch operations.
+        """
+        if self.exam.max_marks is None or self.exam.max_marks <= 0 or self.marks is None:
+            return 'N/A'
+
+        try:
+            percentage = (self.marks / self.exam.max_marks) * 100
+        except (TypeError, ValueError):
+            return 'N/A'
+
+        # Use pre-fetched rules if provided
+        if grade_scale_rules is not None:
+            for rule in grade_scale_rules:
+                if rule.min_score <= percentage <= rule.max_score:
+                    return rule.grade
+            return 'N/A'
+
+        # Fallback to a DB query if rules are not provided (e.g., for single saves via admin)
         grade_scale = GradeScale.objects.filter(
-            school=self.exam.class_assigned.school,
+            school=self.exam.school, # Use the direct FK from exam to school
             academic_year=self.exam.academic_year,
             min_score__lte=percentage,
             max_score__gte=percentage
         ).first()
 
-        return grade_scale.grade if grade_scale else 'E'
+        return grade_scale.grade if grade_scale else 'N/A'
 
     @property
     def percentage(self):

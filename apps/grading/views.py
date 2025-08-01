@@ -4,11 +4,12 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.forms import modelformset_factory
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 
-from apps.grading.models import Score
+from apps.grading.models import Score, GradeScale
 from apps.grading.forms import ExamSelectionForm
 from apps.students.models import Student
-from apps.exams.models import Exam 
+from apps.exams.models import Exam
 
 
 @login_required
@@ -33,44 +34,60 @@ def marks_entry_step1(request):
 
 
 @login_required
+@transaction.atomic
 def marks_entry_step2(request, class_id, stream_id, exam_id, subject_id):
-    exam = get_object_or_404(Exam, id=exam_id)
+    current_school = request.user.school
+    exam = get_object_or_404(Exam, id=exam_id, school=current_school)
 
-    students = Student.objects.filter(class_assigned_id=class_id, is_active=True)
+    # Filter students by school for security and correctness
+    students_qs = Student.objects.filter(current_class_id=class_id, school=current_school, is_active=True)
     if stream_id != 0:
-        students = students.filter(stream_id=stream_id)
-    students = students.order_by('adm_no')
+        students_qs = students_qs.filter(current_stream_id=stream_id)
+    students = list(students_qs.order_by('full_name'))
 
-    ScoreFormSet = modelformset_factory(Score, fields=('marks',), extra=0, can_delete=False)
+    # Pre-fetch existing scores for the students in the exam
+    existing_scores = Score.objects.filter(exam=exam, student__in=students)
+    existing_student_ids = {score.student_id for score in existing_scores}
 
-    queryset = Score.objects.filter(exam=exam, student__in=students).select_related('student')
-    existing_map = {score.student_id: score for score in queryset}
+    # Bulk create missing score objects for efficiency
+    new_scores_to_create = [
+        Score(exam=exam, student=student, marks=0)
+        for student in students if student.id not in existing_student_ids
+    ]
+    if new_scores_to_create:
+        Score.objects.bulk_create(new_scores_to_create)
 
-    # Ensure each student has a Score record
-    for student in students:
-        if student.id not in existing_map:
-            Score.objects.create(exam=exam, student=student)
+    # Get the full queryset for the formset, now including the newly created scores
+    scores_queryset = Score.objects.filter(exam=exam, student__in=students).select_related('student').order_by('student__full_name')
 
-    updated_queryset = Score.objects.filter(exam=exam, student__in=students).select_related('student')
+    ScoreFormSet = modelformset_factory(Score, fields=('student', 'marks', 'is_absent'), extra=0)
 
     if request.method == 'POST':
-        formset = ScoreFormSet(request.POST, queryset=updated_queryset)
+        formset = ScoreFormSet(request.POST, queryset=scores_queryset)
         if formset.is_valid():
-            instances = formset.save(commit=False)
-            for instance in instances:
-                instance.exam = exam
-                instance.entered_by = request.user
-                instance.grade = instance.calculate_grade()
-                instance.save()
+            # Fetch grading rules once for the whole batch to prevent N+1 queries
+            grade_rules = GradeScale.objects.filter(
+                school=current_school,
+                academic_year=exam.academic_year
+            ).order_by('-min_score')
+
+            updated_scores = formset.save(commit=False)
+            for score in updated_scores:
+                score.entered_by = request.user
+                # Pass pre-fetched rules to the save method
+                score.save(grade_scale_rules=grade_rules)
+
             messages.success(request, "Marks successfully saved.")
             return redirect('grading:marks_entry_step1')
     else:
-        formset = ScoreFormSet(queryset=updated_queryset)
+        formset = ScoreFormSet(queryset=scores_queryset)
+        # Make the student field read-only as it shouldn't be changed here
+        for form in formset:
+            form.fields['student'].disabled = True
 
     return render(request, 'grading/marks_step2_entry_form.html', {
         'formset': formset,
         'exam': exam,
-        'students': students,
     })
 
 # grading/views.py (bottom)

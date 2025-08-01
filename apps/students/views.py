@@ -5,6 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.db.models import Q
 from django.core.paginator import Paginator
+from django.db import transaction
 from .models import Student, Class, Stream, StudentTransfer, StudentPromotion
 from .forms import StudentForm, StudentTransferForm
 
@@ -37,9 +38,15 @@ def student_list(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
-    # Get filter options
-    classes = Class.objects.all().order_by('grade_level', 'name')
-    streams = Stream.objects.all().order_by('class_assigned', 'name')
+    # Get filter options, scoped to the user's school
+    current_school = request.user.school
+    if not current_school:
+        # Handle cases where user has no school (e.g., superuser)
+        messages.warning(request, "You are not associated with a school. Student data cannot be displayed.")
+        return render(request, 'students/student_list.html', {'page_obj': []})
+
+    classes = Class.objects.filter(school=current_school).order_by('grade_level', 'name')
+    streams = Stream.objects.filter(school=current_school).order_by('class_assigned', 'name')
     
     context = {
         'page_obj': page_obj,
@@ -75,9 +82,9 @@ def student_add(request):
     if request.method == 'POST':
         form = StudentForm(request.POST or None, request.FILES or None, user=request.user)
         if form.is_valid():
-            student = form.save(commit=False)
-            student.school = request.user.school  # ✅ Assign school here
-            student.save()
+            # The school is automatically assigned by the SchoolScopedModel's save method
+            # using the middleware, so we no longer need to set it manually.
+            student = form.save()
             messages.success(request, f'Student {student.full_name} has been added successfully.')
             return redirect('students:student_detail', pk=student.pk)
     else:
@@ -155,8 +162,14 @@ def student_transfer(request):
     })
 
 @login_required
+@transaction.atomic
 def batch_promotion(request):
     """Batch promote students"""
+    current_school = request.user.school
+    if not current_school:
+        messages.error(request, "You must be associated with a school to perform this action.")
+        return redirect('students:student_list')
+
     if request.method == 'POST':
         source_class_id = request.POST.get('source_class')
         source_stream_id = request.POST.get('source_stream')
@@ -164,19 +177,24 @@ def batch_promotion(request):
         target_stream_id = request.POST.get('target_stream')
         academic_year = request.POST.get('academic_year')
         
-        source_class = get_object_or_404(Class, pk=source_class_id)
-        target_class = get_object_or_404(Class, pk=target_class_id)
+        # Ensure all objects are fetched for the correct school
+        source_class = get_object_or_404(Class, pk=source_class_id, school=current_school)
+        target_class = get_object_or_404(Class, pk=target_class_id, school=current_school)
         
         source_stream = None
         target_stream = None
         
         if source_stream_id:
-            source_stream = get_object_or_404(Stream, pk=source_stream_id)
+            source_stream = get_object_or_404(Stream, pk=source_stream_id, school=current_school)
         if target_stream_id:
-            target_stream = get_object_or_404(Stream, pk=target_stream_id)
+            target_stream = get_object_or_404(Stream, pk=target_stream_id, school=current_school)
         
-        # Get students to promote
-        students_query = Student.objects.filter(current_class=source_class, is_active=True)
+        # Get students to promote, ensuring they are from the correct school
+        students_query = Student.objects.filter(
+            school=current_school,
+            current_class=source_class,
+            is_active=True
+        )
         if source_stream:
             students_query = students_query.filter(current_stream=source_stream)
         
@@ -184,19 +202,17 @@ def batch_promotion(request):
         promoted_count = 0
         
         for student in students:
-            # Create promotion record
             StudentPromotion.objects.create(
                 student=student,
                 from_class=student.current_class,
                 to_class=target_class,
                 academic_year=academic_year,
-                created_by=request.user
+                created_by=request.user,
+                school=current_school  # Explicitly set school on promotion record
             )
             
-            # Update student
             student.current_class = target_class
-            if target_stream:
-                student.current_stream = target_stream
+            student.current_stream = target_stream if target_stream else student.current_stream
             student.save()
             
             promoted_count += 1
@@ -204,7 +220,8 @@ def batch_promotion(request):
         messages.success(request, f'Successfully promoted {promoted_count} students from {source_class.name} to {target_class.name}.')
         return redirect('students:student_list')
     
-    classes = Class.objects.all().order_by('grade_level', 'name')
+    # Filter classes for the dropdown by the user's school
+    classes = Class.objects.filter(school=current_school).order_by('grade_level', 'name')
     
     return render(request, 'students/batch_promotion.html', {
         'classes': classes,
