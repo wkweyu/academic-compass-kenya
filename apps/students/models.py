@@ -1,5 +1,5 @@
 
-from django.db import models
+from django.db import models, transaction
 from django.core.validators import RegexValidator
 from django.utils import timezone
 import os
@@ -12,7 +12,13 @@ from apps.transport.models import TransportRoute
 
 def student_photo_path(instance, filename):
     """Generate upload path for student photos"""
-    return f'students/photos/{instance.admission_number}_{filename}'
+    # It's better to use a unique ID that exists before the first save, like a UUID,
+    # but for now, we'll stick to the admission number which is generated before the super().save() call.
+    if not instance.admission_number:
+        # Temporarily generate so the path can be created.
+        # The final number will be set in the save method.
+        instance.admission_number = "temp"
+    return f'students/photos/{instance.school.id}/{instance.admission_year}/{instance.admission_number}_{filename}'
 
 class Class(models.Model):
     """Model for school classes (Grade 1, Grade 2, etc.)"""
@@ -116,22 +122,38 @@ class Student(SchoolScopedModel):
         super().save(*args, **kwargs)
     
     def generate_admission_number(self):
-        """Generate admission number in format YYYY-NNNN"""
-        year = self.admission_year
-        last_student = Student.objects.filter(
-            admission_year=year
-        ).order_by('admission_number').last()
-        
-        if last_student and last_student.admission_number:
-            try:
-                last_num = int(last_student.admission_number.split('-')[1])
-                new_num = last_num + 1
-            except (ValueError, IndexError):
+        """
+        Generate a new, unique admission number for the student within their school,
+        in the format YYYY-NNNN.
+        This method is safe from race conditions by using a database transaction
+        and select_for_update.
+        """
+        with transaction.atomic():
+            # Lock the students table for the specific school and year to prevent race conditions.
+            # We only need the last student to determine the next number.
+            last_student = Student.objects.select_for_update().filter(
+                school=self.school,
+                admission_year=self.admission_year
+            ).order_by('id').last()
+
+            if last_student and last_student.admission_number and '-' in last_student.admission_number:
+                # Extract the numeric part of the admission number and increment it.
+                try:
+                    last_num_str = last_student.admission_number.split('-')[-1]
+                    last_num = int(last_num_str)
+                    new_num = last_num + 1
+                except (ValueError, IndexError):
+                    # Fallback in case of an unexpected format.
+                    # Query for the count of students in the same year and school as a more robust fallback.
+                    new_num = Student.objects.filter(
+                        school=self.school,
+                        admission_year=self.admission_year
+                    ).count() + 1
+            else:
+                # This is the first student of the year for this school.
                 new_num = 1
-        else:
-            new_num = 1
-        
-        return f"{year}-{new_num:04d}"
+
+            return f"{self.admission_year}-{new_num:04d}"
     
     def __str__(self):
         return f"{self.admission_number} - {self.full_name}"

@@ -2,19 +2,16 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Q
+from django.db.models import Q, Avg
 from django.core.paginator import Paginator
-from apps.exams.models import Exam, ReportCardConfig 
+from django.db import transaction
+from .models import Exam, ReportCardConfig
+from apps.grading.models import Score, GradeScale
 from apps.grading import forms
-from apps.grading.models import Score
 from django.views import View
-from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib import messages
 from apps.students.models import Student
-from .forms import ExamScoreFormSet
-from django.views.generic import ListView
-from django.views import View
-from django.shortcuts import render, get_object_or_404
+from .forms import ExamScoreFormSet, ExamForm
+from django.views.generic import ListView, DetailView
 
 from apps.students.models import Student
 
@@ -42,23 +39,33 @@ class MarksEntryView(View):
             'formset': formset,
         })
 
+    @transaction.atomic
     def post(self, request, exam_id):
-        exam = get_object_or_404(Exam, pk=exam_id)
-        ScoreFormSet = ExamScoreFormSet(request.POST)
+        exam = get_object_or_404(Exam, pk=exam_id, school=request.user.school)
+        formset = ExamScoreFormSet(request.POST)
 
-        if ScoreFormSet.is_valid():
-            instances = ScoreFormSet.save(commit=False)
-            for instance in instances:
-                instance.exam = exam
-                instance.save()
+        if formset.is_valid():
+            # Fetch grading rules once to avoid N+1 queries
+            grade_rules = GradeScale.objects.filter(
+                school=request.user.school,
+                academic_year=exam.academic_year
+            ).order_by('-min_score')
+
+            scores = formset.save(commit=False)
+            for score in scores:
+                score.exam = exam
+                score.entered_by = request.user
+                # Pass the prefetched rules to the save method
+                score.save(grade_scale_rules=grade_rules)
+
             messages.success(request, "Marks successfully saved.")
             return redirect('exams:exam_list')
         else:
-            messages.error(request, "Please correct errors below.")
+            messages.error(request, "Please correct the errors below.")
 
         return render(request, self.template_name, {
             'exam': exam,
-            'formset': ScoreFormSet
+            'formset': formset
         })
 
 
@@ -67,10 +74,14 @@ class ResultSlipView(View):
     template_name = 'exams/result_slip.html'
 
     def get(self, request, student_id, term, academic_year):
-        student = get_object_or_404(Student, pk=student_id)
+        student = get_object_or_404(Student, pk=student_id, school=request.user.school)
+
+        # Correctly filter exams for the student's class, stream, term, and year
         exams = Exam.objects.filter(
+            school=request.user.school,
             class_assigned=student.current_class,
-            term=term,
+            stream=student.current_stream,
+            term__term=term,
             academic_year=academic_year
         ).select_related('subject')
 
@@ -79,57 +90,65 @@ class ResultSlipView(View):
             student=student
         ).select_related('exam', 'exam__subject')
 
-        grading_system = GradingSystem.objects.all()
+        # Fetch grade scale for the specific school and year
+        grade_scale = GradeScale.objects.filter(
+            school=request.user.school,
+            academic_year=academic_year
+        ).order_by('-min_score')
 
         subject_results = []
         total_marks = 0
         total_points = 0
         subject_count = 0
+        total_max_marks = 0
 
         for score in scores:
-            grade, points = self.get_grade_and_points(grading_system, score.marks)
+            grade, points = self.get_grade_and_points(grade_scale, score.percentage)
             subject_results.append({
                 'subject': score.exam.subject.name,
                 'marks': score.marks,
+                'percentage': score.percentage,
                 'grade': grade,
                 'points': points
             })
             total_marks += score.marks
-            total_points += points
+            total_max_marks += score.exam.max_marks
+            if points:
+                total_points += points
             subject_count += 1
 
-        mean_score = total_marks / subject_count if subject_count else 0
-        mean_grade, mean_points = self.get_grade_and_points(grading_system, mean_score)
+        avg_percentage = (total_marks / total_max_marks) * 100 if total_max_marks else 0
+        mean_grade, _ = self.get_grade_and_points(grade_scale, avg_percentage)
 
         context = {
             'student': student,
             'subject_results': subject_results,
             'total_marks': total_marks,
             'total_points': total_points,
-            'mean_score': round(mean_score, 2),
+            'mean_percentage': round(avg_percentage, 2),
             'mean_grade': mean_grade,
             'academic_year': academic_year,
             'term': term,
         }
         return render(request, self.template_name, context)
 
-    def get_grade_and_points(self, grading_system, marks):
-        for grade_row in grading_system:
-            if grade_row.lower_limit <= marks <= grade_row.upper_limit:
-                return grade_row.grade, grade_row.points
+    def get_grade_and_points(self, grade_scale, percentage):
+        if percentage is None:
+            return 'N/A', 0
+        for rule in grade_scale:
+            if rule.min_score <= percentage <= rule.max_score:
+                return rule.grade, rule.points
         return 'N/A', 0
-
-
-from django.views.generic import DetailView
-from apps.exams.models import Exam 
-
-# exams/views.py or grading/views.py
 
 
 class ExamResultSlipView(DetailView):
     model = Exam
     template_name = 'exams/result_slip.html'
     context_object_name = 'exam'
+
+    def get_queryset(self):
+        # Ensure users can only see exam results for their own school
+        return Exam.objects.filter(school=self.request.user.school)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -140,7 +159,7 @@ class ExamResultSlipView(DetailView):
             .order_by('-marks')
 
         context['scores'] = scores
-        context['average_score'] = scores.aggregate(avg=models.Avg('marks'))['avg'] or 0
+        context['average_score'] = scores.aggregate(avg=Avg('marks'))['avg'] or 0
         return context
 
 
@@ -178,7 +197,3 @@ def exam_add(request):
     else:
         form = ExamForm()
     return render(request, 'exams/exam_form.html', {'form': form})
-class ExamForm(forms.ModelForm):
-    class Meta:
-        model = Exam
-        fields = ['name', 'exam_type', 'term', 'academic_year', 'max_marks']
