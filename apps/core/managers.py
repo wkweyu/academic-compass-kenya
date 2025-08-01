@@ -1,5 +1,5 @@
 from django.db import models
-from core.middleware import get_current_school
+from apps.core.middleware import get_current_school
 
 class SchoolQuerySet(models.QuerySet):
     def for_current_school(self):

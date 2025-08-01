@@ -1,6 +1,6 @@
 from django.db import models
 from apps.schools.models import School
-from core.managers import SchoolManager
+from apps.core.managers import SchoolManager
 
 # Create your models here.
 class TermSetting(models.Model):

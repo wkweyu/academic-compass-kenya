@@ -6,12 +6,12 @@ from .serializers import (
     FeesInKindTransactionSerializer
 )
 from rest_framework.permissions import IsAuthenticated
-from core.permissions import IsSchoolUser
+from apps.core.permissions import IsSchoolUser
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.db.models import Sum
 from .models import Supplier, LPO, PaymentVoucher, FeesInKindTransaction,PaymentVoucher, PettyCashTransaction, FeesInKindTransaction
-from core.permissions import IsSchoolUser
+from apps.core.permissions import IsSchoolUser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import generics
 from rest_framework.views import APIView
@@ -19,7 +19,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from .models import StockTransaction, Item
 from .serializers import StockTransactionSerializer
-from core.permissions import IsSchoolUser
+from apps.core.permissions import IsSchoolUser
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Sum
 from rest_framework.generics import RetrieveAPIView

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import VoteHead, FeeStructure,PaymentTransaction,FeeBalance,DebitTransaction
-from core.middleware import get_current_school
+from apps.core.middleware import get_current_school
 
 class VoteHeadSerializer(serializers.ModelSerializer):
     class Meta:

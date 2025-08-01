@@ -34,21 +34,22 @@ urlpatterns = [
     path('accounts/', include('allauth.urls')),
 
     # Apps
-    path('students/', include('students.urls')),
-    path('teachers/', include('teachers.urls')),
-    path('subjects/', include('subjects.urls')),
+    path('students/', include('apps.students.urls')),
+    path('teachers/', include('apps.teachers.urls')),
+    path('subjects/', include('apps.subjects.urls')),
     path('exams/', include('apps.exams.urls')),
     path('grading/', include('apps.grading.urls')),
-    
-    
+
+
     path('api/schools/', include('apps.schools.urls')),
-    path('api/users/', include('users.urls')),
-    path('api/fees/', include('fees.urls')),
-    path('api/transport/', include('transport.urls')),
-    
+    path('api/users/', include('apps.users.urls')),
+    path('api/fees/', include('apps.fees.urls')),
+    path('api/transport/', include('apps.transport.urls')),
+
     #Procurement
-    path('api/procurement/', include('procurement.urls')),
-    
+    path('api/procurement/', include('apps.procurement.urls')),
+    path('api/students/', include('apps.students.api_urls')),
+
 ]
 
 # Serve media files during development

@@ -10,13 +10,13 @@ from apps.grading.models import Score
 from django.views import View
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
-from students.models import Student
+from apps.students.models import Student
 from .forms import ExamScoreFormSet
 from django.views.generic import ListView
 from django.views import View
 from django.shortcuts import render, get_object_or_404
 
-from students.models import Student
+from apps.students.models import Student
 
 
 class MarksEntryView(View):

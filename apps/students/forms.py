@@ -3,7 +3,7 @@ from django import forms
 from .models import Student, Class, Stream, StudentTransfer
 
 from django.utils.timezone import now
-from students.models import Stream  # Make sure this import exists
+from apps.students.models import Stream
 
 class StudentForm(forms.ModelForm):
     class Meta:
