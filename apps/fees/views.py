@@ -5,8 +5,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.db.models import Sum
 from django.utils import timezone
-from settings.models import TermSetting
-from students.models import Student
+from apps.settings.models import TermSetting
+from apps.students.models import Student
 from rest_framework import permissions
 
 

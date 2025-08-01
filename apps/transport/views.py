@@ -6,9 +6,9 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Sum
-from students.models import Student
-from fees.models import DebitTransaction, PaymentTransaction, VoteHead
-from core.middleware import get_current_school
+from apps.students.models import Student
+from apps.fees.models import DebitTransaction, PaymentTransaction, VoteHead
+from apps.core.middleware import get_current_school
 
 
 

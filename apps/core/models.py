@@ -1,6 +1,6 @@
 from django.db import models
-from core.middleware import get_current_school
-from core.managers import SchoolManager
+from apps.core.middleware import get_current_school
+from apps.core.managers import SchoolManager
 
 class SchoolScopedModel(models.Model):
     school = models.ForeignKey('schools.School', on_delete=models.CASCADE)

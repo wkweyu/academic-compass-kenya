@@ -4,11 +4,11 @@ from django.core.validators import RegexValidator
 from django.utils import timezone
 import os
 from apps.schools.models import School
-from core.managers import SchoolManager
-from core.middleware import get_current_school
-from core.models import SchoolScopedModel
-from core.constants import SchoolLevels
-from transport.models import TransportRoute
+from apps.core.managers import SchoolManager
+from apps.core.middleware import get_current_school
+from apps.core.models import SchoolScopedModel
+from apps.core.constants import SchoolLevels
+from apps.transport.models import TransportRoute
 
 def student_photo_path(instance, filename):
     """Generate upload path for student photos"""

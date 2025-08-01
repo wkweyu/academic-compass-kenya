@@ -1,6 +1,6 @@
 from django.db import models
-from core.models import SchoolScopedModel
-from fees.models import VoteHead
+from apps.core.models import SchoolScopedModel
+from apps.fees.models import VoteHead
 
 
 class Supplier(SchoolScopedModel):
@@ -81,7 +81,7 @@ class PaymentVoucher(SchoolScopedModel):
         ('Bank Transfer', 'Bank Transfer'),
         ('Fees In-Kind', 'Fees In-Kind')
     ])
-    vote_head = models.ForeignKey('fees.Votehead', on_delete=models.SET_NULL, null=True, blank=True)
+    vote_head = models.ForeignKey(VoteHead, on_delete=models.SET_NULL, null=True, blank=True)
     status = models.CharField(max_length=20, choices=[
         ('Draft', 'Draft'),
         ('Approved', 'Approved'),
@@ -100,7 +100,7 @@ class PettyCashTransaction(SchoolScopedModel):
     ])
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     description = models.TextField()
-    vote_head = models.ForeignKey('fees.Votehead', on_delete=models.SET_NULL, null=True, blank=True)
+    vote_head = models.ForeignKey(VoteHead, on_delete=models.SET_NULL, null=True, blank=True)
     related_voucher = models.ForeignKey(PaymentVoucher, on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
@@ -111,7 +111,7 @@ class FeesInKindTransaction(SchoolScopedModel):
     supplier = models.ForeignKey(Supplier, on_delete=models.CASCADE)
     student = models.ForeignKey('students.Student', on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
-    vote_head = models.ForeignKey('fees.Votehead', on_delete=models.SET_NULL, null=True)
+    vote_head = models.ForeignKey(VoteHead, on_delete=models.SET_NULL, null=True)
     term = models.PositiveIntegerField()
     year = models.PositiveIntegerField()
 

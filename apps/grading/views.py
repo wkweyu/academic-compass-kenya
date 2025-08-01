@@ -7,7 +7,7 @@ from django.contrib.auth.decorators import login_required
 
 from apps.grading.models import Score
 from apps.grading.forms import ExamSelectionForm
-from students.models import Student
+from apps.students.models import Student
 from apps.exams.models import Exam 
 
 

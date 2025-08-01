@@ -9,7 +9,6 @@ from decouple import config
 import sys
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-sys.path.insert(0, os.path.join(BASE_DIR, 'apps'))
 
 # Security settings
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-this-in-production')
@@ -28,6 +27,7 @@ DJANGO_APPS = [
 ]
 
 THIRD_PARTY_APPS = [
+    'corsheaders',
     'rest_framework',
     'rest_framework.authtoken',
     'allauth',
@@ -39,18 +39,18 @@ THIRD_PARTY_APPS = [
 ]
 
 LOCAL_APPS = [
-    'apps.users',
-    'apps.schools',
-    'apps.students',
-    'apps.subjects',
-    'apps.teachers',
-    'apps.grading',
-    'apps.exams',
-    'apps.settings',
-    'apps.fees',
-    'apps.transport',
-    'apps.procurement',
-    'apps.core',
+    'apps.users.apps.UsersConfig',
+    'apps.schools.apps.SchoolsConfig',
+    'apps.students.apps.StudentsConfig',
+    'apps.subjects.apps.SubjectsConfig',
+    'apps.teachers.apps.TeachersConfig',
+    'apps.grading.apps.GradingConfig',
+    'apps.exams.apps.ExamsConfig',
+    'apps.settings.apps.SettingsConfig',
+    'apps.fees.apps.FeesConfig',
+    'apps.transport.apps.TransportConfig',
+    'apps.procurement.apps.ProcurementConfig',
+    'apps.core.apps.CoreConfig',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -58,6 +58,7 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -169,3 +170,10 @@ ACCOUNT_EMAIL_VERIFICATION = 'optional'
 
 # Import Export
 IMPORT_EXPORT_USE_TRANSACTIONS = True
+
+# CORS Configuration
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+]
+CORS_ALLOW_CREDENTIALS = True

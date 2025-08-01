@@ -3,10 +3,19 @@
 export interface Student {
   id: string;
   admission_number: string;
-  first_name: string;
-  last_name: string;
-  class_assigned: string;
-  stream: string;
+  full_name: string;
+  date_of_birth: string;
+  gender: 'M' | 'F' | 'O';
+  guardian_name: string;
+  guardian_phone: string;
+  guardian_email?: string;
+  current_class: number; // ID of the class
+  current_stream: number; // ID of the stream
+  current_class_name: string;
+  current_stream_name: string;
+  enrollment_date: string;
+  status: 'active' | 'inactive' | 'graduated' | 'transferred';
+  photo: string | null;
   is_active: boolean;
 }
 

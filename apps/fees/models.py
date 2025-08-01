@@ -1,9 +1,9 @@
 from django.db import models
 from apps.schools.models import School
-from students.models import Student  # Assuming you have this in your students app
+from apps.students.models import Student
 from django.db.models import JSONField
 from django.utils import timezone
-from core.managers import SchoolManager
+from apps.core.managers import SchoolManager
 
 
 class VoteHead(models.Model):
@@ -71,7 +71,6 @@ class FeeBalance(models.Model):
     amount_invoiced = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     amount_paid = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     closing_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
-    from core.managers import SchoolManager
     
     class Meta:
         unique_together = ('school', 'student', 'vote_head', 'year', 'term')

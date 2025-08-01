@@ -1,5 +1,5 @@
 from django.db import models
-from core.models import SchoolScopedModel
+from apps.core.models import SchoolScopedModel
 
 class TransportRoute(SchoolScopedModel):
     name = models.CharField(max_length=255)

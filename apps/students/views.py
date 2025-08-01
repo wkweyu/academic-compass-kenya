@@ -244,3 +244,30 @@ def class_subject_allocation_list(request):
         'allocations': allocations,
         'title': 'Class Subject Allocations'
     })
+
+# --- API Views ---
+from rest_framework import viewsets, permissions
+from .serializers import StudentSerializer
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import SearchFilter
+
+class StudentViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint that allows students to be viewed or edited.
+    """
+    queryset = Student.objects.filter(is_active=True).order_by('-created_at')
+    serializer_class = StudentSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['current_class', 'current_stream', 'status', 'gender']
+    search_fields = ['full_name', 'admission_number', 'guardian_name']
+
+    def get_queryset(self):
+        """
+        This view should return a list of all the students
+        for the currently authenticated user's school.
+        """
+        user = self.request.user
+        if user.is_authenticated and hasattr(user, 'school'):
+            return Student.objects.filter(school=user.school, is_active=True).order_by('-created_at')
+        return Student.objects.none() # Return empty queryset if no school

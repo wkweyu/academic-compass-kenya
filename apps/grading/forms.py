@@ -1,6 +1,6 @@
 from django import forms
-from students.models import Class, Stream
-from subjects.models import Subject
+from apps.students.models import Class, Stream
+from apps.subjects.models import Subject
 from apps.exams.models import Exam 
 from django.forms import modelformset_factory, ModelForm
 from apps.grading.models import Score

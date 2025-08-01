@@ -1,7 +1,7 @@
 from rest_framework import serializers
-from students.models import Student
-from fees.models import DebitTransaction, PaymentTransaction
-from transport.models import TransportRoute
+from apps.students.models import Student
+from apps.fees.models import DebitTransaction, PaymentTransaction
+from apps.transport.models import TransportRoute
 
 
 

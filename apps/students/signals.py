@@ -1,7 +1,7 @@
 from django.db.models.signals import pre_save
 from django.dispatch import receiver
 from .models import Student
-from core.middleware import get_current_school
+from apps.core.middleware import get_current_school
 
 @receiver(pre_save, sender=Student)
 def set_admission_number(sender, instance, **kwargs):
