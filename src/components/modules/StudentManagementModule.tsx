@@ -170,7 +170,6 @@ export function StudentManagementModule() {
           />
         </DialogContent>
       </Dialog>
-      </div>
 
       {/* Filters */}
       <Card>
@@ -216,9 +215,9 @@ export function StudentManagementModule() {
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</-item>
-                <SelectItem value="transferred">Transferred</-item>
-                <SelectItem value="graduated">Graduated</-item>
+                <SelectItem value="inactive">Inactive</SelectItem>
+                <SelectItem value="transferred">Transferred</SelectItem>
+<SelectItem value="graduated">Graduated</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -352,8 +351,65 @@ export function StudentManagementModule() {
           </DialogHeader>
           {selectedStudent && (
              <div className="space-y-4">
-             {/* ... Dialog content remains the same, but uses selectedStudent ... */}
-           </div>
+               <div className="flex items-center gap-4">
+                 <Avatar className="h-16 w-16">
+                   <AvatarImage src={selectedStudent.photo || undefined} alt={selectedStudent.full_name} />
+                   <AvatarFallback>
+                     {selectedStudent.full_name.split(' ').map(n => n[0]).join('')}
+                   </AvatarFallback>
+                 </Avatar>
+                 <div>
+                   <h3 className="text-xl font-semibold">{selectedStudent.full_name}</h3>
+                   <p className="text-muted-foreground">{selectedStudent.admission_number}</p>
+                   <Badge variant={getStatusColor(selectedStudent.status)}>
+                     {selectedStudent.status.toUpperCase()}
+                   </Badge>
+                 </div>
+               </div>
+               
+               <Separator />
+               
+               <div className="grid grid-cols-2 gap-4">
+                 <div>
+                   <label className="text-sm font-medium text-muted-foreground">Date of Birth</label>
+                   <p>{selectedStudent.date_of_birth}</p>
+                 </div>
+                 <div>
+                   <label className="text-sm font-medium text-muted-foreground">Age</label>
+                   <p>{calculateAge(selectedStudent.date_of_birth)} years</p>
+                 </div>
+                 <div>
+                   <label className="text-sm font-medium text-muted-foreground">Gender</label>
+                   <p>{selectedStudent.gender === 'M' ? 'Male' : selectedStudent.gender === 'F' ? 'Female' : 'Other'}</p>
+                 </div>
+                 <div>
+                   <label className="text-sm font-medium text-muted-foreground">Enrollment Date</label>
+                   <p>{selectedStudent.enrollment_date}</p>
+                 </div>
+               </div>
+               
+               <Separator />
+               
+               <div>
+                 <h4 className="text-lg font-medium mb-2">Guardian Information</h4>
+                 <div className="grid grid-cols-1 gap-2">
+                   <div>
+                     <label className="text-sm font-medium text-muted-foreground">Name</label>
+                     <p>{selectedStudent.guardian_name}</p>
+                   </div>
+                   <div>
+                     <label className="text-sm font-medium text-muted-foreground">Phone</label>
+                     <p>{selectedStudent.guardian_phone}</p>
+                   </div>
+                   {selectedStudent.guardian_email && (
+                     <div>
+                       <label className="text-sm font-medium text-muted-foreground">Email</label>
+                       <p>{selectedStudent.guardian_email}</p>
+                     </div>
+                   )}
+                 </div>
+               </div>
+             </div>
           )}
         </DialogContent>
       </Dialog>
