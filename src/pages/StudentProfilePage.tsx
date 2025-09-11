@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getStudents, getStudentById } from '@/services/studentService';
+import { getSiblings } from '@/services/guardianService';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -16,6 +17,13 @@ export default function StudentProfilePage() {
     queryKey: ['student', id],
     queryFn: () => getStudentById(id!),
     enabled: !!id,
+  });
+
+  // Fetch siblings for the student
+  const { data: siblings = [] } = useQuery({
+    queryKey: ['siblings', student?.id],
+    queryFn: () => student ? getSiblings(student.id) : [],
+    enabled: !!student,
   });
 
   if (isLoading) {
@@ -53,7 +61,7 @@ export default function StudentProfilePage() {
           <ArrowLeft size={16} />
           Back
         </Button>
-        <Button className="gap-2">
+        <Button className="gap-2" onClick={() => navigate(`/students/${student.id}/edit`)}>
           <Edit size={16} />
           Edit Student
         </Button>
@@ -126,6 +134,12 @@ export default function StudentProfilePage() {
                   <label className="text-sm font-medium text-muted-foreground">Level</label>
                   <p className="text-sm">{student.level}</p>
                 </div>
+                {student.upi_number && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">UPI Number</label>
+                    <p className="text-sm">{student.upi_number}</p>
+                  </div>
+                )}
                 {student.kcpe_index && (
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">KCPE Index</label>
@@ -257,10 +271,13 @@ export default function StudentProfilePage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {student.siblings && student.siblings.length > 0 ? (
+              {siblings && siblings.length > 0 ? (
                 <div className="space-y-4">
-                  {student.siblings.map((sibling) => (
-                    <div key={sibling.id} className="flex items-center gap-4 p-4 border rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Students sharing the same guardian: <strong>{student.guardian_name}</strong>
+                  </p>
+                  {siblings.map((sibling) => (
+                    <div key={sibling.id} className="flex items-center gap-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                       <Avatar className="h-12 w-12">
                         <AvatarImage src={sibling.photo || undefined} alt={sibling.full_name} />
                         <AvatarFallback>
@@ -271,10 +288,19 @@ export default function StudentProfilePage() {
                         <h4 className="font-medium">{sibling.full_name}</h4>
                         <p className="text-sm text-muted-foreground">{sibling.current_class_stream}</p>
                         <p className="text-xs text-muted-foreground">Admission: {sibling.admission_number}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {sibling.gender === 'M' ? 'Male' : 'Female'} • 
+                          Age: {new Date().getFullYear() - new Date(sibling.date_of_birth).getFullYear()}
+                        </p>
                       </div>
-                      <Badge variant={getStatusBadgeVariant(sibling.status)}>
-                        {sibling.status}
-                      </Badge>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge variant={getStatusBadgeVariant(sibling.status)}>
+                          {sibling.status}
+                        </Badge>
+                        <Button variant="outline" size="sm" onClick={() => navigate(`/students/${sibling.id}`)}>
+                          View Profile
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>

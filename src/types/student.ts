@@ -14,6 +14,7 @@ export interface Student {
   date_of_birth: string;
   national_id?: string;
   birth_certificate_no?: string;
+  upi_number?: string; // Government issued UPI number (unique but not mandatory)
   photo?: string | null;
   
   // Contact Information

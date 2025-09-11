@@ -185,25 +185,24 @@ export const getGuardianStudents = async (guardianId: string): Promise<Student[]
 export const getSiblings = async (studentId: string): Promise<Student[]> => {
   await delay(200);
   
-  // Find guardian-student relationships for this student
-  const studentRelations = mockGuardianStudents.filter(gs => gs.student_id === studentId);
+  // Import here to avoid circular dependency
+  const { getStudents } = await import('./studentService');
   
-  if (studentRelations.length === 0) return [];
+  // First get the current student to find their guardian info
+  const allStudentsResponse = await getStudents();
+  const currentStudent = allStudentsResponse.data.find(s => s.id === studentId);
   
-  // Find all other students with the same guardians
-  const siblingIds = new Set<string>();
+  if (!currentStudent) return [];
   
-  for (const relation of studentRelations) {
-    const siblingRelations = mockGuardianStudents.filter(
-      gs => gs.guardian_id === relation.guardian_id && gs.student_id !== studentId
-    );
-    
-    siblingRelations.forEach(sr => siblingIds.add(sr.student_id));
-  }
+  // Find other students with the same guardian phone or name (excluding current student)
+  const siblings = allStudentsResponse.data.filter(student => 
+    student.id !== studentId && (
+      student.guardian_phone === currentStudent.guardian_phone ||
+      student.guardian_name.toLowerCase() === currentStudent.guardian_name.toLowerCase()
+    )
+  );
   
-  // This would normally fetch students from the student service
-  // For now, returning empty array
-  return [];
+  return siblings;
 };
 
 export const findPotentialSiblings = async (guardianName: string, guardianPhone: string): Promise<Guardian[]> => {

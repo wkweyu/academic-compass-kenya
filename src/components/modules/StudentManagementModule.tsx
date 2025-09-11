@@ -729,7 +729,16 @@ const StudentManagementModule = () => {
           {printStudentData && (
             <div className="space-y-4">
               <div id="admission-form-content">
-                <AdmissionFormPrint student={printStudentData} />
+                <AdmissionFormPrint 
+                  student={printStudentData} 
+                  admissionNumber={`${new Date().getFullYear()}-${String(students.length + 1).padStart(4, '0')}`}
+                  siblings={printStudentData.guardian_phone ? 
+                    students.filter(s => 
+                      s.guardian_phone === printStudentData.guardian_phone && 
+                      s.full_name !== printStudentData.full_name
+                    ) : []
+                  }
+                />
               </div>
               <div className="flex gap-2 justify-end pt-4 border-t">
                 <Button 

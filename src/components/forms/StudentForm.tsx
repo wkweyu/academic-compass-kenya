@@ -22,6 +22,7 @@ const studentFormSchema = z.object({
   full_name: z.string().min(3, 'Full name must be at least 3 characters'),
   date_of_birth: z.string().refine((val) => !isNaN(Date.parse(val)), { message: 'Invalid date' }),
   gender: z.enum(['M', 'F']),
+  upi_number: z.string().optional(),
   guardian_name: z.string().min(3, 'Guardian name is required'),
   guardian_phone: z.string().min(10, 'Phone number must be at least 10 digits'),
   guardian_email: z.string().email('Invalid email address').optional().or(z.literal('')),
@@ -126,6 +127,7 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
       full_name: initialData?.full_name || '',
       date_of_birth: initialData?.date_of_birth ? new Date(initialData.date_of_birth).toISOString().split('T')[0] : '',
       gender: initialData?.gender || 'M',
+      upi_number: initialData?.upi_number || '',
       guardian_name: initialData?.guardian_name || '',
       guardian_phone: initialData?.guardian_phone || '',
       guardian_email: initialData?.guardian_email || '',
@@ -150,11 +152,12 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
     <Form {...form}>
       <form onSubmit={form.handleSubmit((data) => {
         // Transform form data to required Student format
-        const studentData = {
-          full_name: data.full_name!,
-          date_of_birth: data.date_of_birth!,
-          gender: data.gender!,
-          guardian_name: data.guardian_name!,
+         const studentData = {
+           full_name: data.full_name!,
+           date_of_birth: data.date_of_birth!,
+           gender: data.gender!,
+           upi_number: data.upi_number,
+           guardian_name: data.guardian_name!,
           guardian_phone: data.guardian_phone!,
           guardian_email: data.guardian_email || undefined,
           guardian_relationship: data.guardian_relationship!,
@@ -246,6 +249,19 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
                      <SelectItem value="suspended">Suspended</SelectItem>
                    </SelectContent>
                 </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="upi_number"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>UPI Number (Optional)</FormLabel>
+                <FormControl>
+                  <Input placeholder="Government issued UPI number" {...field} />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}

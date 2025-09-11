@@ -5,11 +5,13 @@ import { Student } from '@/types/student';
 interface AdmissionFormPrintProps {
   student: Omit<Student, 'id' | 'admission_number' | 'created_at' | 'updated_at'>;
   admissionNumber?: string;
+  siblings?: Student[];
 }
 
 export const AdmissionFormPrint: React.FC<AdmissionFormPrintProps> = ({ 
   student, 
-  admissionNumber = 'PENDING' 
+  admissionNumber = 'PENDING',
+  siblings = []
 }) => {
   return (
     <div className="max-w-4xl mx-auto p-8 bg-white text-black print:shadow-none">
@@ -47,6 +49,12 @@ export const AdmissionFormPrint: React.FC<AdmissionFormPrintProps> = ({
               <label className="font-medium w-32">Level:</label>
               <span className="border-b border-gray-300 flex-1 min-h-[24px]">{student.level}</span>
             </div>
+            {student.upi_number && (
+              <div className="flex">
+                <label className="font-medium w-32">UPI Number:</label>
+                <span className="border-b border-gray-300 flex-1 min-h-[24px]">{student.upi_number}</span>
+              </div>
+            )}
           </div>
           <div className="space-y-3">
             <div className="flex">
@@ -101,6 +109,21 @@ export const AdmissionFormPrint: React.FC<AdmissionFormPrintProps> = ({
           </div>
         )}
       </div>
+
+      {/* Sibling Information */}
+      {siblings && siblings.length > 0 && (
+        <div className="mb-6">
+          <h3 className="text-lg font-semibold mb-4 bg-gray-100 p-2">SIBLING INFORMATION</h3>
+          <div className="space-y-2">
+            {siblings.map((sibling, index) => (
+              <div key={index} className="flex justify-between items-center border-b border-gray-200 pb-2">
+                <span className="font-medium">{sibling.full_name}</span>
+                <span className="text-sm text-gray-600">{sibling.current_class_stream} - {sibling.admission_number}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Additional Information */}
       <div className="mb-6">
