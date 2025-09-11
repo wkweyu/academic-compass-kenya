@@ -13,6 +13,7 @@ import TeachersPage from "./pages/TeachersPage";
 import SubjectsPage from "./pages/SubjectsPage";
 import ScoresPage from "./pages/ScoresPage";
 import ResultsPage from "./pages/ResultsPage";
+import FeesPage from "./pages/FeesPage";
 import ComingSoonPage from "./pages/ComingSoonPage";
 import NotFound from "./pages/NotFound";
 
@@ -36,7 +37,7 @@ const App = () => (
             <Route path="/subjects" element={<SubjectsPage />} />
             <Route path="/scores" element={<ScoresPage />} />
             <Route path="/results" element={<ResultsPage />} />
-            <Route path="/settings" element={<ComingSoonPage title="Settings" />} />
+            <Route path="/settings" element={<FeesPage />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
