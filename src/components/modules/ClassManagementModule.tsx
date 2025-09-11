@@ -377,17 +377,17 @@ export const ClassManagementModule = () => {
                   />
                 </div>
                 <Select
-                  value={filters.grade_level?.toString() || ''}
+                  value={filters.grade_level?.toString() || 'all'}
                   onValueChange={(value) => setFilters(prev => ({ 
                     ...prev, 
-                    grade_level: value ? parseInt(value) : undefined 
+                    grade_level: value === 'all' ? undefined : parseInt(value) 
                   }))}
                 >
                   <SelectTrigger className="w-48">
                     <SelectValue placeholder="All Grade Levels" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Grade Levels</SelectItem>
+                    <SelectItem value="all">All Grade Levels</SelectItem>
                     {Array.from({ length: 12 }, (_, i) => (
                       <SelectItem key={i + 1} value={(i + 1).toString()}>
                         Grade {i + 1}
@@ -455,17 +455,17 @@ export const ClassManagementModule = () => {
                   className="max-w-sm"
                 />
                 <Select
-                  value={streamFilters.class_id?.toString() || ''}
+                  value={streamFilters.class_id?.toString() || 'all'}
                   onValueChange={(value) => setStreamFilters(prev => ({ 
                     ...prev, 
-                    class_id: value ? parseInt(value) : undefined 
+                    class_id: value === 'all' ? undefined : parseInt(value) 
                   }))}
                 >
                   <SelectTrigger className="w-48">
                     <SelectValue placeholder="All Classes" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Classes</SelectItem>
+                    <SelectItem value="all">All Classes</SelectItem>
                     {classes.map((cls) => (
                       <SelectItem key={cls.id} value={cls.id.toString()}>
                         {cls.name}
