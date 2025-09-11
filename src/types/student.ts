@@ -23,11 +23,15 @@ export interface Student {
   residence?: string;
   
   // Guardian Information
+  guardian_id?: string; // Links to Guardian record
   guardian_name: string;
   guardian_phone: string;
   guardian_email?: string;
   guardian_relationship: string;
   guardian_address?: string;
+  
+  // Sibling Information
+  siblings?: Student[]; // Other students with same guardian
   
   // Academic Information
   current_class: number;

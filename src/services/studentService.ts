@@ -1,5 +1,6 @@
 // Mock service - API integration pending
 import { Student, StudentFilters, StudentStats, ImportResult } from "@/types/student";
+import { createOrUpdateGuardian, getSiblings } from "./guardianService";
 
 // Mock data for development
 const mockStudents: Student[] = [
@@ -188,7 +189,14 @@ export const getStudents = async (
 export const getStudentById = async (id: string): Promise<Student | null> => {
   await delay(300);
   const student = mockStudents.find(s => s.id === id);
-  return student || null;
+  if (!student) return null;
+  
+  // Get siblings for this student
+  const siblings = await getSiblings(id);
+  return {
+    ...student,
+    siblings
+  };
 };
 
 export const createStudent = async (
@@ -196,13 +204,29 @@ export const createStudent = async (
 ): Promise<Student> => {
   await delay(800);
   
+  const studentId = (mockStudents.length + 1).toString();
+  
+  // Handle guardian creation/update
+  const guardianResult = await createOrUpdateGuardian({
+    name: studentData.guardian_name,
+    phone: studentData.guardian_phone,
+    email: studentData.guardian_email,
+    address: studentData.guardian_address,
+    relationship: studentData.guardian_relationship,
+  }, studentId);
+  
   const newStudent: Student = {
     ...studentData,
-    id: (mockStudents.length + 1).toString(),
+    id: studentId,
+    guardian_id: guardianResult.guardian.id,
     admission_number: `2024-${String(mockStudents.length + 1).padStart(4, '0')}`,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
+  
+  // Get siblings for the new student
+  const siblings = await getSiblings(studentId);
+  newStudent.siblings = siblings;
   
   mockStudents.push(newStudent);
   return newStudent;
@@ -214,11 +238,30 @@ export const updateStudent = async (id: string, studentData: Partial<Student>): 
   const index = mockStudents.findIndex(s => s.id === id);
   if (index === -1) return null;
   
+  const currentStudent = mockStudents[index];
+  
+  // Handle guardian update if guardian information changed
+  if (studentData.guardian_name || studentData.guardian_phone || studentData.guardian_email) {
+    const guardianResult = await createOrUpdateGuardian({
+      name: studentData.guardian_name || currentStudent.guardian_name,
+      phone: studentData.guardian_phone || currentStudent.guardian_phone,
+      email: studentData.guardian_email || currentStudent.guardian_email,
+      address: studentData.guardian_address || currentStudent.guardian_address,
+      relationship: studentData.guardian_relationship || currentStudent.guardian_relationship,
+    }, id);
+    
+    studentData.guardian_id = guardianResult.guardian.id;
+  }
+  
   const updatedStudent = {
-    ...mockStudents[index],
+    ...currentStudent,
     ...studentData,
     updated_at: new Date().toISOString(),
   };
+  
+  // Get updated siblings
+  const siblings = await getSiblings(id);
+  updatedStudent.siblings = siblings;
   
   mockStudents[index] = updatedStudent;
   return updatedStudent;

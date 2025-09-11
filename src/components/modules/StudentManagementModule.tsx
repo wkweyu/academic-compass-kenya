@@ -41,6 +41,7 @@ import {
   exportStudents,
   getImportTemplate
 } from '@/services/studentService';
+import { findExistingGuardian } from '@/services/guardianService';
 import { Student, StudentFilters, STUDENT_STATUS_OPTIONS, GENDER_OPTIONS } from '@/types/student';
 
 const StudentManagementModule = () => {
@@ -434,6 +435,11 @@ const StudentManagementModule = () => {
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <GraduationCap className="h-3 w-3" />
                     <span>{student.guardian_name}</span>
+                    {student.siblings && student.siblings.length > 0 && (
+                      <Badge variant="secondary" className="text-xs">
+                        +{student.siblings.length} sibling{student.siblings.length !== 1 ? 's' : ''}
+                      </Badge>
+                    )}
                   </div>
                 </div>
                 <Separator className="my-3" />
@@ -572,9 +578,9 @@ const StudentManagementModule = () => {
                 </div>
               </div>
 
-              {/* Transport Information */}
+              {/* Transport & Family Information */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Transport & Others</h3>
+                <h3 className="text-lg font-semibold">Transport & Family</h3>
                 <div className="space-y-2">
                   <div>
                     <Label className="text-sm font-medium">Transport</Label>
@@ -585,6 +591,20 @@ const StudentManagementModule = () => {
                       }
                     </p>
                   </div>
+                  {selectedStudent.siblings && selectedStudent.siblings.length > 0 && (
+                    <div>
+                      <Label className="text-sm font-medium">Siblings in School</Label>
+                      <div className="space-y-1">
+                        {selectedStudent.siblings.map((sibling) => (
+                          <div key={sibling.id} className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs">
+                              {sibling.full_name} - {sibling.current_class_stream}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {selectedStudent.special_needs && (
                     <div>
                       <Label className="text-sm font-medium">Special Needs</Label>
