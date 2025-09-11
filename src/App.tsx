@@ -10,6 +10,9 @@ import StudentsPage from "./pages/StudentsPage";
 import StudentProfilePage from "./pages/StudentProfilePage";
 import ClassesPage from "./pages/ClassesPage";
 import TeachersPage from "./pages/TeachersPage";
+import SubjectsPage from "./pages/SubjectsPage";
+import ScoresPage from "./pages/ScoresPage";
+import ResultsPage from "./pages/ResultsPage";
 import ComingSoonPage from "./pages/ComingSoonPage";
 import NotFound from "./pages/NotFound";
 
@@ -30,9 +33,9 @@ const App = () => (
             <Route path="/students/:id" element={<StudentProfilePage />} />
             <Route path="/classes" element={<ClassesPage />} />
             <Route path="/teachers" element={<TeachersPage />} />
-            <Route path="/subjects" element={<ComingSoonPage title="Subject Management" />} />
-            <Route path="/scores" element={<ComingSoonPage title="Score Entry" />} />
-            <Route path="/results" element={<ComingSoonPage title="Student Results" />} />
+            <Route path="/subjects" element={<SubjectsPage />} />
+            <Route path="/scores" element={<ScoresPage />} />
+            <Route path="/results" element={<ResultsPage />} />
             <Route path="/settings" element={<ComingSoonPage title="Settings" />} />
           </Route>
           <Route path="*" element={<NotFound />} />

@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Staff, StaffStats, StaffFilters, DEPARTMENTS, EMPLOYMENT_TYPES, STAFF_STATUS_OPTIONS, STAFF_CATEGORIES } from '@/types/teacher';
 import { staffService } from '@/services/teacherService';
 import { StaffForm } from '@/components/forms/StaffForm';
+import { TeachingAssignmentsTab } from '@/components/modules/TeachingAssignmentsTab';
 import { DeleteConfirmationDialog } from '@/components/ui/DeleteConfirmationDialog';
 
 export const TeacherManagementModule = () => {
@@ -388,17 +389,7 @@ export const TeacherManagementModule = () => {
         </TabsContent>
 
         <TabsContent value="assignments" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Teaching Assignments</CardTitle>
-              <CardDescription>Manage teacher assignments to subjects and classes</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                Teaching assignment management will be implemented next...
-              </div>
-            </CardContent>
-          </Card>
+          <TeachingAssignmentsTab />
         </TabsContent>
 
         <TabsContent value="payroll" className="space-y-4">
