@@ -7,6 +7,7 @@ import { MainLayout } from "./components/layout/MainLayout";
 import DashboardPage from "./pages/DashboardPage";
 import ExamsPage from "./pages/ExamsPage";
 import StudentsPage from "./pages/StudentsPage";
+import ClassesPage from "./pages/ClassesPage";
 import ComingSoonPage from "./pages/ComingSoonPage";
 import NotFound from "./pages/NotFound";
 
@@ -24,6 +25,7 @@ const App = () => (
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/exams" element={<ExamsPage />} />
             <Route path="/students" element={<StudentsPage />} />
+            <Route path="/classes" element={<ClassesPage />} />
             <Route path="/subjects" element={<ComingSoonPage title="Subject Management" />} />
             <Route path="/scores" element={<ComingSoonPage title="Score Entry" />} />
             <Route path="/results" element={<ComingSoonPage title="Student Results" />} />

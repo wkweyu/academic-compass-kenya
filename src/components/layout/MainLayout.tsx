@@ -8,7 +8,8 @@ import {
   FileText,
   Users,
   Settings,
-  Menu
+  Menu,
+  School
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -24,11 +25,12 @@ interface MainLayoutProps {
 
 const navigation = [
   { id: 'dashboard', name: 'Dashboard', icon: BarChart3, path: '/dashboard' },
+  { id: 'students', name: 'Students', icon: Users, path: '/students' },
+  { id: 'classes', name: 'Classes', icon: School, path: '/classes' },
   { id: 'exams', name: 'Exam Management', icon: ClipboardList, path: '/exams' },
   { id: 'subjects', name: 'Subject Management', icon: BookOpen, path: '/subjects' },
   { id: 'scores', name: 'Score Entry', icon: FileText, path: '/scores' },
   { id: 'results', name: 'Student Results', icon: GraduationCap, path: '/results' },
-  { id: 'students', name: 'Students', icon: Users, path: '/students' },
   { id: 'settings', name: 'Settings', icon: Settings, path: '/settings' },
 ];
 
