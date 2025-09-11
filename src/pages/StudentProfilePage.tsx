@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ArrowLeft, Edit, Phone, Mail, MapPin, Calendar, User, GraduationCap } from 'lucide-react';
+import { ArrowLeft, Edit, Phone, Mail, MapPin, Calendar, User, GraduationCap, Users } from 'lucide-react';
 
 export default function StudentProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -103,6 +103,7 @@ export default function StudentProfilePage() {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="academic">Academic History</TabsTrigger>
           <TabsTrigger value="guardian">Guardian Info</TabsTrigger>
+          <TabsTrigger value="siblings">Siblings</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -243,6 +244,47 @@ export default function StudentProfilePage() {
                   )}
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="siblings" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users size={20} />
+                Siblings
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {student.siblings && student.siblings.length > 0 ? (
+                <div className="space-y-4">
+                  {student.siblings.map((sibling) => (
+                    <div key={sibling.id} className="flex items-center gap-4 p-4 border rounded-lg">
+                      <Avatar className="h-12 w-12">
+                        <AvatarImage src={sibling.photo || undefined} alt={sibling.full_name} />
+                        <AvatarFallback>
+                          {sibling.full_name.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <h4 className="font-medium">{sibling.full_name}</h4>
+                        <p className="text-sm text-muted-foreground">{sibling.current_class_stream}</p>
+                        <p className="text-xs text-muted-foreground">Admission: {sibling.admission_number}</p>
+                      </div>
+                      <Badge variant={getStatusBadgeVariant(sibling.status)}>
+                        {sibling.status}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Users size={48} className="mx-auto mb-4 opacity-50" />
+                  <p>No siblings found</p>
+                  <p className="text-sm">Students with the same guardian will appear here</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

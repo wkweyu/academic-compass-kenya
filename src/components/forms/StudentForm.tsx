@@ -9,6 +9,12 @@ import { Student } from '@/types/student';
 import { Class, Stream } from '@/types/class';
 import { useQuery } from '@tanstack/react-query';
 import { classService } from '@/services/classService';
+import { TermManager } from '@/utils/termManager';
+import { getSiblings } from '@/services/guardianService';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import AdmissionFormPrint from '@/components/AdmissionFormPrint';
+import { useState } from 'react';
+import { Printer } from 'lucide-react';
 
 const studentFormSchema = z.object({
   full_name: z.string().min(3, 'Full name must be at least 3 characters'),
@@ -43,6 +49,10 @@ interface StudentFormProps {
 }
 
 export function StudentForm({ initialData, onSubmit, isSubmitting }: StudentFormProps) {
+  const [showPrintDialog, setShowPrintDialog] = useState(false);
+  const [submittedStudent, setSubmittedStudent] = useState<Omit<Student, 'id' | 'admission_number' | 'created_at' | 'updated_at'> | null>(null);
+  const [detectedSiblings, setDetectedSiblings] = useState<Student[]>([]);
+
   const { data: classes = [] } = useQuery({
     queryKey: ['classes'],
     queryFn: () => classService.getClasses(),
@@ -52,6 +62,21 @@ export function StudentForm({ initialData, onSubmit, isSubmitting }: StudentForm
     queryKey: ['streams'],
     queryFn: () => classService.getStreams(),
   });
+
+  // Detect siblings when guardian phone changes
+  const handleGuardianPhoneChange = async (phone: string) => {
+    if (phone.length >= 10) {
+      try {
+        // In real implementation, this would call an API to find students with same guardian phone
+        const siblings = await getSiblings('temp'); // Mock for now
+        setDetectedSiblings(siblings);
+      } catch (error) {
+        console.error('Error detecting siblings:', error);
+      }
+    } else {
+      setDetectedSiblings([]);
+    }
+  };
 
   const form = useForm<StudentFormValues>({
     resolver: zodResolver(studentFormSchema),
@@ -73,7 +98,7 @@ export function StudentForm({ initialData, onSubmit, isSubmitting }: StudentForm
       current_stream_name: initialData?.current_stream_name || 'East',
       current_class_stream: initialData?.current_class_stream || 'Grade 1 East',
       admission_year: initialData?.admission_year || new Date().getFullYear(),
-      term: (initialData?.term || 1) as 1 | 2 | 3,
+      term: (initialData?.term || TermManager.getCurrentTerm()) as 1 | 2 | 3,
       is_on_transport: initialData?.is_on_transport || false,
       is_active: initialData?.is_active !== undefined ? initialData.is_active : true,
     },
@@ -106,7 +131,14 @@ export function StudentForm({ initialData, onSubmit, isSubmitting }: StudentForm
           is_active: data.is_active!,
           photo: data.photo || null,
         } as Omit<Student, 'id' | 'admission_number' | 'created_at' | 'updated_at'>;
+        
+        setSubmittedStudent(studentData);
         onSubmit(studentData);
+        
+        // Show print dialog after successful submission
+        if (!initialData) {
+          setShowPrintDialog(true);
+        }
       })} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <FormField
@@ -189,19 +221,36 @@ export function StudentForm({ initialData, onSubmit, isSubmitting }: StudentForm
               </FormItem>
             )}
           />
-          <FormField
-            control={form.control}
-            name="guardian_phone"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Guardian Phone</FormLabel>
-                <FormControl>
-                  <Input placeholder="+254712345678" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+            <FormField
+             control={form.control}
+             name="guardian_phone"
+             render={({ field }) => (
+               <FormItem>
+                 <FormLabel>Guardian Phone</FormLabel>
+                 <FormControl>
+                   <Input 
+                     placeholder="+254712345678" 
+                     {...field} 
+                     onChange={(e) => {
+                       field.onChange(e);
+                       handleGuardianPhoneChange(e.target.value);
+                     }}
+                   />
+                 </FormControl>
+                 <FormMessage />
+                 {detectedSiblings.length > 0 && (
+                   <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded">
+                     <p className="text-sm text-blue-700 font-medium">Siblings detected:</p>
+                     <ul className="text-xs text-blue-600">
+                       {detectedSiblings.map((sibling, index) => (
+                         <li key={index}>• {sibling.full_name} ({sibling.current_class_stream})</li>
+                       ))}
+                     </ul>
+                   </div>
+                 )}
+               </FormItem>
+             )}
+           />
           <FormField
             control={form.control}
             name="guardian_email"
@@ -364,10 +413,48 @@ export function StudentForm({ initialData, onSubmit, isSubmitting }: StudentForm
             )}
           />
         </div>
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Saving...' : 'Save Changes'}
-        </Button>
+        <div className="flex gap-4">
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Saving...' : 'Save Changes'}
+          </Button>
+          {submittedStudent && (
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => setShowPrintDialog(true)}
+              className="gap-2"
+            >
+              <Printer size={16} />
+              Print Admission Form
+            </Button>
+          )}
+        </div>
       </form>
+      
+      {/* Print Dialog */}
+      <Dialog open={showPrintDialog} onOpenChange={setShowPrintDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Printer size={20} />
+              Admission Form
+            </DialogTitle>
+          </DialogHeader>
+          {submittedStudent && (
+            <>
+              <AdmissionFormPrint student={submittedStudent} />
+              <div className="flex justify-end gap-2 mt-4 print:hidden">
+                <Button variant="outline" onClick={() => setShowPrintDialog(false)}>
+                  Close
+                </Button>
+                <Button onClick={() => window.print()}>
+                  Print
+                </Button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </Form>
   );
 }
