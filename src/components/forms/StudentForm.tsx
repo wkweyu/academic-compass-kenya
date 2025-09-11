@@ -5,19 +5,29 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Student } from '@/types/cbc';
+import { Student } from '@/types/student';
 
 const studentFormSchema = z.object({
   full_name: z.string().min(3, 'Full name must be at least 3 characters'),
   date_of_birth: z.string().refine((val) => !isNaN(Date.parse(val)), { message: 'Invalid date' }),
-  gender: z.enum(['M', 'F', 'O']),
+  gender: z.enum(['M', 'F']),
   guardian_name: z.string().min(3, 'Guardian name is required'),
   guardian_phone: z.string().min(10, 'Phone number must be at least 10 digits'),
   guardian_email: z.string().email('Invalid email address').optional().or(z.literal('')),
+  guardian_relationship: z.string().min(2, 'Guardian relationship is required'),
+  level: z.string().min(1, 'Level is required'),
+  academic_year: z.coerce.number().min(2020, 'Academic year must be valid'),
   enrollment_date: z.string().refine((val) => !isNaN(Date.parse(val)), { message: 'Invalid date' }),
-  status: z.enum(['active', 'inactive', 'graduated', 'transferred']),
-  current_class: z.string(), // We'll pass IDs as strings from the form
-  current_stream: z.string(),
+  status: z.enum(['active', 'inactive', 'graduated', 'transferred', 'suspended']),
+  current_class: z.coerce.number().min(1, 'Class is required'),
+  current_stream: z.coerce.number().min(1, 'Stream is required'),
+  current_class_name: z.string().min(1, 'Class name is required'),
+  current_stream_name: z.string().min(1, 'Stream name is required'),
+  current_class_stream: z.string().optional(),
+  admission_year: z.coerce.number().min(2020, 'Admission year must be valid'),
+  term: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+  is_on_transport: z.boolean().default(false),
+  is_active: z.boolean().default(true),
   photo: z.any().optional(),
 });
 
@@ -25,7 +35,7 @@ type StudentFormValues = z.infer<typeof studentFormSchema>;
 
 interface StudentFormProps {
   initialData?: Student;
-  onSubmit: (values: StudentFormValues) => void;
+  onSubmit: (values: Omit<Student, 'id' | 'admission_number' | 'created_at' | 'updated_at'>) => void;
   isSubmitting: boolean;
 }
 
@@ -39,16 +49,52 @@ export function StudentForm({ initialData, onSubmit, isSubmitting }: StudentForm
       guardian_name: initialData?.guardian_name || '',
       guardian_phone: initialData?.guardian_phone || '',
       guardian_email: initialData?.guardian_email || '',
-      enrollment_date: initialData?.enrollment_date ? new Date(initialData.enrollment_date).toISOString().split('T')[0] : '',
+      guardian_relationship: initialData?.guardian_relationship || 'Parent',
+      level: initialData?.level || 'Primary',
+      academic_year: initialData?.academic_year || new Date().getFullYear(),
+      enrollment_date: initialData?.enrollment_date ? new Date(initialData.enrollment_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
       status: initialData?.status || 'active',
-      current_class: initialData?.current_class?.toString() || '',
-      current_stream: initialData?.current_stream?.toString() || '',
+      current_class: initialData?.current_class || 1,
+      current_stream: initialData?.current_stream || 1,
+      current_class_name: initialData?.current_class_name || 'Grade 1',
+      current_stream_name: initialData?.current_stream_name || 'East',
+      current_class_stream: initialData?.current_class_stream || 'Grade 1 East',
+      admission_year: initialData?.admission_year || new Date().getFullYear(),
+      term: (initialData?.term || 1) as 1 | 2 | 3,
+      is_on_transport: initialData?.is_on_transport || false,
+      is_active: initialData?.is_active !== undefined ? initialData.is_active : true,
     },
   });
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit((data) => {
+        // Transform form data to required Student format
+        const studentData = {
+          full_name: data.full_name!,
+          date_of_birth: data.date_of_birth!,
+          gender: data.gender!,
+          guardian_name: data.guardian_name!,
+          guardian_phone: data.guardian_phone!,
+          guardian_email: data.guardian_email || undefined,
+          guardian_relationship: data.guardian_relationship!,
+          level: data.level!,
+          academic_year: data.academic_year!,
+          enrollment_date: data.enrollment_date!,
+          status: data.status!,
+          current_class: data.current_class!,
+          current_stream: data.current_stream!,
+          current_class_name: data.current_class_name!,
+          current_stream_name: data.current_stream_name!,
+          current_class_stream: `${data.current_class_name} ${data.current_stream_name}`,
+          admission_year: data.admission_year!,
+          term: data.term!,
+          is_on_transport: data.is_on_transport!,
+          is_active: data.is_active!,
+          photo: data.photo || null,
+        } as Omit<Student, 'id' | 'admission_number' | 'created_at' | 'updated_at'>;
+        onSubmit(studentData);
+      })} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <FormField
             control={form.control}
@@ -86,11 +132,10 @@ export function StudentForm({ initialData, onSubmit, isSubmitting }: StudentForm
                   <FormControl>
                     <SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger>
                   </FormControl>
-                  <SelectContent>
-                    <SelectItem value="M">Male</SelectItem>
-                    <SelectItem value="F">Female</SelectItem>
-                    <SelectItem value="O">Other</SelectItem>
-                  </SelectContent>
+                   <SelectContent>
+                     <SelectItem value="M">Male</SelectItem>
+                     <SelectItem value="F">Female</SelectItem>
+                   </SelectContent>
                 </Select>
                 <FormMessage />
               </FormItem>
@@ -106,12 +151,13 @@ export function StudentForm({ initialData, onSubmit, isSubmitting }: StudentForm
                   <FormControl>
                     <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
                   </FormControl>
-                  <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                    <SelectItem value="graduated">Graduated</SelectItem>
-                    <SelectItem value="transferred">Transferred</SelectItem>
-                  </SelectContent>
+                   <SelectContent>
+                     <SelectItem value="active">Active</SelectItem>
+                     <SelectItem value="inactive">Inactive</SelectItem>
+                     <SelectItem value="graduated">Graduated</SelectItem>
+                     <SelectItem value="transferred">Transferred</SelectItem>
+                     <SelectItem value="suspended">Suspended</SelectItem>
+                   </SelectContent>
                 </Select>
                 <FormMessage />
               </FormItem>
@@ -169,8 +215,147 @@ export function StudentForm({ initialData, onSubmit, isSubmitting }: StudentForm
               </FormItem>
             )}
           />
-          {/* Add fields for class and stream selection here */}
-          {/* These would likely be populated from an API */}
+          <FormField
+            control={form.control}
+            name="guardian_relationship"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Guardian Relationship</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger><SelectValue placeholder="Select relationship" /></SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="Parent">Parent</SelectItem>
+                    <SelectItem value="Father">Father</SelectItem>
+                    <SelectItem value="Mother">Mother</SelectItem>
+                    <SelectItem value="Guardian">Guardian</SelectItem>
+                    <SelectItem value="Grandparent">Grandparent</SelectItem>
+                    <SelectItem value="Uncle">Uncle</SelectItem>
+                    <SelectItem value="Aunt">Aunt</SelectItem>
+                    <SelectItem value="Sibling">Sibling</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="level"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Level</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger><SelectValue placeholder="Select level" /></SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="Primary">Primary</SelectItem>
+                    <SelectItem value="Secondary">Secondary</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="academic_year"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Academic Year</FormLabel>
+                <FormControl>
+                  <Input type="number" placeholder="2024" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="current_class_name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Class Name</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger><SelectValue placeholder="Select class" /></SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="Grade 1">Grade 1</SelectItem>
+                    <SelectItem value="Grade 2">Grade 2</SelectItem>
+                    <SelectItem value="Grade 3">Grade 3</SelectItem>
+                    <SelectItem value="Grade 4">Grade 4</SelectItem>
+                    <SelectItem value="Grade 5">Grade 5</SelectItem>
+                    <SelectItem value="Grade 6">Grade 6</SelectItem>
+                    <SelectItem value="Grade 7">Grade 7</SelectItem>
+                    <SelectItem value="Grade 8">Grade 8</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="current_stream_name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Stream Name</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger><SelectValue placeholder="Select stream" /></SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="East">East</SelectItem>
+                    <SelectItem value="West">West</SelectItem>
+                    <SelectItem value="North">North</SelectItem>
+                    <SelectItem value="South">South</SelectItem>
+                    <SelectItem value="Red">Red</SelectItem>
+                    <SelectItem value="Blue">Blue</SelectItem>
+                    <SelectItem value="Green">Green</SelectItem>
+                    <SelectItem value="Yellow">Yellow</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="admission_year"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Admission Year</FormLabel>
+                <FormControl>
+                  <Input type="number" placeholder="2024" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="term"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Current Term</FormLabel>
+                <Select onValueChange={(value) => field.onChange(parseInt(value) as 1 | 2 | 3)} defaultValue={field.value?.toString()}>
+                  <FormControl>
+                    <SelectTrigger><SelectValue placeholder="Select term" /></SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="1">Term 1</SelectItem>
+                    <SelectItem value="2">Term 2</SelectItem>
+                    <SelectItem value="3">Term 3</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? 'Saving...' : 'Save Changes'}

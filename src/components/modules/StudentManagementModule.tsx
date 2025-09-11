@@ -42,7 +42,9 @@ import {
   getImportTemplate
 } from '@/services/studentService';
 import { findExistingGuardian } from '@/services/guardianService';
+import { StudentForm } from '@/components/forms/StudentForm';
 import { Student, StudentFilters, STUDENT_STATUS_OPTIONS, GENDER_OPTIONS } from '@/types/student';
+
 
 const StudentManagementModule = () => {
   const [filters, setFilters] = useState<StudentFilters>({});
@@ -620,6 +622,44 @@ const StudentManagementModule = () => {
                 </div>
               </div>
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Student Dialog */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add New Student</DialogTitle>
+            <DialogDescription>
+              Enter student information to create a new student record
+            </DialogDescription>
+          </DialogHeader>
+          <StudentForm
+            onSubmit={(data) => createMutation.mutate(data)}
+            isSubmitting={createMutation.isPending}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Student Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Student</DialogTitle>
+            <DialogDescription>
+              Update student information
+            </DialogDescription>
+          </DialogHeader>
+          {selectedStudent && (
+            <StudentForm
+              initialData={selectedStudent}
+              onSubmit={(data) => updateMutation.mutate({ 
+                id: selectedStudent.id, 
+                data 
+              })}
+              isSubmitting={updateMutation.isPending}
+            />
           )}
         </DialogContent>
       </Dialog>
