@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block title %}Exams - CBC System{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto">
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-6 py-4 flex items-center justify-between border-b border-gray-200">
+            <h2 class="text-2xl font-bold text-gray-900">Exam List</h2>
+            <a href="{% url 'exams:exam_add' %}" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Add
+                Exam</a>
+        </div>
+
+        <div class="p-6">
+            <table class="min-w-full table-auto border border-gray-300">
+                <thead>
+                    <tr class="bg-gray-50">
+                        <th class="px-4 py-2 border">Exam Name</th>
+                        <th class="px-4 py-2 border">Term</th>
+                        <th class="px-4 py-2 border">Academic Year</th>
+                        <th class="px-4 py-2 border">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for exam in exams %}
+                    <tr>
+                        <td class="px-4 py-2 border">{{ exam.name }}</td>
+                        <td class="px-4 py-2 border">Term {{ exam.term }}</td>
+                        <td class="px-4 py-2 border">{{ exam.academic_year }}</td>
+                        <td class="px-4 py-2 border">
+                            <a href="{% url 'exams:exam_detail' exam.id %}"
+                                class="text-blue-600 hover:underline">Details</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="px-4 py-2 text-center text-gray-500">No exams created yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

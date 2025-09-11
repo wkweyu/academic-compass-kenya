@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block title %}Delete Subject - CBC System{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto">
+    <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+        <!-- Header -->
+        <div class="px-6 py-4 bg-red-100 border-b border-red-200">
+            <h2 class="text-xl font-bold text-red-800">Confirm Deletion</h2>
+        </div>
+
+        <!-- Content -->
+        <div class="px-6 py-6">
+            <p class="mb-4">Are you sure you want to delete the following subject?</p>
+
+            <div class="bg-gray-50 p-4 rounded-lg mb-6">
+                <h3 class="font-medium text-lg">{{ subject.name }} ({{ subject.code }})</h3>
+                <p class="text-gray-600">{{ subject.description|truncatewords:10 }}</p>
+            </div>
+
+            <p class="text-red-600 mb-6">This action cannot be undone. All related data will be permanently removed.</p>
+
+            <form method="post" class="flex justify-end space-x-3">
+                {% csrf_token %}
+                <a href="{% url 'subjects:subject_detail' subject.pk %}"
+                    class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors">
+                    Cancel
+                </a>
+                <button type="submit"
+                    class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors">
+                    Delete Subject
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

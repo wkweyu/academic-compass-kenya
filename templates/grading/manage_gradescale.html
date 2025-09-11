@@ -1,0 +1,40 @@
+<!-- templates/grading/manage_gradescale.html -->
+{% extends "base.html" %}
+{% block title %}Manage Grade Scale{% endblock %}
+
+{% block content %}
+<h2 class="text-2xl font-bold mb-4">Manage Grade Scale - {{ year }}</h2>
+
+<form method="post">
+    {% csrf_token %}
+    <table class="table-auto w-full border">
+        <thead class="bg-gray-100">
+            <tr>
+                <th>Grade</th>
+                <th>Min Score</th>
+                <th>Max Score</th>
+                <th>Points</th>
+                <th>Remarks</th>
+                <th>Delete?</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{ formset.management_form }}
+            {% for form in formset %}
+            <tr>
+                <td>{{ form.grade }}</td>
+                <td>{{ form.min_score }}</td>
+                <td>{{ form.max_score }}</td>
+                <td>{{ form.points }}</td>
+                <td>{{ form.remarks }}</td>
+                <td>{{ form.DELETE }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <button type="submit" class="mt-4 btn btn-primary">Save Changes</button>
+</form>
+
+<a href="{% url 'dashboard' %}" class="btn mt-4">← Back</a>
+{% endblock %}

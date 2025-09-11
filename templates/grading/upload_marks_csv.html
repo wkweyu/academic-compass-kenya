@@ -1,0 +1,20 @@
+<!-- templates/grading/upload_marks_csv.html -->
+{% extends "base.html" %}
+{% block title %}Upload Marks CSV{% endblock %}
+{% block content %}
+<h2 class="text-xl font-semibold">Import Marks for {{ exam }}</h2>
+
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary">Upload CSV</button>
+</form>
+
+<!-- grading/upload_marks_csv.html -->
+<a href="{% url 'grading:download_marks_template' exam.id %}" class="btn btn-secondary mt-2">
+    Download CSV Template
+</a>
+
+
+<p class="mt-4">Format: <code>admission_number,marks</code></p>
+{% endblock %}
