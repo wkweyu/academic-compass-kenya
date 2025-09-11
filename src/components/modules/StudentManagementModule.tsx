@@ -29,7 +29,7 @@ import {
   Calendar,
   UserCheck,
   FileText,
-  MoreHorizontal
+  Printer,
 } from 'lucide-react';
 import { 
   getStudents, 
@@ -44,6 +44,7 @@ import {
 } from '@/services/studentService';
 import { findExistingGuardian } from '@/services/guardianService';
 import { StudentForm } from '@/components/forms/StudentForm';
+import AdmissionFormPrint from '@/components/AdmissionFormPrint';
 import { Student, StudentFilters, STUDENT_STATUS_OPTIONS, GENDER_OPTIONS } from '@/types/student';
 
 
@@ -55,6 +56,8 @@ const StudentManagementModule = () => {
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [showPrintDialog, setShowPrintDialog] = useState(false);
+  const [printStudentData, setPrintStudentData] = useState<Omit<Student, 'id' | 'admission_number' | 'created_at' | 'updated_at'> | null>(null);
   
   const queryClient = useQueryClient();
 
@@ -75,11 +78,19 @@ const StudentManagementModule = () => {
   // Create student mutation
   const createMutation = useMutation({
     mutationFn: createStudent,
-    onSuccess: () => {
+    onSuccess: (createdStudent) => {
       queryClient.invalidateQueries({ queryKey: ['students'] });
       queryClient.invalidateQueries({ queryKey: ['student-stats'] });
       setIsCreateDialogOpen(false);
       toast.success('Student created successfully');
+      
+      // Show print dialog after successful creation
+      if (createdStudent) {
+        setTimeout(() => {
+          setPrintStudentData(createdStudent);
+          setShowPrintDialog(true);
+        }, 500);
+      }
     },
     onError: (error) => {
       toast.error('Failed to create student');
@@ -700,6 +711,96 @@ const StudentManagementModule = () => {
               Download Template
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Print Dialog */}
+      <Dialog open={showPrintDialog} onOpenChange={setShowPrintDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Printer className="h-5 w-5" />
+              Student Admission Form
+            </DialogTitle>
+            <div className="text-sm text-muted-foreground">
+              Review and print the admission form for this student
+            </div>
+          </DialogHeader>
+          {printStudentData && (
+            <div className="space-y-4">
+              <div id="admission-form-content">
+                <AdmissionFormPrint student={printStudentData} />
+              </div>
+              <div className="flex gap-2 justify-end pt-4 border-t">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowPrintDialog(false)}
+                >
+                  Close
+                </Button>
+                <Button 
+                  onClick={() => {
+                    const printContent = document.getElementById('admission-form-content');
+                    if (printContent) {
+                      const printWindow = window.open('', '_blank');
+                      if (printWindow) {
+                        printWindow.document.write(`
+                          <html>
+                            <head>
+                              <title>Admission Form - ${printStudentData.full_name}</title>
+                              <style>
+                                body { 
+                                  font-family: Arial, sans-serif; 
+                                  margin: 0; 
+                                  padding: 20px; 
+                                  background: white;
+                                  color: black;
+                                }
+                                .print-container { 
+                                  max-width: 800px; 
+                                  margin: 0 auto; 
+                                }
+                                @media print { 
+                                  body { 
+                                    margin: 0; 
+                                    padding: 10px; 
+                                  } 
+                                  .print-container {
+                                    max-width: none;
+                                  }
+                                }
+                                h1, h2, h3 { color: black !important; }
+                                .bg-gray-100 { background-color: #f3f4f6 !important; }
+                                .border-gray-300 { border-color: #d1d5db !important; }
+                                .border-gray-800 { border-color: #1f2937 !important; }
+                                .text-gray-600 { color: #4b5563 !important; }
+                                .text-gray-500 { color: #6b7280 !important; }
+                              </style>
+                            </head>
+                            <body>
+                              <div class="print-container">
+                                ${printContent.innerHTML}
+                              </div>
+                            </body>
+                          </html>
+                        `);
+                        printWindow.document.close();
+                        printWindow.focus();
+                        setTimeout(() => {
+                          printWindow.print();
+                          printWindow.close();
+                        }, 250);
+                      }
+                    }
+                  }}
+                  className="gap-2"
+                >
+                  <Printer size={16} />
+                  Print Form
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

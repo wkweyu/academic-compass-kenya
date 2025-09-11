@@ -47,10 +47,11 @@ type StudentFormValues = z.infer<typeof studentFormSchema>;
 interface StudentFormProps {
   initialData?: Student;
   onSubmit: (values: Omit<Student, 'id' | 'admission_number' | 'created_at' | 'updated_at'>) => void;
+  onSuccess?: () => void; // Callback for successful save
   isSubmitting: boolean;
 }
 
-export function StudentForm({ initialData, onSubmit, isSubmitting }: StudentFormProps) {
+export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: StudentFormProps) {
   const [showPrintDialog, setShowPrintDialog] = useState(false);
   const [submittedStudent, setSubmittedStudent] = useState<Omit<Student, 'id' | 'admission_number' | 'created_at' | 'updated_at'> | null>(null);
   const [potentialGuardians, setPotentialGuardians] = useState<Guardian[]>([]);
@@ -176,9 +177,9 @@ export function StudentForm({ initialData, onSubmit, isSubmitting }: StudentForm
         setSubmittedStudent(studentData);
         onSubmit(studentData);
         
-        // Show print dialog after successful submission
-        if (!initialData) {
-          setShowPrintDialog(true);
+        // Call success callback if provided
+        if (onSuccess) {
+          onSuccess();
         }
       })} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -471,17 +472,48 @@ export function StudentForm({ initialData, onSubmit, isSubmitting }: StudentForm
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? 'Saving...' : 'Save Changes'}
           </Button>
-          {submittedStudent && (
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => setShowPrintDialog(true)}
-              className="gap-2"
-            >
-              <Printer size={16} />
-              Print Admission Form
-            </Button>
-          )}
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={() => {
+              if (form.formState.isValid) {
+                const formData = form.getValues();
+                const studentData = {
+                  full_name: formData.full_name!,
+                  date_of_birth: formData.date_of_birth!,
+                  gender: formData.gender!,
+                  guardian_name: formData.guardian_name!,
+                  guardian_phone: formData.guardian_phone!,
+                  guardian_email: formData.guardian_email || undefined,
+                  guardian_relationship: formData.guardian_relationship!,
+                  level: formData.level!,
+                  academic_year: formData.academic_year!,
+                  enrollment_date: formData.enrollment_date!,
+                  status: formData.status!,
+                  current_class: formData.current_class!,
+                  current_stream: formData.current_stream!,
+                  current_class_name: formData.current_class_name!,
+                  current_stream_name: formData.current_stream_name!,
+                  current_class_stream: `${formData.current_class_name} ${formData.current_stream_name}`,
+                  admission_year: formData.admission_year!,
+                  term: formData.term!,
+                  is_on_transport: formData.is_on_transport!,
+                  is_active: formData.is_active!,
+                  photo: formData.photo || null,
+                } as Omit<Student, 'id' | 'admission_number' | 'created_at' | 'updated_at'>;
+                
+                setSubmittedStudent(studentData);
+                setShowPrintDialog(true);
+              } else {
+                toast.error('Please fill all required fields before printing');
+              }
+            }}
+            className="gap-2"
+            disabled={!form.formState.isValid}
+          >
+            <Printer size={16} />
+            Preview Admission Form
+          </Button>
         </div>
       </form>
       
@@ -490,22 +522,87 @@ export function StudentForm({ initialData, onSubmit, isSubmitting }: StudentForm
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Printer size={20} />
-              Admission Form
+              <Printer className="h-5 w-5" />
+              Student Admission Form
             </DialogTitle>
+            <div className="text-sm text-muted-foreground">
+              Review and print the admission form for this student
+            </div>
           </DialogHeader>
           {submittedStudent && (
-            <>
-              <AdmissionFormPrint student={submittedStudent} />
-              <div className="flex justify-end gap-2 mt-4 print:hidden">
-                <Button variant="outline" onClick={() => setShowPrintDialog(false)}>
+            <div className="space-y-4">
+              <div id="admission-form-content">
+                <AdmissionFormPrint student={submittedStudent} />
+              </div>
+              <div className="flex gap-2 justify-end pt-4 border-t">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowPrintDialog(false)}
+                >
                   Close
                 </Button>
-                <Button onClick={() => window.print()}>
-                  Print
+                <Button 
+                  onClick={() => {
+                    const printContent = document.getElementById('admission-form-content');
+                    if (printContent) {
+                      const printWindow = window.open('', '_blank');
+                      if (printWindow) {
+                        printWindow.document.write(`
+                          <html>
+                            <head>
+                              <title>Admission Form - ${submittedStudent.full_name}</title>
+                              <style>
+                                body { 
+                                  font-family: Arial, sans-serif; 
+                                  margin: 0; 
+                                  padding: 20px; 
+                                  background: white;
+                                  color: black;
+                                }
+                                .print-container { 
+                                  max-width: 800px; 
+                                  margin: 0 auto; 
+                                }
+                                @media print { 
+                                  body { 
+                                    margin: 0; 
+                                    padding: 10px; 
+                                  } 
+                                  .print-container {
+                                    max-width: none;
+                                  }
+                                }
+                                h1, h2, h3 { color: black !important; }
+                                .bg-gray-100 { background-color: #f3f4f6 !important; }
+                                .border-gray-300 { border-color: #d1d5db !important; }
+                                .border-gray-800 { border-color: #1f2937 !important; }
+                                .text-gray-600 { color: #4b5563 !important; }
+                                .text-gray-500 { color: #6b7280 !important; }
+                              </style>
+                            </head>
+                            <body>
+                              <div class="print-container">
+                                ${printContent.innerHTML}
+                              </div>
+                            </body>
+                          </html>
+                        `);
+                        printWindow.document.close();
+                        printWindow.focus();
+                        setTimeout(() => {
+                          printWindow.print();
+                          printWindow.close();
+                        }, 250);
+                      }
+                    }
+                  }}
+                  className="gap-2"
+                >
+                  <Printer size={16} />
+                  Print Form
                 </Button>
               </div>
-            </>
+            </div>
           )}
         </DialogContent>
       </Dialog>
