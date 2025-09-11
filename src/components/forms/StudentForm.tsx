@@ -6,6 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Student } from '@/types/student';
+import { Class, Stream } from '@/types/class';
+import { useQuery } from '@tanstack/react-query';
+import { classService } from '@/services/classService';
 
 const studentFormSchema = z.object({
   full_name: z.string().min(3, 'Full name must be at least 3 characters'),
@@ -40,6 +43,16 @@ interface StudentFormProps {
 }
 
 export function StudentForm({ initialData, onSubmit, isSubmitting }: StudentFormProps) {
+  const { data: classes = [] } = useQuery({
+    queryKey: ['classes'],
+    queryFn: () => classService.getClasses(),
+  });
+
+  const { data: streams = [] } = useQuery({
+    queryKey: ['streams'],
+    queryFn: () => classService.getStreams(),
+  });
+
   const form = useForm<StudentFormValues>({
     resolver: zodResolver(studentFormSchema),
     defaultValues: {
@@ -284,14 +297,11 @@ export function StudentForm({ initialData, onSubmit, isSubmitting }: StudentForm
                     <SelectTrigger><SelectValue placeholder="Select class" /></SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="Grade 1">Grade 1</SelectItem>
-                    <SelectItem value="Grade 2">Grade 2</SelectItem>
-                    <SelectItem value="Grade 3">Grade 3</SelectItem>
-                    <SelectItem value="Grade 4">Grade 4</SelectItem>
-                    <SelectItem value="Grade 5">Grade 5</SelectItem>
-                    <SelectItem value="Grade 6">Grade 6</SelectItem>
-                    <SelectItem value="Grade 7">Grade 7</SelectItem>
-                    <SelectItem value="Grade 8">Grade 8</SelectItem>
+                    {classes.map((classItem: Class) => (
+                      <SelectItem key={classItem.id} value={classItem.name}>
+                        {classItem.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -309,14 +319,11 @@ export function StudentForm({ initialData, onSubmit, isSubmitting }: StudentForm
                     <SelectTrigger><SelectValue placeholder="Select stream" /></SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="East">East</SelectItem>
-                    <SelectItem value="West">West</SelectItem>
-                    <SelectItem value="North">North</SelectItem>
-                    <SelectItem value="South">South</SelectItem>
-                    <SelectItem value="Red">Red</SelectItem>
-                    <SelectItem value="Blue">Blue</SelectItem>
-                    <SelectItem value="Green">Green</SelectItem>
-                    <SelectItem value="Yellow">Yellow</SelectItem>
+                    {streams.map((stream: Stream) => (
+                      <SelectItem key={stream.id} value={stream.name}>
+                        {stream.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <FormMessage />

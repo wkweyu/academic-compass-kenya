@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -47,6 +48,7 @@ import { Student, StudentFilters, STUDENT_STATUS_OPTIONS, GENDER_OPTIONS } from 
 
 
 const StudentManagementModule = () => {
+  const navigate = useNavigate();
   const [filters, setFilters] = useState<StudentFilters>({});
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -142,16 +144,8 @@ const StudentManagementModule = () => {
     }));
   };
 
-  const handleViewStudent = async (studentId: string) => {
-    try {
-      const student = await getStudentById(studentId);
-      if (student) {
-        setSelectedStudent(student);
-        setIsDetailsDialogOpen(true);
-      }
-    } catch (error) {
-      toast.error('Failed to load student details');
-    }
+  const handleViewStudent = (studentId: string) => {
+    navigate(`/students/${studentId}`);
   };
 
   const handleEditStudent = async (studentId: string) => {
