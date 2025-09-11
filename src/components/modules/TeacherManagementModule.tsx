@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Staff, StaffStats, StaffFilters, DEPARTMENTS, EMPLOYMENT_TYPES, STAFF_STATUS_OPTIONS, STAFF_CATEGORIES } from '@/types/teacher';
 import { staffService } from '@/services/teacherService';
+import { StaffForm } from '@/components/forms/StaffForm';
 import { DeleteConfirmationDialog } from '@/components/ui/DeleteConfirmationDialog';
 
 export const TeacherManagementModule = () => {
