@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Users, DollarSign, Calendar, Filter, Edit, Trash2, Eye, UserCheck, FileText } from 'lucide-react';
+import { Plus, Search, Users, DollarSign, Calendar, Filter, Edit, Trash2, Eye, UserCheck, FileText, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,7 +12,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Staff, StaffStats, StaffFilters, DEPARTMENTS, EMPLOYMENT_TYPES, STAFF_STATUS_OPTIONS, STAFF_CATEGORIES } from '@/types/teacher';
 import { staffService } from '@/services/teacherService';
 import { StaffForm } from '@/components/forms/StaffForm';
-import { TeachingAssignmentsTab } from '@/components/modules/TeachingAssignmentsTab';
 import { DeleteConfirmationDialog } from '@/components/ui/DeleteConfirmationDialog';
 
 export const TeacherManagementModule = () => {
@@ -389,7 +388,19 @@ export const TeacherManagementModule = () => {
         </TabsContent>
 
         <TabsContent value="assignments" className="space-y-4">
-          <TeachingAssignmentsTab />
+          <Card>
+            <CardHeader>
+              <CardTitle>Teaching Assignments</CardTitle>
+              <CardDescription>Assign teachers to subjects and classes</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-8 text-muted-foreground">
+                <BookOpen className="h-12 w-12 mx-auto mb-4" />
+                <p>Teaching assignment functionality is being set up...</p>
+                <p className="text-sm mt-2">This will allow you to assign teachers to specific subjects and classes.</p>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="payroll" className="space-y-4">

@@ -30,7 +30,7 @@ interface TeachingAssignment {
   created_at: string;
 }
 
-export const TeachingAssignmentsTab = () => {
+export function TeachingAssignmentsTab() {
   const { toast } = useToast();
   const [assignments, setAssignments] = useState<TeachingAssignment[]>([]);
   const [loading, setLoading] = useState(false);
@@ -383,4 +383,4 @@ export const TeachingAssignmentsTab = () => {
       </CardContent>
     </Card>
   );
-};
+}
