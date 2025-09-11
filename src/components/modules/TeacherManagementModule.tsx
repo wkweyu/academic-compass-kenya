@@ -55,6 +55,24 @@ export const TeacherManagementModule = () => {
     }
   };
 
+  const handleCreateStaff = async (data: Omit<Staff, 'id' | 'created_at' | 'updated_at' | 'full_name' | 'years_of_service' | 'gross_salary'>) => {
+    try {
+      await staffService.createStaff(data);
+      toast({
+        title: "Success",
+        description: "Staff member created successfully",
+      });
+      setIsCreateStaffOpen(false);
+      loadData();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create staff member",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleDeleteStaff = async (id: number) => {
     try {
       await staffService.deleteStaff(id);
@@ -129,9 +147,10 @@ export const TeacherManagementModule = () => {
                   Enter staff details for HR and payroll records (Teachers, Admin, Support, etc.).
                 </DialogDescription>
               </DialogHeader>
-              <div className="text-center py-8 text-muted-foreground">
-                Staff form component will be implemented next...
-              </div>
+              <StaffForm
+                onSubmit={handleCreateStaff}
+                onCancel={() => setIsCreateStaffOpen(false)}
+              />
             </DialogContent>
           </Dialog>
         </div>
