@@ -7,6 +7,7 @@ import {
   BarChart3, 
   FileText,
   Users,
+  UserCheck,
   Settings,
   Menu,
   School
@@ -26,6 +27,7 @@ interface MainLayoutProps {
 const navigation = [
   { id: 'dashboard', name: 'Dashboard', icon: BarChart3, path: '/dashboard' },
   { id: 'students', name: 'Students', icon: Users, path: '/students' },
+  { id: 'teachers', name: 'Teachers', icon: UserCheck, path: '/teachers' },
   { id: 'classes', name: 'Classes', icon: School, path: '/classes' },
   { id: 'exams', name: 'Exam Management', icon: ClipboardList, path: '/exams' },
   { id: 'subjects', name: 'Subject Management', icon: BookOpen, path: '/subjects' },
