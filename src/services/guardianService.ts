@@ -49,6 +49,21 @@ const mockGuardians: Guardian[] = [
     created_at: '2023-01-10T08:00:00Z',
     updated_at: '2024-01-15T12:00:00Z',
   },
+  {
+    id: '4',
+    name: 'Mary Johnson',
+    phone: '0755123456',
+    email: 'mary.johnson@example.com',
+    address: '321 Elm Street, Nairobi',
+    national_id: '31234567',
+    occupation: 'Doctor',
+    students: ['4', '5'],
+    primary_relationship: 'Mother',
+    preferred_contact_method: 'phone',
+    emergency_contact: true,
+    created_at: '2023-01-10T08:00:00Z',
+    updated_at: '2024-01-15T12:00:00Z',
+  },
 ];
 
 const mockGuardianStudents: GuardianStudent[] = [
@@ -189,6 +204,18 @@ export const getSiblings = async (studentId: string): Promise<Student[]> => {
   // This would normally fetch students from the student service
   // For now, returning empty array
   return [];
+};
+
+export const findPotentialSiblings = async (guardianName: string, guardianPhone: string): Promise<Guardian[]> => {
+  await delay(200);
+  
+  // Search for guardians with matching name or phone
+  const matches = mockGuardians.filter(guardian => 
+    guardian.name.toLowerCase() === guardianName.toLowerCase() || 
+    guardian.phone === guardianPhone
+  );
+  
+  return matches;
 };
 
 export const getFamilyGroups = async (): Promise<SiblingGroup[]> => {

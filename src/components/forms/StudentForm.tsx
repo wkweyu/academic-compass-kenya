@@ -10,11 +10,13 @@ import { Class, Stream } from '@/types/class';
 import { useQuery } from '@tanstack/react-query';
 import { classService } from '@/services/classService';
 import { TermManager } from '@/utils/termManager';
-import { getSiblings } from '@/services/guardianService';
+import { getSiblings, findPotentialSiblings, findExistingGuardian } from '@/services/guardianService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import AdmissionFormPrint from '@/components/AdmissionFormPrint';
-import { useState } from 'react';
-import { Printer } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Printer, Users, CheckCircle, X } from 'lucide-react';
+import { Guardian } from '@/types/guardian';
+import { toast } from 'sonner';
 
 const studentFormSchema = z.object({
   full_name: z.string().min(3, 'Full name must be at least 3 characters'),
@@ -51,7 +53,10 @@ interface StudentFormProps {
 export function StudentForm({ initialData, onSubmit, isSubmitting }: StudentFormProps) {
   const [showPrintDialog, setShowPrintDialog] = useState(false);
   const [submittedStudent, setSubmittedStudent] = useState<Omit<Student, 'id' | 'admission_number' | 'created_at' | 'updated_at'> | null>(null);
-  const [detectedSiblings, setDetectedSiblings] = useState<Student[]>([]);
+  const [potentialGuardians, setPotentialGuardians] = useState<Guardian[]>([]);
+  const [showSiblingConfirmation, setShowSiblingConfirmation] = useState(false);
+  const [selectedGuardian, setSelectedGuardian] = useState<Guardian | null>(null);
+  const [isCheckingForSiblings, setIsCheckingForSiblings] = useState(false);
 
   const { data: classes = [] } = useQuery({
     queryKey: ['classes'],
@@ -63,19 +68,55 @@ export function StudentForm({ initialData, onSubmit, isSubmitting }: StudentForm
     queryFn: () => classService.getStreams(),
   });
 
-  // Detect siblings when guardian phone changes
-  const handleGuardianPhoneChange = async (phone: string) => {
-    if (phone.length >= 10) {
+  // Detect potential siblings when guardian info changes
+  const checkForPotentialSiblings = async (name: string, phone: string) => {
+    if (name.length >= 3 && phone.length >= 10) {
+      setIsCheckingForSiblings(true);
       try {
-        // In real implementation, this would call an API to find students with same guardian phone
-        const siblings = await getSiblings('temp'); // Mock for now
-        setDetectedSiblings(siblings);
+        const matches = await findPotentialSiblings(name, phone);
+        if (matches.length > 0) {
+          setPotentialGuardians(matches);
+          setShowSiblingConfirmation(true);
+        } else {
+          setPotentialGuardians([]);
+        }
       } catch (error) {
-        console.error('Error detecting siblings:', error);
+        console.error('Error checking for siblings:', error);
+      } finally {
+        setIsCheckingForSiblings(false);
       }
     } else {
-      setDetectedSiblings([]);
+      setPotentialGuardians([]);
     }
+  };
+
+  const handleGuardianInfoChange = () => {
+    const guardianName = form.getValues('guardian_name');
+    const guardianPhone = form.getValues('guardian_phone');
+    
+    if (guardianName && guardianPhone) {
+      checkForPotentialSiblings(guardianName, guardianPhone);
+    }
+  };
+
+  const confirmGuardianSelection = (guardian: Guardian) => {
+    setSelectedGuardian(guardian);
+    
+    // Auto-populate guardian information
+    form.setValue('guardian_name', guardian.name);
+    form.setValue('guardian_phone', guardian.phone);
+    form.setValue('guardian_email', guardian.email || '');
+    
+    setShowSiblingConfirmation(false);
+    setPotentialGuardians([]);
+    
+    toast.success(`Guardian information loaded! This student will be linked as a sibling to ${guardian.students.length} other student(s).`);
+  };
+
+  const rejectGuardianMatch = () => {
+    setShowSiblingConfirmation(false);
+    setPotentialGuardians([]);
+    setSelectedGuardian(null);
   };
 
   const form = useForm<StudentFormValues>({
@@ -212,13 +253,26 @@ export function StudentForm({ initialData, onSubmit, isSubmitting }: StudentForm
             control={form.control}
             name="guardian_name"
             render={({ field }) => (
-              <FormItem>
-                <FormLabel>Guardian Name</FormLabel>
-                <FormControl>
-                  <Input placeholder="e.g., Jane Doe" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
+                <FormItem>
+                  <FormLabel>Guardian Name</FormLabel>
+                  <FormControl>
+                    <Input 
+                      placeholder="e.g., Jane Doe" 
+                      {...field} 
+                      onChange={(e) => {
+                        field.onChange(e);
+                        handleGuardianInfoChange();
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                  {isCheckingForSiblings && (
+                    <div className="text-xs text-muted-foreground flex items-center gap-1">
+                      <div className="animate-spin rounded-full h-3 w-3 border-b border-primary"></div>
+                      Checking for existing guardian...
+                    </div>
+                  )}
+                </FormItem>
             )}
           />
             <FormField
@@ -228,26 +282,26 @@ export function StudentForm({ initialData, onSubmit, isSubmitting }: StudentForm
                <FormItem>
                  <FormLabel>Guardian Phone</FormLabel>
                  <FormControl>
-                   <Input 
-                     placeholder="+254712345678" 
-                     {...field} 
-                     onChange={(e) => {
-                       field.onChange(e);
-                       handleGuardianPhoneChange(e.target.value);
-                     }}
-                   />
-                 </FormControl>
-                 <FormMessage />
-                 {detectedSiblings.length > 0 && (
-                   <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded">
-                     <p className="text-sm text-blue-700 font-medium">Siblings detected:</p>
-                     <ul className="text-xs text-blue-600">
-                       {detectedSiblings.map((sibling, index) => (
-                         <li key={index}>• {sibling.full_name} ({sibling.current_class_stream})</li>
-                       ))}
-                     </ul>
-                   </div>
-                 )}
+                    <Input 
+                      placeholder="+254712345678" 
+                      {...field} 
+                      onChange={(e) => {
+                        field.onChange(e);
+                        handleGuardianInfoChange();
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                  {selectedGuardian && (
+                    <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <p className="text-sm text-green-700 font-medium">
+                          Guardian linked! This student will be a sibling to {selectedGuardian.students.length} other student(s).
+                        </p>
+                      </div>
+                    </div>
+                  )}
                </FormItem>
              )}
            />
@@ -453,6 +507,53 @@ export function StudentForm({ initialData, onSubmit, isSubmitting }: StudentForm
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Sibling Confirmation Dialog */}
+      <Dialog open={showSiblingConfirmation} onOpenChange={setShowSiblingConfirmation}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Guardian Match Found
+            </DialogTitle>
+            <div className="text-sm text-muted-foreground">
+              We found existing guardian(s) with matching information. 
+              Would you like to link this student as a sibling?
+            </div>
+          </DialogHeader>
+          <div className="space-y-3">
+            {potentialGuardians.map((guardian) => (
+              <div key={guardian.id} className="p-3 border rounded-lg">
+                <div className="font-medium">{guardian.name}</div>
+                <div className="text-sm text-muted-foreground">{guardian.phone}</div>
+                {guardian.email && (
+                  <div className="text-sm text-muted-foreground">{guardian.email}</div>
+                )}
+                <div className="text-xs text-blue-600 mt-1">
+                  Has {guardian.students.length} student(s) registered
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <Button
+                    size="sm"
+                    onClick={() => confirmGuardianSelection(guardian)}
+                    className="flex-1"
+                  >
+                    Link as Sibling
+                  </Button>
+                </div>
+              </div>
+            ))}
+            <Button
+              variant="outline"
+              onClick={rejectGuardianMatch}
+              className="w-full flex items-center gap-2"
+            >
+              <X className="h-4 w-4" />
+              Use New Guardian Record
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </Form>
