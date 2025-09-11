@@ -9,19 +9,19 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Teacher, TeacherStats, TeacherFilters, DEPARTMENTS, EMPLOYMENT_TYPES, TEACHER_STATUS_OPTIONS } from '@/types/teacher';
-import { teacherService } from '@/services/teacherService';
+import { Staff, StaffStats, StaffFilters, DEPARTMENTS, EMPLOYMENT_TYPES, STAFF_STATUS_OPTIONS, STAFF_CATEGORIES } from '@/types/teacher';
+import { staffService } from '@/services/teacherService';
 import { DeleteConfirmationDialog } from '@/components/ui/DeleteConfirmationDialog';
 
 export const TeacherManagementModule = () => {
   const { toast } = useToast();
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
-  const [stats, setStats] = useState<TeacherStats | null>(null);
+  const [staff, setStaff] = useState<Staff[]>([]);
+  const [stats, setStats] = useState<StaffStats | null>(null);
   const [loading, setLoading] = useState(false);
-  const [filters, setFilters] = useState<TeacherFilters>({});
-  const [isCreateTeacherOpen, setIsCreateTeacherOpen] = useState(false);
-  const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
-  const [deleteTeacherId, setDeleteTeacherId] = useState<number | null>(null);
+  const [filters, setFilters] = useState<StaffFilters>({});
+  const [isCreateStaffOpen, setIsCreateStaffOpen] = useState(false);
+  const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
+  const [deleteStaffId, setDeleteStaffId] = useState<number | null>(null);
 
   useEffect(() => {
     loadData();
@@ -30,17 +30,17 @@ export const TeacherManagementModule = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [teacherData, statsData] = await Promise.all([
-        teacherService.getTeachers(filters),
-        teacherService.getTeacherStats()
+      const [staffData, statsData] = await Promise.all([
+        staffService.getStaff(filters),
+        staffService.getStaffStats()
       ]);
       
-      setTeachers(teacherData);
+      setStaff(staffData);
       setStats(statsData);
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to load teacher data",
+        description: "Failed to load staff data",
         variant: "destructive",
       });
     } finally {
@@ -48,28 +48,39 @@ export const TeacherManagementModule = () => {
     }
   };
 
-  const handleDeleteTeacher = async (id: number) => {
+  const handleDeleteStaff = async (id: number) => {
     try {
-      await teacherService.deleteTeacher(id);
+      await staffService.deleteStaff(id);
       toast({
         title: "Success",
-        description: "Teacher deleted successfully",
+        description: "Staff member deleted successfully",
       });
       loadData();
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to delete teacher",
+        description: "Failed to delete staff member",
         variant: "destructive",
       });
     } finally {
-      setDeleteTeacherId(null);
+      setDeleteStaffId(null);
     }
   };
 
   const getStatusColor = (status: string) => {
-    const statusOption = TEACHER_STATUS_OPTIONS.find(s => s.value === status);
+    const statusOption = STAFF_STATUS_OPTIONS.find(s => s.value === status);
     return statusOption?.color || 'bg-gray-100 text-gray-800';
+  };
+
+  const getCategoryColor = (category: string) => {
+    const colors: { [key: string]: string } = {
+      'Teaching Staff': 'bg-blue-100 text-blue-800',
+      'Administrative Staff': 'bg-purple-100 text-purple-800',
+      'Support Staff': 'bg-green-100 text-green-800',
+      'Security Staff': 'bg-orange-100 text-orange-800',
+      'Maintenance Staff': 'bg-yellow-100 text-yellow-800',
+    };
+    return colors[category] || 'bg-gray-100 text-gray-800';
   };
 
   const formatCurrency = (amount: number) => {
@@ -85,9 +96,9 @@ export const TeacherManagementModule = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Teacher Management</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Staff Management</h1>
           <p className="text-muted-foreground">
-            Manage teacher records, assignments, and payroll
+            Manage all staff records, assignments, and payroll (Teachers & Support Staff)
           </p>
         </div>
         
@@ -97,22 +108,22 @@ export const TeacherManagementModule = () => {
             Reports
           </Button>
           
-          <Dialog open={isCreateTeacherOpen} onOpenChange={setIsCreateTeacherOpen}>
+          <Dialog open={isCreateStaffOpen} onOpenChange={setIsCreateStaffOpen}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
-                Add Teacher
+                Add Staff Member
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-4xl">
               <DialogHeader>
-                <DialogTitle>Add New Teacher</DialogTitle>
+                <DialogTitle>Add New Staff Member</DialogTitle>
                 <DialogDescription>
-                  Enter teacher details for HR and payroll records.
+                  Enter staff details for HR and payroll records (Teachers, Admin, Support, etc.).
                 </DialogDescription>
               </DialogHeader>
               <div className="text-center py-8 text-muted-foreground">
-                Teacher form component will be implemented next...
+                Staff form component will be implemented next...
               </div>
             </DialogContent>
           </Dialog>
@@ -124,13 +135,13 @@ export const TeacherManagementModule = () => {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Teachers</CardTitle>
+              <CardTitle className="text-sm font-medium">Total Staff</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.total_teachers}</div>
+              <div className="text-2xl font-bold">{stats.total_staff}</div>
               <p className="text-xs text-muted-foreground">
-                {stats.active_teachers} active
+                {stats.active_staff} active
               </p>
             </CardContent>
           </Card>
@@ -167,7 +178,7 @@ export const TeacherManagementModule = () => {
               <UserCheck className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.teachers_on_leave}</div>
+              <div className="text-2xl font-bold">{stats.staff_on_leave}</div>
               <p className="text-xs text-muted-foreground">
                 Currently away
               </p>
@@ -177,31 +188,51 @@ export const TeacherManagementModule = () => {
       )}
 
       {/* Main Content */}
-      <Tabs defaultValue="teachers" className="space-y-4">
+      <Tabs defaultValue="staff" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="teachers">Teachers</TabsTrigger>
-          <TabsTrigger value="assignments">Assignments</TabsTrigger>
+          <TabsTrigger value="staff">All Staff</TabsTrigger>
+          <TabsTrigger value="assignments">Teaching Assignments</TabsTrigger>
           <TabsTrigger value="payroll">Payroll</TabsTrigger>
           <TabsTrigger value="attendance">Attendance</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="teachers" className="space-y-4">
+        <TabsContent value="staff" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Teacher Records</CardTitle>
-              <CardDescription>Manage teacher personal and employment information</CardDescription>
+              <CardTitle>Staff Records</CardTitle>
+              <CardDescription>Manage all staff personal and employment information</CardDescription>
             </CardHeader>
             <CardContent>
               {/* Filters */}
-              <div className="flex gap-4 mb-6">
-                <div className="flex-1">
+              <div className="flex gap-4 mb-6 flex-wrap">
+                <div className="flex-1 min-w-64">
                   <Input
-                    placeholder="Search teachers..."
+                    placeholder="Search staff..."
                     value={filters.search || ''}
                     onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
                     className="max-w-sm"
                   />
                 </div>
+                
+                <Select
+                  value={filters.staff_category || 'all'}
+                  onValueChange={(value) => setFilters(prev => ({ 
+                    ...prev, 
+                    staff_category: value === 'all' ? undefined : value 
+                  }))}
+                >
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="All Categories" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {STAFF_CATEGORIES.map((category) => (
+                      <SelectItem key={category.value} value={category.value}>
+                        {category.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 
                 <Select
                   value={filters.department || 'all'}
@@ -255,7 +286,7 @@ export const TeacherManagementModule = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Statuses</SelectItem>
-                    {TEACHER_STATUS_OPTIONS.map((status) => (
+                    {STAFF_STATUS_OPTIONS.map((status) => (
                       <SelectItem key={status.value} value={status.value}>
                         {status.label}
                       </SelectItem>
@@ -264,12 +295,13 @@ export const TeacherManagementModule = () => {
                 </Select>
               </div>
 
-              {/* Teachers Table */}
+              {/* Staff Table */}
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Employee No.</TableHead>
                     <TableHead>Name</TableHead>
+                    <TableHead>Category</TableHead>
                     <TableHead>Department</TableHead>
                     <TableHead>Job Title</TableHead>
                     <TableHead>Employment Type</TableHead>
@@ -279,24 +311,29 @@ export const TeacherManagementModule = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {teachers.map((teacher) => (
-                    <TableRow key={teacher.id}>
-                      <TableCell className="font-medium">{teacher.employee_no}</TableCell>
+                  {staff.map((member) => (
+                    <TableRow key={member.id}>
+                      <TableCell className="font-medium">{member.employee_no}</TableCell>
                       <TableCell>
                         <div>
-                          <div className="font-medium">{teacher.full_name}</div>
-                          <div className="text-sm text-muted-foreground">{teacher.email}</div>
+                          <div className="font-medium">{member.full_name}</div>
+                          <div className="text-sm text-muted-foreground">{member.email}</div>
                         </div>
                       </TableCell>
-                      <TableCell>{teacher.department}</TableCell>
-                      <TableCell>{teacher.job_title}</TableCell>
                       <TableCell>
-                        <Badge variant="secondary">{teacher.employment_type}</Badge>
+                        <Badge className={getCategoryColor(member.staff_category)}>
+                          {member.staff_category}
+                        </Badge>
                       </TableCell>
-                      <TableCell>{formatCurrency(teacher.gross_salary || 0)}</TableCell>
+                      <TableCell>{member.department}</TableCell>
+                      <TableCell>{member.job_title}</TableCell>
                       <TableCell>
-                        <Badge className={getStatusColor(teacher.status)}>
-                          {teacher.status}
+                        <Badge variant="secondary">{member.employment_type}</Badge>
+                      </TableCell>
+                      <TableCell>{formatCurrency(member.gross_salary || 0)}</TableCell>
+                      <TableCell>
+                        <Badge className={getStatusColor(member.status)}>
+                          {member.status}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -310,7 +347,7 @@ export const TeacherManagementModule = () => {
                           <Button 
                             variant="ghost" 
                             size="sm"
-                            onClick={() => setDeleteTeacherId(teacher.id)}
+                            onClick={() => setDeleteStaffId(member.id)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -327,12 +364,12 @@ export const TeacherManagementModule = () => {
         <TabsContent value="assignments" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Subject & Class Assignments</CardTitle>
+              <CardTitle>Teaching Assignments</CardTitle>
               <CardDescription>Manage teacher assignments to subjects and classes</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="text-center py-8 text-muted-foreground">
-                Assignment management will be implemented next...
+                Teaching assignment management will be implemented next...
               </div>
             </CardContent>
           </Card>
@@ -342,7 +379,7 @@ export const TeacherManagementModule = () => {
           <Card>
             <CardHeader>
               <CardTitle>Payroll Management</CardTitle>
-              <CardDescription>Process monthly payroll and generate payslips</CardDescription>
+              <CardDescription>Process monthly payroll and generate payslips for all staff</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="text-center py-8 text-muted-foreground">
@@ -355,8 +392,8 @@ export const TeacherManagementModule = () => {
         <TabsContent value="attendance" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Teacher Attendance</CardTitle>
-              <CardDescription>Track daily attendance and leave management</CardDescription>
+              <CardTitle>Staff Attendance</CardTitle>
+              <CardDescription>Track daily attendance and leave management for all staff</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="text-center py-8 text-muted-foreground">
@@ -369,11 +406,11 @@ export const TeacherManagementModule = () => {
 
       {/* Delete Confirmation Dialog */}
       <DeleteConfirmationDialog
-        isOpen={deleteTeacherId !== null}
-        onOpenChange={(isOpen) => !isOpen && setDeleteTeacherId(null)}
-        onConfirm={() => deleteTeacherId && handleDeleteTeacher(deleteTeacherId)}
-        title="Delete Teacher"
-        description="This will permanently remove the teacher record. This action cannot be undone."
+        isOpen={deleteStaffId !== null}
+        onOpenChange={(isOpen) => !isOpen && setDeleteStaffId(null)}
+        onConfirm={() => deleteStaffId && handleDeleteStaff(deleteStaffId)}
+        title="Delete Staff Member"
+        description="This will permanently remove the staff record. This action cannot be undone."
       />
     </div>
   );
