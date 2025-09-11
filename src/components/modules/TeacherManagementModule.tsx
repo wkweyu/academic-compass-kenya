@@ -14,6 +14,7 @@ import { staffService } from '@/services/teacherService';
 import { DeleteConfirmationDialog } from '@/components/ui/DeleteConfirmationDialog';
 
 export const TeacherManagementModule = () => {
+  console.log('TeacherManagementModule rendering...');
   const { toast } = useToast();
   const [staff, setStaff] = useState<Staff[]>([]);
   const [stats, setStats] = useState<StaffStats | null>(null);
@@ -28,6 +29,7 @@ export const TeacherManagementModule = () => {
   }, [filters]);
 
   const loadData = async () => {
+    console.log('Loading staff data...');
     setLoading(true);
     try {
       const [staffData, statsData] = await Promise.all([
@@ -35,9 +37,13 @@ export const TeacherManagementModule = () => {
         staffService.getStaffStats()
       ]);
       
+      console.log('Staff data loaded:', staffData.length, 'staff members');
+      console.log('Stats loaded:', statsData);
+      
       setStaff(staffData);
       setStats(statsData);
     } catch (error) {
+      console.error('Error loading staff data:', error);
       toast({
         title: "Error",
         description: "Failed to load staff data",
