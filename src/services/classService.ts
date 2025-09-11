@@ -166,6 +166,16 @@ export const classService = {
 
   async createClass(data: Omit<Class, 'id' | 'created_at' | 'total_streams' | 'total_students' | 'capacity'>): Promise<Class> {
     await apiDelay();
+    
+    // Check for duplicate class name
+    const existingClass = mockClasses.find(cls => 
+      cls.name.toLowerCase().trim() === data.name.toLowerCase().trim() && cls.school === data.school
+    );
+    
+    if (existingClass) {
+      throw new Error(`A class named "${data.name}" already exists`);
+    }
+    
     const newClass: Class = {
       ...data,
       id: Math.max(...mockClasses.map(c => c.id)) + 1,
@@ -231,6 +241,19 @@ export const classService = {
 
   async createStream(data: Omit<Stream, 'id' | 'created_at' | 'current_enrollment'>): Promise<Stream> {
     await apiDelay();
+    
+    // Check for duplicate stream name within the same class
+    const existingStream = mockStreams.find(stream => 
+      stream.name.toLowerCase().trim() === data.name.toLowerCase().trim() && 
+      stream.class_assigned === data.class_assigned &&
+      stream.school === data.school
+    );
+    
+    if (existingStream) {
+      const className = mockClasses.find(c => c.id === data.class_assigned)?.name || '';
+      throw new Error(`A stream named "${data.name}" already exists in ${className}`);
+    }
+    
     const className = mockClasses.find(c => c.id === data.class_assigned)?.name || '';
     const newStream: Stream = {
       ...data,

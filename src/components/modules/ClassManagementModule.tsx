@@ -81,7 +81,7 @@ export const ClassManagementModule = () => {
 
     try {
       await classService.createClass({
-        name: classForm.name,
+        name: classForm.name.trim(),
         grade_level: classForm.grade_level,
         description: classForm.description,
         school: 1 // Mock school ID
@@ -95,10 +95,10 @@ export const ClassManagementModule = () => {
       setIsCreateClassOpen(false);
       setClassForm({ name: '', grade_level: 1, description: '' });
       loadData();
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to create class",
+        description: error.message || "Failed to create class",
         variant: "destructive",
       });
     }
@@ -116,7 +116,7 @@ export const ClassManagementModule = () => {
 
     try {
       await classService.createStream({
-        name: streamForm.name,
+        name: streamForm.name.trim(),
         class_assigned: streamForm.class_assigned,
         year: streamForm.year,
         capacity: streamForm.capacity,
@@ -139,10 +139,10 @@ export const ClassManagementModule = () => {
         status: 'active'
       });
       loadData();
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to create stream",
+        description: error.message || "Failed to create stream",
         variant: "destructive",
       });
     }
