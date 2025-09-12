@@ -8,7 +8,10 @@ import {
   Users,
   UserCheck,
   Settings,
-  School
+  School,
+  DollarSign,
+  CreditCard,
+  Receipt
 } from 'lucide-react';
 import {
   Sidebar,
@@ -43,9 +46,14 @@ const academicNavigation = [
   { id: 'results', title: 'Student Results', url: '/results', icon: GraduationCap },
 ];
 
+const financeNavigation = [
+  { id: 'fees', title: 'Fees Management', url: '/fees', icon: Receipt },
+  { id: 'payroll', title: 'Payroll', url: '/payroll', icon: DollarSign },
+  { id: 'accounting', title: 'Accounting', url: '/accounting', icon: CreditCard },
+];
+
 const systemNavigation = [
   { id: 'settings', title: 'System Settings', url: '/settings', icon: Settings },
-  { id: 'fees', title: 'Fees Management', url: '/fees', icon: FileText },
 ];
 
 export function AppSidebar() {
@@ -101,6 +109,7 @@ export function AppSidebar() {
         {renderNavGroup(studentNavigation, "Student Management")}
         {renderNavGroup(staffNavigation, "Staff Management")}
         {renderNavGroup(academicNavigation, "Academic")}
+        {renderNavGroup(financeNavigation, "Finance & Accounting")}
         {renderNavGroup(systemNavigation, "System")}
 
         {/* Footer */}
