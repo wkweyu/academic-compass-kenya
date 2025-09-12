@@ -44,7 +44,8 @@ const academicNavigation = [
 ];
 
 const systemNavigation = [
-  { id: 'settings', title: 'Settings', url: '/settings', icon: Settings },
+  { id: 'settings', title: 'System Settings', url: '/settings', icon: Settings },
+  { id: 'fees', title: 'Fees Management', url: '/fees', icon: FileText },
 ];
 
 export function AppSidebar() {
