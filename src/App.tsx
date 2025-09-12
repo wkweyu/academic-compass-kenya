@@ -15,6 +15,7 @@ import ScoresPage from "./pages/ScoresPage";
 import ResultsPage from "./pages/ResultsPage";
 import FeesPage from "./pages/FeesPage";
 import ComingSoonPage from "./pages/ComingSoonPage";
+import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,7 +41,7 @@ const App = () => (
             <Route path="/fees" element={<FeesPage />} />
             <Route path="/payroll" element={<ComingSoonPage title="Payroll Management" />} />
             <Route path="/accounting" element={<ComingSoonPage title="Accounting" />} />
-            <Route path="/settings" element={<ComingSoonPage title="System Settings" />} />
+            <Route path="/settings" element={<SettingsPage />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

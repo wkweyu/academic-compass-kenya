@@ -118,6 +118,9 @@ export function AppSidebar() {
             <div className="rounded-lg bg-muted p-3">
               <p className="text-sm font-medium">Current Term</p>
               <p className="text-xs text-muted-foreground">Term 2, 2024</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Configure in Settings
+              </p>
             </div>
           </div>
         )}
