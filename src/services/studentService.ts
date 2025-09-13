@@ -4,15 +4,9 @@ import { Student, StudentFilters, StudentStats, ImportResult } from "@/types/stu
 
 export const getStudents = async (
   params: StudentFilters = {}
-): Promise<{ data: Student[]; total: number; page: number; limit: number }> => {
+): Promise<Student[]> => {
   const response = await api.get('/students/', params);
-  const data = response.data;
-  return {
-    data: data.results,
-    total: data.count,
-    page: params.page || 1,
-    limit: params.limit || 10,
-  };
+  return response.data;
 };
 
 export const getStudentById = async (id: string): Promise<Student | null> => {
