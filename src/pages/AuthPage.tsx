@@ -1,196 +1,102 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, GraduationCap } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 const AuthPage = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
-  const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
+  const { user, login, register } = useAuth();
 
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [mode, setMode] = useState<"login" | "register">("login");
+
+  // Redirect to dashboard when user is logged in
   useEffect(() => {
     if (user) {
-      navigate('/dashboard');
+      navigate("/dashboard");
     }
   }, [user, navigate]);
 
-  // Handle email verification tokens from URL
-  useEffect(() => {
-    const handleAuthCallback = async () => {
-      const hash = window.location.hash;
-      if (hash && hash.includes('access_token')) {
-        setLoading(true);
-        try {
-          const { data, error } = await supabase.auth.getSession();
-          if (error) {
-            console.error('Error processing auth callback:', error);
-            setError('Error processing email verification. Please try again.');
-          } else if (data.session) {
-            // Session will be handled by the auth state listener
-            // Clear the URL hash
-            window.history.replaceState(null, '', window.location.pathname);
-          }
-        } catch (err) {
-          console.error('Unexpected error:', err);
-          setError('An unexpected error occurred. Please try again.');
-        } finally {
-          setLoading(false);
-        }
-      }
-    };
-
-    handleAuthCallback();
-  }, []);
-
-  const handleSignIn = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError('');
-    
-    const { error } = await signIn(email, password);
-    
-    if (error) {
-      if (error.message === 'Invalid login credentials') {
-        setError('Invalid email or password. Please check your credentials and try again.');
-      } else if (error.message.includes('Email not confirmed')) {
-        setError('Please check your email and click the confirmation link before signing in.');
+    setError(null);
+    try {
+      if (mode === "login") {
+        await login(email, password);
       } else {
-        setError(error.message);
+        await register(email, password);
       }
+    } catch (err: any) {
+      console.error(err);
+      setError("Invalid credentials or server error");
     }
-    
-    setLoading(false);
-  };
-
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    setMessage('');
-    
-    const { error } = await signUp(email, password);
-    
-    if (error) {
-      if (error.message.includes('User already registered')) {
-        setError('An account with this email already exists. Please sign in instead.');
-      } else {
-        setError(error.message);
-      }
-    } else {
-      setMessage('Check your email for a confirmation link to complete your registration.');
-    }
-    
-    setLoading(false);
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <GraduationCap className="h-12 w-12 text-primary" />
+    <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="w-full max-w-md bg-white shadow-md rounded-lg p-6">
+        <h1 className="text-2xl font-bold mb-6">
+          {mode === "login" ? "Login" : "Register"}
+        </h1>
+
+        {error && (
+          <div className="mb-4 p-2 text-sm text-red-700 bg-red-100 rounded">
+            {error}
           </div>
-          <CardTitle className="text-2xl font-bold">SkoolTrack Pro</CardTitle>
-          <CardDescription>School Management System</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="signin" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="signin">Sign In</TabsTrigger>
-              <TabsTrigger value="signup">Sign Up</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="signin">
-              <form onSubmit={handleSignIn} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signin-email">Email</Label>
-                  <Input
-                    id="signin-email"
-                    type="email"
-                    placeholder="Enter your email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signin-password">Password</Label>
-                  <Input
-                    id="signin-password"
-                    type="password"
-                    placeholder="Enter your password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                {error && (
-                  <Alert variant="destructive">
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                )}
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Sign In
-                </Button>
-              </form>
-            </TabsContent>
-            
-            <TabsContent value="signup">
-              <form onSubmit={handleSignUp} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    placeholder="Enter your email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password">Password</Label>
-                  <Input
-                    id="signup-password"
-                    type="password"
-                    placeholder="Create a password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    minLength={6}
-                  />
-                </div>
-                {error && (
-                  <Alert variant="destructive">
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                )}
-                {message && (
-                  <Alert>
-                    <AlertDescription>{message}</AlertDescription>
-                  </Alert>
-                )}
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Sign Up
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="w-full px-4 py-2 border rounded"
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            className="w-full px-4 py-2 border rounded"
+          />
+          <button
+            type="submit"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+          >
+            {mode === "login" ? "Login" : "Register"}
+          </button>
+        </form>
+
+        <p className="mt-4 text-sm text-center">
+          {mode === "login" ? (
+            <>
+              Need an account?{" "}
+              <button
+                type="button"
+                className="text-blue-600 underline"
+                onClick={() => setMode("register")}
+              >
+                Register
+              </button>
+            </>
+          ) : (
+            <>
+              Already have an account?{" "}
+              <button
+                type="button"
+                className="text-blue-600 underline"
+                onClick={() => setMode("login")}
+              >
+                Login
+              </button>
+            </>
+          )}
+        </p>
+      </div>
     </div>
   );
 };

@@ -35,7 +35,9 @@ THIRD_PARTY_APPS = [
     'allauth.socialaccount',
     'dj_rest_auth',
     'import_export',
-    'widget_tweaks'
+    'widget_tweaks',
+    'dj_rest_auth.registration',
+    
 ]
 
 LOCAL_APPS = [
@@ -65,6 +67,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'allauth.account.middleware.AccountMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     #'core.middleware.SchoolContextMiddleware',
 ]
 
@@ -89,16 +92,29 @@ TEMPLATES = [
 WSGI_APPLICATION = 'skooltrack_pro.wsgi.application'
 
 # Database
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('DB_NAME', default='skooltrack_pro'),
-        'USER': config('DB_USER', default='postgres'),
-        'PASSWORD': config('DB_PASSWORD', default='123'),
-        'HOST': config('DB_HOST', default='localhost'),
-        'PORT': config('DB_PORT', default='5432'),
+import dj_database_url
+
+# Database
+SUPABASE_URL = config('SUPABASE_DB_URL', default=None)
+
+if SUPABASE_URL:
+    # Use Supabase database if URL provided
+    DATABASES = {
+        'default': dj_database_url.config(default=SUPABASE_URL, conn_max_age=600)
     }
-}
+else:
+    # Fallback to local Postgres
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': config('DB_NAME', default='skooltrack_pro'),
+            'USER': config('DB_USER', default='postgres'),
+            'PASSWORD': config('DB_PASSWORD', default='123'),
+            'HOST': config('DB_HOST', default='localhost'),
+            'PORT': config('DB_PORT', default='5432'),
+        }
+    }
+
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -175,5 +191,7 @@ IMPORT_EXPORT_USE_TRANSACTIONS = True
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:8080",
     "http://127.0.0.1:8080",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
 ]
 CORS_ALLOW_CREDENTIALS = True
