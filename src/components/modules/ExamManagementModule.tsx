@@ -15,66 +15,27 @@ export function ExamManagementModule() {
   const [selectedType, setSelectedType] = useState<string>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
-  // Mock exam data
-  const mockExams: Exam[] = [
-    {
-      id: '1',
-      name: 'Mathematics CAT 1',
-      subject: { id: '1', name: 'Mathematics', code: 'MAT', is_core: true, grade_levels: '1-9' },
-      class_assigned: 'Grade 5',
-      stream: 'EAST',
-      term: 2,
-      academic_year: 2024,
-      exam_type: 'CAT',
-      exam_date: '2024-07-15',
-      max_marks: 100,
-      duration_minutes: 90,
-      is_published: false,
-      created_by: 'teacher1',
-      created_at: '2024-07-01'
-    },
-    {
-      id: '2',
-      name: 'English End Term Exam',
-      subject: { id: '2', name: 'English', code: 'ENG', is_core: true, grade_levels: '1-9' },
-      class_assigned: 'Grade 4',
-      stream: 'WEST',
-      term: 2,
-      academic_year: 2024,
-      exam_type: 'END',
-      exam_date: '2024-07-20',
-      max_marks: 100,
-      duration_minutes: 120,
-      is_published: true,
-      created_by: 'teacher2',
-      created_at: '2024-07-02'
-    },
-    {
-      id: '3',
-      name: 'Science Mid Term',
-      subject: { id: '3', name: 'Science', code: 'SCI', is_core: true, grade_levels: '4-9' },
-      class_assigned: 'Grade 6',
-      stream: 'NORTH',
-      term: 2,
-      academic_year: 2024,
-      exam_type: 'MID',
-      exam_date: '2024-07-12',
-      max_marks: 80,
-      duration_minutes: 90,
-      is_published: true,
-      created_by: 'teacher3',
-      created_at: '2024-06-28'
-    }
-  ];
+import { examService } from '@/services/examService';
+import { useQuery } from '@tanstack/react-query';
 
-  const filteredExams = mockExams.filter(exam => {
-    const matchesSearch = exam.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         exam.subject.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesTerm = selectedTerm === 'all' || exam.term.toString() === selectedTerm;
-    const matchesType = selectedType === 'all' || exam.exam_type === selectedType;
-    
-    return matchesSearch && matchesTerm && matchesType;
+// ...
+
+export function ExamManagementModule() {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedTerm, setSelectedTerm] = useState<string>('all');
+  const [selectedType, setSelectedType] = useState<string>('all');
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+
+  const { data: exams = [], isLoading } = useQuery({
+    queryKey: ['exams', { searchTerm, selectedTerm, selectedType }],
+    queryFn: () => examService.getExams({
+      search: searchTerm,
+      term: selectedTerm === 'all' ? undefined : parseInt(selectedTerm),
+      exam_type: selectedType === 'all' ? undefined : selectedType,
+    }),
   });
+
+  const filteredExams = exams;
 
   const handleCreateSuccess = () => {
     setIsCreateDialogOpen(false);
