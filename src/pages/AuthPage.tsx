@@ -23,13 +23,14 @@ const AuthPage = () => {
     setError(null);
     try {
       if (mode === "login") {
-        await login(email, password);
+        await login(email, password); // login sets cookie & fetches user
       } else {
-        await register(email, password);
+        await register(email, password); // register sets cookie & fetches user
       }
     } catch (err: any) {
       console.error(err);
-      setError("Invalid credentials or server error");
+      // Show specific message from API if available
+      setError(err.message || "Invalid credentials or server error");
     }
   };
 

@@ -5,17 +5,10 @@ import {
   createContext,
   ReactNode,
 } from "react";
-import {
-  signIn,
-  signUp,
-  signOut,
-  getCurrentUser,
-  setAuthToken,
-} from "@/api/api";
+import { signIn, signUp, signOut, getCurrentUser } from "@/api/api";
 
 interface AuthContextType {
-  token: any;
-  user: any;
+  user: any | null;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -24,9 +17,8 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<any | null>(null);
 
-  // On mount try to get user if token exists
   useEffect(() => {
     (async () => {
       try {
@@ -64,8 +56,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
+  if (!context) throw new Error("useAuth must be used within an AuthProvider");
   return context;
 };

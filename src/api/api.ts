@@ -1,38 +1,27 @@
-// src/api/api.ts
 const API_URL = "http://127.0.0.1:8000/api";
-
-let authToken: string | null = null;
-
-export function setAuthToken(token: string | null) {
-  authToken = token;
-}
-
-function authHeaders() {
-  return authToken ? { Authorization: `Token ${authToken}` } : {};
-}
 
 export async function signIn(email: string, password: string) {
   const response = await fetch(`${API_URL}/auth/login/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
-    credentials: "include",
+    credentials: "include", // send cookies automatically
   });
-  if (!response.ok) throw new Error("Login failed");
-  const data = await response.json();
-  // store token
-  setAuthToken(data.key);
-  return data;
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData?.non_field_errors?.[0] || "Login failed");
+  }
+
+  return response.json();
 }
 
 export async function getCurrentUser() {
   const response = await fetch(`${API_URL}/auth/user/`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...authHeaders(),
-    },
-    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include", // must include cookies
   });
+
   if (!response.ok) throw new Error("Failed to fetch user");
   return response.json();
 }
@@ -40,22 +29,23 @@ export async function getCurrentUser() {
 export async function signOut() {
   await fetch(`${API_URL}/auth/logout/`, {
     method: "POST",
-    headers: authHeaders(),
+    headers: { "Content-Type": "application/json" },
     credentials: "include",
   });
-  setAuthToken(null);
 }
 
 export async function signUp(email: string, password: string) {
-  const response = await fetch(`${API_URL}/auth/register/`, {
+  const response = await fetch(`${API_URL}/auth/registration/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
     credentials: "include",
   });
-  if (!response.ok) throw new Error("Registration failed");
-  const data = await response.json();
-  // store token
-  setAuthToken(data.key);
-  return data;
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData?.email?.[0] || "Registration failed");
+  }
+
+  return response.json();
 }
