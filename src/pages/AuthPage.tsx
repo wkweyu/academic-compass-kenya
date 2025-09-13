@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,6 +24,34 @@ const AuthPage = () => {
       navigate('/dashboard');
     }
   }, [user, navigate]);
+
+  // Handle email verification tokens from URL
+  useEffect(() => {
+    const handleAuthCallback = async () => {
+      const hash = window.location.hash;
+      if (hash && hash.includes('access_token')) {
+        setLoading(true);
+        try {
+          const { data, error } = await supabase.auth.getSession();
+          if (error) {
+            console.error('Error processing auth callback:', error);
+            setError('Error processing email verification. Please try again.');
+          } else if (data.session) {
+            // Session will be handled by the auth state listener
+            // Clear the URL hash
+            window.history.replaceState(null, '', window.location.pathname);
+          }
+        } catch (err) {
+          console.error('Unexpected error:', err);
+          setError('An unexpected error occurred. Please try again.');
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    handleAuthCallback();
+  }, []);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
