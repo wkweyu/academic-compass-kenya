@@ -82,23 +82,9 @@ def student_add(request):
     if request.method == 'POST':
         form = StudentForm(request.POST or None, request.FILES or None, user=request.user)
         if form.is_valid():
-<<<<<<< HEAD
-            student = form.save(commit=False)
-            # Attach the school from middleware context
-            if hasattr(request, "school") and request.school:
-                student.school = request.school
-            elif hasattr(request.user, "school") and request.user.school:
-                student.school = request.user.school
-            else:
-                messages.error(request, "No school found in context. Cannot add student.")
-                return redirect("students:student_list")
-
-            student.save()
-=======
             # The school is automatically assigned by the SchoolScopedModel's save method
             # using the middleware, so we no longer need to set it manually.
             student = form.save()
->>>>>>> ac7828269a6664fd6413e1756f459d58d5f507b1
             messages.success(request, f'Student {student.full_name} has been added successfully.')
             return redirect('students:student_detail', pk=student.pk)
     else:
@@ -290,12 +276,7 @@ class StudentViewSet(viewsets.ModelViewSet):
     serializer_class = StudentSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend, SearchFilter]
-<<<<<<< HEAD
-    #filterset_fields = ['current_class', 'current_stream', 'gender']
-    filterset_fields = ['current_class', 'current_stream', 'gender']
-=======
     filterset_fields = ['current_class', 'current_stream', 'status', 'gender']
->>>>>>> ac7828269a6664fd6413e1756f459d58d5f507b1
     search_fields = ['full_name', 'admission_number', 'guardian_name']
 
     def get_queryset(self):

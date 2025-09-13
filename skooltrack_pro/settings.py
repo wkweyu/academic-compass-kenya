@@ -35,13 +35,7 @@ THIRD_PARTY_APPS = [
     'allauth.socialaccount',
     'dj_rest_auth',
     'import_export',
-<<<<<<< HEAD
-    'widget_tweaks',
-    'django_extensions',
-
-=======
     'widget_tweaks'
->>>>>>> ac7828269a6664fd6413e1756f459d58d5f507b1
 ]
 
 LOCAL_APPS = [
@@ -71,11 +65,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'allauth.account.middleware.AccountMiddleware',
-<<<<<<< HEAD
-    'apps.core.middleware.SchoolContextMiddleware',
-=======
-    'core.middleware.SchoolContextMiddleware',
->>>>>>> ac7828269a6664fd6413e1756f459d58d5f507b1
+    #'core.middleware.SchoolContextMiddleware',
 ]
 
 ROOT_URLCONF = 'skooltrack_pro.urls'
@@ -104,11 +94,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': config('DB_NAME', default='skooltrack_pro'),
         'USER': config('DB_USER', default='postgres'),
-<<<<<<< HEAD
         'PASSWORD': config('DB_PASSWORD', default='123'),
-=======
-        'PASSWORD': config('DB_PASSWORD', default='password'),
->>>>>>> ac7828269a6664fd6413e1756f459d58d5f507b1
         'HOST': config('DB_HOST', default='localhost'),
         'PORT': config('DB_PORT', default='5432'),
     }
@@ -166,31 +152,11 @@ REST_FRAMEWORK = {
         'dj_rest_auth.jwt_auth.JWTCookieAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
-<<<<<<< HEAD
-
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
-    ],
-
-    # ✅ Add filter backend
-    'DEFAULT_FILTER_BACKENDS': [
-        'django_filters.rest_framework.DjangoFilterBackend',
-    ],
-
-    # ✅ Force JSON only (this avoids the missing template error)
-    'DEFAULT_RENDERER_CLASSES': (
-        'rest_framework.renderers.JSONRenderer',
-    ),
-}
-
-
-=======
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
 }
 
->>>>>>> ac7828269a6664fd6413e1756f459d58d5f507b1
 # Django Allauth
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
