@@ -1,38 +1,49 @@
-import { useState } from 'react';
-import { Plus, Search, Filter, Calendar, Users, BookOpen } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { CreateExamForm } from '@/components/forms/CreateExamForm';
-import { Exam, TERM_OPTIONS, EXAM_TYPE_OPTIONS } from '@/types/cbc';
+import { useState } from "react";
+import { Plus, Search, Filter, Calendar, Users, BookOpen } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { CreateExamForm } from "@/components/forms/CreateExamForm";
+import { Exam, TERM_OPTIONS, EXAM_TYPE_OPTIONS } from "@/types/cbc";
+import { examService } from "@/services/examService";
+import { useQuery } from "@tanstack/react-query";
 
 export function ExamManagementModule() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedTerm, setSelectedTerm] = useState<string>('all');
-  const [selectedType, setSelectedType] = useState<string>('all');
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-
-import { examService } from '@/services/examService';
-import { useQuery } from '@tanstack/react-query';
-
-// ...
-
-export function ExamManagementModule() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedTerm, setSelectedTerm] = useState<string>('all');
-  const [selectedType, setSelectedType] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedTerm, setSelectedTerm] = useState<string>("all");
+  const [selectedType, setSelectedType] = useState<string>("all");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
   const { data: exams = [], isLoading } = useQuery({
-    queryKey: ['exams', { searchTerm, selectedTerm, selectedType }],
-    queryFn: () => examService.getExams({
-      search: searchTerm,
-      term: selectedTerm === 'all' ? undefined : parseInt(selectedTerm),
-      exam_type: selectedType === 'all' ? undefined : selectedType,
-    }),
+    queryKey: ["exams", { searchTerm, selectedTerm, selectedType }],
+    queryFn: () =>
+      examService.getExams({
+        search: searchTerm,
+        term: selectedTerm === "all" ? undefined : parseInt(selectedTerm),
+        exam_type: selectedType === "all" ? undefined : selectedType,
+      }),
   });
 
   const filteredExams = exams;
@@ -51,7 +62,7 @@ export function ExamManagementModule() {
             Create and manage exams for all classes and subjects
           </p>
         </div>
-        
+
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -92,7 +103,7 @@ export function ExamManagementModule() {
                 />
               </div>
             </div>
-            
+
             <Select value={selectedTerm} onValueChange={setSelectedTerm}>
               <SelectTrigger className="w-[150px]">
                 <SelectValue placeholder="Select term" />
@@ -138,21 +149,22 @@ export function ExamManagementModule() {
                   </CardDescription>
                 </div>
                 <Badge variant={exam.is_published ? "default" : "outline"}>
-                  {exam.is_published ? 'Published' : 'Draft'}
+                  {exam.is_published ? "Published" : "Draft"}
                 </Badge>
               </div>
             </CardHeader>
-            
+
             <CardContent>
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Users className="h-4 w-4" />
                   {exam.class_assigned} {exam.stream}
                 </div>
-                
+
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Calendar className="h-4 w-4" />
-                  {new Date(exam.exam_date).toLocaleDateString()} • {exam.duration_minutes} min
+                  {new Date(exam.exam_date).toLocaleDateString()} •{" "}
+                  {exam.duration_minutes} min
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -184,9 +196,9 @@ export function ExamManagementModule() {
             <BookOpen className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">No exams found</h3>
             <p className="text-muted-foreground text-center max-w-sm">
-              {searchTerm || selectedTerm !== 'all' || selectedType !== 'all'
-                ? 'Try adjusting your filters to see more results.'
-                : 'Get started by creating your first exam.'}
+              {searchTerm || selectedTerm !== "all" || selectedType !== "all"
+                ? "Try adjusting your filters to see more results."
+                : "Get started by creating your first exam."}
             </p>
           </CardContent>
         </Card>
