@@ -14,6 +14,7 @@ import {
 } from "@/api/api";
 
 interface AuthContextType {
+  token: any;
   user: any;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;

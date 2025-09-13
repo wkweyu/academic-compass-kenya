@@ -1,14 +1,20 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { 
-  BookOpen, 
-  ClipboardList, 
-  Users, 
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import {
+  BookOpen,
+  ClipboardList,
+  Users,
   TrendingUp,
   Calendar,
-  Target
-} from 'lucide-react';
+  Target,
+} from "lucide-react";
 
 export function DashboardModule() {
   // Mock data for demonstration
@@ -18,20 +24,38 @@ export function DashboardModule() {
     totalStudents: 450,
     totalSubjects: 12,
     completedScores: 75,
-    pendingResults: 12
+    pendingResults: 12,
   };
 
   const recentExams = [
-    { name: 'Mathematics CAT 1', class: 'Grade 5', stream: 'EAST', date: '2024-07-15', status: 'Active' },
-    { name: 'English End Term', class: 'Grade 4', stream: 'WEST', date: '2024-07-20', status: 'Pending' },
-    { name: 'Science Mid Term', class: 'Grade 6', stream: 'NORTH', date: '2024-07-12', status: 'Completed' },
+    {
+      name: "Mathematics CAT 1",
+      class: "Grade 5",
+      stream: "EAST",
+      date: "2024-07-15",
+      status: "Active",
+    },
+    {
+      name: "English End Term",
+      class: "Grade 4",
+      stream: "WEST",
+      date: "2024-07-20",
+      status: "Pending",
+    },
+    {
+      name: "Science Mid Term",
+      class: "Grade 6",
+      stream: "NORTH",
+      date: "2024-07-12",
+      status: "Completed",
+    },
   ];
 
   const performanceData = [
-    { subject: 'Mathematics', average: 78, grade: 'V' },
-    { subject: 'English', average: 82, grade: 'E' },
-    { subject: 'Science', average: 71, grade: 'V' },
-    { subject: 'Kiswahili', average: 68, grade: 'G' },
+    { subject: "Mathematics", average: 78, grade: "V" },
+    { subject: "English", average: 82, grade: "E" },
+    { subject: "Science", average: 71, grade: "V" },
+    { subject: "Kiswahili", average: 68, grade: "G" },
   ];
 
   return (
@@ -65,9 +89,7 @@ export function DashboardModule() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalStudents}</div>
-            <p className="text-xs text-muted-foreground">
-              Across all grades
-            </p>
+            <p className="text-xs text-muted-foreground">Across all grades</p>
           </CardContent>
         </Card>
 
@@ -78,9 +100,7 @@ export function DashboardModule() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalSubjects}</div>
-            <p className="text-xs text-muted-foreground">
-              CBC curriculum
-            </p>
+            <p className="text-xs text-muted-foreground">CBC curriculum</p>
           </CardContent>
         </Card>
 
@@ -118,10 +138,15 @@ export function DashboardModule() {
                       {exam.class} {exam.stream} • {exam.date}
                     </p>
                   </div>
-                  <Badge variant={
-                    exam.status === 'Active' ? 'default' :
-                    exam.status === 'Completed' ? 'secondary' : 'outline'
-                  }>
+                  <Badge
+                    variant={
+                      exam.status === "Active"
+                        ? "default"
+                        : exam.status === "Completed"
+                        ? "secondary"
+                        : "outline"
+                    }
+                  >
                     {exam.status}
                   </Badge>
                 </div>
@@ -175,17 +200,23 @@ export function DashboardModule() {
             <div className="rounded-lg border p-3 text-center hover:bg-muted/50 cursor-pointer transition-colors">
               <ClipboardList className="h-8 w-8 mx-auto mb-2 text-primary" />
               <p className="text-sm font-medium">Create New Exam</p>
-              <p className="text-xs text-muted-foreground">Set up exam for any class</p>
+              <p className="text-xs text-muted-foreground">
+                Set up exam for any class
+              </p>
             </div>
             <div className="rounded-lg border p-3 text-center hover:bg-muted/50 cursor-pointer transition-colors">
               <Target className="h-8 w-8 mx-auto mb-2 text-primary" />
               <p className="text-sm font-medium">Enter Scores</p>
-              <p className="text-xs text-muted-foreground">Record student marks</p>
+              <p className="text-xs text-muted-foreground">
+                Record student marks
+              </p>
             </div>
             <div className="rounded-lg border p-3 text-center hover:bg-muted/50 cursor-pointer transition-colors">
               <TrendingUp className="h-8 w-8 mx-auto mb-2 text-primary" />
               <p className="text-sm font-medium">Generate Reports</p>
-              <p className="text-xs text-muted-foreground">View performance analytics</p>
+              <p className="text-xs text-muted-foreground">
+                View performance analytics
+              </p>
             </div>
           </div>
         </CardContent>
