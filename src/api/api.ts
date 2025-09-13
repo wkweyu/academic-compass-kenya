@@ -1,61 +1,57 @@
-// src/api/api.ts
+import axios from "axios";
+
 const API_URL = "http://127.0.0.1:8000/api";
 
-let authToken: string | null = null;
+const axiosInstance = axios.create({
+    baseURL: API_URL,
+    headers: {
+        'Content-Type': 'application/json',
+    },
+});
 
-export function setAuthToken(token: string | null) {
-  authToken = token;
-}
+axiosInstance.interceptors.request.use(
+    (config) => {
+        const token = localStorage.getItem('authToken');
+        if (token) {
+            config.headers.Authorization = `Token ${token}`;
+        }
+        return config;
+    },
+    (error) => {
+        return Promise.reject(error);
+    }
+);
 
-function authHeaders() {
-  return authToken ? { Authorization: `Token ${authToken}` } : {};
-}
+export const api = {
+    get: <T>(url: string, params?: object) => axiosInstance.get<T>(url, {params}),
+    post: <T>(url: string, data: any) => axiosInstance.post<T>(url, data),
+    put: <T>(url: string, data: any) => axiosInstance.put<T>(url, data),
+    patch: <T>(url: string, data: any) => axiosInstance.patch<T>(url, data),
+    delete: <T>(url: string) => axiosInstance.delete<T>(url),
+};
 
 export async function signIn(email: string, password: string) {
-  const response = await fetch(`${API_URL}/auth/login/`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-    credentials: "include",
-  });
-  if (!response.ok) throw new Error("Login failed");
-  const data = await response.json();
-  // store token
-  setAuthToken(data.key);
-  return data;
+    const response = await api.post('/auth/login/', {email, password});
+    if (response.data.access) {
+        localStorage.setItem('authToken', response.data.access);
+    }
+    return response.data;
 }
 
 export async function getCurrentUser() {
-  const response = await fetch(`${API_URL}/auth/user/`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...authHeaders(),
-    },
-    credentials: "include",
-  });
-  if (!response.ok) throw new Error("Failed to fetch user");
-  return response.json();
+    const response = await api.get('/auth/user/');
+    return response.data;
 }
 
 export async function signOut() {
-  await fetch(`${API_URL}/auth/logout/`, {
-    method: "POST",
-    headers: authHeaders(),
-    credentials: "include",
-  });
-  setAuthToken(null);
+    await api.post('/auth/logout/', {});
+    localStorage.removeItem('authToken');
 }
 
 export async function signUp(email: string, password: string) {
-  const response = await fetch(`${API_URL}/auth/register/`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-    credentials: "include",
-  });
-  if (!response.ok) throw new Error("Registration failed");
-  const data = await response.json();
-  // store token
-  setAuthToken(data.key);
-  return data;
+    const response = await api.post('/auth/register/', {email, password});
+    if (response.data.access) {
+        localStorage.setItem('authToken', response.data.access);
+    }
+    return response.data;
 }
