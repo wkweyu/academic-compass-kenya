@@ -16,47 +16,20 @@ import {
   Target,
 } from "lucide-react";
 
+import { useQuery } from '@tanstack/react-query';
+import { dashboardService } from '@/services/dashboardService';
+
 export function DashboardModule() {
-  // Mock data for demonstration
-  const stats = {
-    totalExams: 24,
-    activeExams: 8,
-    totalStudents: 450,
-    totalSubjects: 12,
-    completedScores: 75,
-    pendingResults: 12,
-  };
+  const { data: dashboardData, isLoading } = useQuery({
+    queryKey: ['dashboardData'],
+    queryFn: dashboardService.getDashboardData,
+  });
 
-  const recentExams = [
-    {
-      name: "Mathematics CAT 1",
-      class: "Grade 5",
-      stream: "EAST",
-      date: "2024-07-15",
-      status: "Active",
-    },
-    {
-      name: "English End Term",
-      class: "Grade 4",
-      stream: "WEST",
-      date: "2024-07-20",
-      status: "Pending",
-    },
-    {
-      name: "Science Mid Term",
-      class: "Grade 6",
-      stream: "NORTH",
-      date: "2024-07-12",
-      status: "Completed",
-    },
-  ];
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
 
-  const performanceData = [
-    { subject: "Mathematics", average: 78, grade: "V" },
-    { subject: "English", average: 82, grade: "E" },
-    { subject: "Science", average: 71, grade: "V" },
-    { subject: "Kiswahili", average: 68, grade: "G" },
-  ];
+  const { stats, recentExams, performanceData } = dashboardData!;
 
   return (
     <div className="space-y-6">

@@ -62,7 +62,7 @@ const StudentManagementModule = () => {
   const queryClient = useQueryClient();
 
   // Fetch students
-  const { data: studentsResponse, isLoading, error } = useQuery({
+  const { data: students, isLoading, error } = useQuery({
     queryKey: ['students', filters],
     queryFn: () => getStudents(filters),
   });
@@ -72,8 +72,6 @@ const StudentManagementModule = () => {
     queryKey: ['student-stats'],
     queryFn: getStudentStats,
   });
-
-  const students = studentsResponse?.data || [];
   
   // Create student mutation
   const createMutation = useMutation({
