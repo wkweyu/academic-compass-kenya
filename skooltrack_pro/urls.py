@@ -3,7 +3,6 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.http import HttpResponse
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 def root_view(request):
     return HttpResponse("""
@@ -22,38 +21,31 @@ def root_view(request):
 urlpatterns = [
     # Root
     path('', root_view, name='root'),
-    
+
     # Admin
     path('admin/', admin.site.urls),
-    path('api/auth/', include('dj_rest_auth.urls')),
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    
-    # Authentication
-    path('auth/', include('dj_rest_auth.urls')),
-    path('auth/registration/', include('dj_rest_auth.registration.urls')),
-    path('accounts/', include('allauth.urls')),
 
-    # Apps
+    # Authentication (clean, cookie-based)
+    path('api/auth/', include('dj_rest_auth.urls')),                # login, logout, user
+    path('api/auth/registration/', include('dj_rest_auth.registration.urls')),  # register
+    path('accounts/', include('allauth.urls')),                     # optional for social/allauth routes
+
+    # App URLs
     path('students/', include('apps.students.urls')),
     path('teachers/', include('apps.teachers.urls')),
     path('subjects/', include('apps.subjects.urls')),
     path('exams/', include('apps.exams.urls')),
     path('grading/', include('apps.grading.urls')),
 
-
     path('api/schools/', include('apps.schools.urls')),
     path('api/users/', include('apps.users.urls')),
     path('api/fees/', include('apps.fees.urls')),
     path('api/transport/', include('apps.transport.urls')),
-
-    #Procurement
     path('api/procurement/', include('apps.procurement.urls')),
     path('api/students/', include('apps.students.api_urls')),
-
 ]
 
-# Serve media files during development
+# Serve media/static during development
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

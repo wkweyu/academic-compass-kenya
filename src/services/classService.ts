@@ -1,106 +1,138 @@
-import client from '@/api/client';
-import { 
-  Class, 
-  Stream, 
-  ClassAllocation, 
+import { api } from "@/api/api";
+import {
+  Class,
+  Stream,
+  ClassAllocation,
   ClassSubjectAllocation,
-  ClassFilters, 
+  ClassFilters,
   StreamFilters,
   ClassStats,
   BulkPromotionRequest,
-  ClassTransferRequest 
-} from '@/types/class';
+  ClassTransferRequest,
+} from "@/types/class";
+import { Student } from "@/types/student";
 
 export const classService = {
   // Classes
   async getClasses(filters?: ClassFilters): Promise<Class[]> {
-    const params = new URLSearchParams();
-    if (filters?.search) params.append('search', filters.search);
-    if (filters?.grade_level) params.append('grade_level', filters.grade_level.toString());
-    
-    return client<Class[]>(`students/classes/?${params.toString()}`);
+    const response = await api.get("/classes/", { params: filters });
+    return response.data.results || response.data;
   },
 
-  async getClass(id: number): Promise<Class> {
-    return client<Class>(`students/classes/${id}/`);
+  async getClass(id: number): Promise<Class | null> {
+    const response = await api.get(`/classes/${id}/`);
+    return response.data;
   },
 
-  async createClass(data: Omit<Class, 'id' | 'created_at'>): Promise<Class> {
-    return client<Class>('students/classes/', { data, method: 'POST' });
+  async createClass(
+    data: Omit<
+      Class,
+      "id" | "created_at" | "total_streams" | "total_students" | "capacity"
+    >
+  ): Promise<Class> {
+    const response = await api.post("/classes/", data);
+    return response.data;
   },
 
-  async updateClass(id: number, data: Partial<Class>): Promise<Class> {
-    return client<Class>(`students/classes/${id}/`, { data, method: 'PUT' });
+  async updateClass(id: number, data: Partial<Class>): Promise<Class | null> {
+    const response = await api.patch(`/classes/${id}/`, data);
+    return response.data;
   },
 
-  async deleteClass(id: number): Promise<void> {
-    return client<void>(`students/classes/${id}/`, { method: 'DELETE' });
+  async deleteClass(id: number): Promise<boolean> {
+    await api.delete(`/classes/${id}/`);
+    return true;
   },
 
   // Streams
   async getStreams(filters?: StreamFilters): Promise<Stream[]> {
-    const params = new URLSearchParams();
-    if (filters?.search) params.append('search', filters.search);
-    if (filters?.class_id) params.append('class_id', filters.class_id.toString());
-    if (filters?.academic_year) params.append('academic_year', filters.academic_year.toString());
-    
-    return client<Stream[]>(`students/streams/?${params.toString()}`);
+    const response = await api.get("/streams/", { params: filters });
+    return response.data.results || response.data;
   },
 
-  async getStream(id: number): Promise<Stream> {
-    return client<Stream>(`students/streams/${id}/`);
+  async getStream(id: number): Promise<Stream | null> {
+    const response = await api.get(`/streams/${id}/`);
+    return response.data;
   },
 
-  async createStream(data: Omit<Stream, 'id' | 'created_at'>): Promise<Stream> {
-    return client<Stream>('students/streams/', { data, method: 'POST' });
+  async createStream(
+    data: Omit<Stream, "id" | "created_at" | "current_enrollment">
+  ): Promise<Stream> {
+    const response = await api.post("/streams/", data);
+    return response.data;
   },
 
-  async updateStream(id: number, data: Partial<Stream>): Promise<Stream> {
-    return client<Stream>(`students/streams/${id}/`, { data, method: 'PUT' });
+  async updateStream(
+    id: number,
+    data: Partial<Stream>
+  ): Promise<Stream | null> {
+    const response = await api.patch(`/streams/${id}/`, data);
+    return response.data;
   },
 
-  async deleteStream(id: number): Promise<void> {
-    return client<void>(`students/streams/${id}/`, { method: 'DELETE' });
+  async deleteStream(id: number): Promise<boolean> {
+    await api.delete(`/streams/${id}/`);
+    return true;
   },
 
-  // The rest of the functions are not implemented yet on the backend.
-  // I will leave them as they are for now.
-  async getClassAllocations(classId?: number, streamId?: number): Promise<ClassAllocation[]> {
-    return Promise.resolve([]);
+  // Class Allocations
+  async getClassAllocations(
+    classId?: number,
+    streamId?: number
+  ): Promise<ClassAllocation[]> {
+    const response = await api.get("/class-allocations/", {
+      params: {
+        class_id: classId,
+        stream_id: streamId,
+      }
+    });
+    return response.data.results || response.data;
   },
 
   async assignStudentToClass(
-    studentId: string, 
-    classId: number, 
-    streamId: number, 
+    studentId: string,
+    classId: number,
+    streamId: number,
     academicYear: number = 2024,
     term: 1 | 2 | 3 = 1
   ): Promise<ClassAllocation> {
-    return Promise.reject(new Error("Not implemented"));
+    const response = await api.post("/class-allocations/", {
+      student_id: studentId,
+      class_id: classId,
+      stream_id: streamId,
+      academic_year: academicYear,
+      term: term,
+    });
+    return response.data;
   },
 
-  async promoteClass(request: BulkPromotionRequest): Promise<{ success: number; errors: string[] }> {
-    return Promise.reject(new Error("Not implemented"));
+  // Class Students
+  async getClassStudents(
+    classId: number,
+    streamId?: number
+  ): Promise<Student[]> {
+    const response = await api.get(`/classes/${classId}/students/`, {
+      params: { stream_id: streamId }
+    });
+    return response.data;
+  },
+
+  // Statistics (dashboard)
+  async getClassStats(): Promise<ClassStats> {
+    const response = await api.get("/dashboard/");
+    return response.data;
+  },
+
+  // Bulk Operations (stub)
+  async promoteClass(
+    request: BulkPromotionRequest
+  ): Promise<{ success: number; errors: string[] }> {
+    console.log(request);
+    return { success: 0, errors: [] };
   },
 
   async transferStudent(request: ClassTransferRequest): Promise<boolean> {
-    return Promise.reject(new Error("Not implemented"));
+    console.log(request);
+    return false;
   },
-
-  async getClassStats(): Promise<ClassStats> {
-    // This would need a dedicated endpoint on the backend
-    return Promise.resolve({
-      total_classes: 0,
-      total_streams: 0,
-      total_students_enrolled: 0,
-      average_class_size: 0,
-      capacity_utilization: 0,
-      classes_by_grade: {},
-      enrollment_by_year: []
-    });
-  },
-
-  async getClassStudents(classId: number, streamId?: number): Promise<any[]> {
-    return Promise.resolve([]);
-  }
 };

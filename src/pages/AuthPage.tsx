@@ -11,16 +11,15 @@ const AuthPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<"login" | "register">("login");
 
-  // Redirect to dashboard when user is logged in
+  // Redirect to dashboard if user is already logged in
   useEffect(() => {
-    if (user) {
-      navigate("/dashboard");
-    }
+    if (user) navigate("/dashboard");
   }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
     try {
       if (mode === "login") {
         await login(email, password);
@@ -29,7 +28,7 @@ const AuthPage = () => {
       }
     } catch (err: any) {
       console.error(err);
-      setError("Invalid credentials or server error");
+      setError(err.message || "Invalid credentials or server error");
     }
   };
 
