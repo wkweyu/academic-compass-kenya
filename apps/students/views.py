@@ -269,27 +269,53 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter
 
 class ClassListCreateAPIView(generics.ListCreateAPIView):
-    queryset = Class.objects.all()
     serializer_class = ClassSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_authenticated and hasattr(user, 'school'):
+            return Class.objects.filter(school=user.school)
+        return Class.objects.none()
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
 
 
 class ClassRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Class.objects.all()
     serializer_class = ClassSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_authenticated and hasattr(user, 'school'):
+            return Class.objects.filter(school=user.school)
+        return Class.objects.none()
+
 
 class StreamListCreateAPIView(generics.ListCreateAPIView):
-    queryset = Stream.objects.all()
     serializer_class = StreamSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_authenticated and hasattr(user, 'school'):
+            return Stream.objects.filter(school=user.school)
+        return Stream.objects.none()
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
 
 
 class StreamRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Stream.objects.all()
     serializer_class = StreamSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_authenticated and hasattr(user, 'school'):
+            return Stream.objects.filter(school=user.school)
+        return Stream.objects.none()
 
 
 class StudentViewSet(viewsets.ModelViewSet):
