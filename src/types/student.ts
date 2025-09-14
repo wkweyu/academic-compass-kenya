@@ -44,6 +44,7 @@ export interface Student {
   academic_year: number;
   term: 1 | 2 | 3;
   kcpe_index?: string;
+  stream: string; // Add missing stream property
   
   // Transport Information
   is_on_transport: boolean;

@@ -2,7 +2,7 @@ export interface Subject {
   id: number;
   name: string;
   code: string;
-  description?: string;
+  description: string; // Make required
   is_core: boolean;
   grade_levels: number[];
   created_at: string;

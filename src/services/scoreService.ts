@@ -5,30 +5,55 @@ import { Exam } from '@/types/exam';
 
 export const scoreService = {
   async getExams(): Promise<Exam[]> {
-    const response = await api.get('/exams/');
-    const data = response.data;
-    return data.results;
+    try {
+      const response = await api.get('/exams/');
+      const data = response.data as any;
+      return Array.isArray(data) ? data : (data?.results || data?.data || []);
+    } catch (error) {
+      console.error('Error fetching exams:', error);
+      return [];
+    }
   },
 
   async getStudentsForExam(examId: number): Promise<Student[]> {
-    const response = await api.get(`/exams/${examId}/students/`);
-    const data = response.data;
-    return data;
+    try {
+      const response = await api.get(`/exams/${examId}/students/`);
+      const data = response.data as any;
+      return Array.isArray(data) ? data : (data?.results || data?.data || []);
+    } catch (error) {
+      console.error('Error fetching students for exam:', error);
+      return [];
+    }
   },
 
   async getScores(examId: number): Promise<Score[]> {
-    const response = await api.get('/scores/', { exam_id: examId });
-    const data = response.data;
-    return data.results;
+    try {
+      const response = await api.get('/scores/', { exam_id: examId });
+      const data = response.data as any;
+      return Array.isArray(data) ? data : (data?.results || data?.data || []);
+    } catch (error) {
+      console.error('Error fetching scores:', error);
+      return [];
+    }
   },
 
   async saveScores(scores: Score[]): Promise<void> {
-    await api.post('/scores/bulk_create/', scores);
+    try {
+      await api.post('/scores/bulk_create/', scores);
+    } catch (error) {
+      console.error('Error saving scores:', error);
+      throw error;
+    }
   },
 
   async exportScores(examId: number): Promise<Blob> {
-    const response = await api.get(`/scores/export/`, { exam_id: examId });
-    const data = await response.data;
-    return new Blob([data as BlobPart], { type: 'text/csv' });
+    try {
+      const response = await api.get(`/scores/export/`, { exam_id: examId });
+      const data = await response.data;
+      return new Blob([data as BlobPart], { type: 'text/csv' });
+    } catch (error) {
+      console.error('Error exporting scores:', error);
+      throw error;
+    }
   }
 };

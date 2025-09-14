@@ -2,7 +2,7 @@ export interface Exam {
   id: number;
   name: string;
   subject_id: number;
-  subject_name?: string;
+  subject_name: string; // Make required
   subject?: string;
   subject_code?: string;
   class_id: number;

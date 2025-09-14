@@ -4,7 +4,7 @@ export interface Score {
   student_name?: string;
   exam_id: number;
   marks_obtained: number;
-  marks?: number;
+  marks: number; // Make required to match component expectations
   grade?: string;
   remarks?: string;
   created_at?: string;

@@ -3,7 +3,13 @@ import { Exam, ExamFilters } from "@/types/exam";
 
 export const examService = {
   async getExams(filters?: ExamFilters): Promise<Exam[]> {
-    const response = await api.get('/exams/', filters);
-    return response.data.results || response.data;
+    try {
+      const response = await api.get('/exams/', filters);
+      const data = response.data as any;
+      return Array.isArray(data) ? data : (data?.results || data?.data || []);
+    } catch (error) {
+      console.error('Error fetching exams:', error);
+      return [];
+    }
   },
 };

@@ -7,7 +7,9 @@ export const getStudents = async (
 ): Promise<Student[]> => {
   try {
     const response = await api.get('/students/', params);
-    return response.data.results || response.data || [];
+    const data = response.data as any;
+    // Handle both paginated and direct array responses
+    return Array.isArray(data) ? data : (data?.results || data?.data || []);
   } catch (error) {
     console.error('Error fetching students:', error);
     return [];

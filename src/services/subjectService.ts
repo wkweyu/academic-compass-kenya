@@ -3,41 +3,68 @@ import { Subject, SubjectFilters, SubjectStats } from '@/types/subject';
 
 export const subjectService = {
   async getSubjects(filters?: SubjectFilters): Promise<Subject[]> {
-    const response = await api.get('/subjects/', filters);
-    const data = response.data;
-    return data.results;
+    try {
+      const response = await api.get('/subjects/', filters);
+      const data = response.data as any;
+      return Array.isArray(data) ? data : (data?.results || data?.data || []);
+    } catch (error) {
+      console.error('Error fetching subjects:', error);
+      return [];
+    }
   },
 
   async getSubject(id: number): Promise<Subject | null> {
-    const response = await api.get(`/subjects/${id}/`);
-    const data = response.data;
-    return data;
+    try {
+      const response = await api.get(`/subjects/${id}/`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching subject:', error);
+      return null;
+    }
   },
 
   async createSubject(data: Omit<Subject, 'id' | 'created_at' | 'updated_at'>): Promise<Subject> {
-    const response = await api.post('/subjects/', data);
-    const newSubject = response.data;
-    return newSubject;
+    try {
+      const response = await api.post('/subjects/', data);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating subject:', error);
+      throw error;
+    }
   },
 
   async updateSubject(id: number, data: Partial<Subject>): Promise<Subject | null> {
-    const response = await api.patch(`/subjects/${id}/`, data);
-    const updatedSubject = response.data;
-    return updatedSubject;
+    try {
+      const response = await api.patch(`/subjects/${id}/`, data);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating subject:', error);
+      return null;
+    }
   },
 
   async deleteSubject(id: number): Promise<boolean> {
-    await api.delete(`/subjects/${id}/`);
-    return true;
+    try {
+      await api.delete(`/subjects/${id}/`);
+      return true;
+    } catch (error) {
+      console.error('Error deleting subject:', error);
+      return false;
+    }
   },
 
   async getSubjectStats(): Promise<SubjectStats> {
-    // TODO: Implement this function
-    return {
-      total_subjects: 0,
-      core_subjects: 0,
-      elective_subjects: 0,
-      subjects_by_grade: {},
-    };
+    try {
+      const response = await api.get('/subjects/stats/');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching subject stats:', error);
+      return {
+        total_subjects: 0,
+        core_subjects: 0,
+        elective_subjects: 0,
+        subjects_by_grade: {},
+      };
+    }
   }
 };
