@@ -1,10 +1,9 @@
 import { api } from "@/api/api";
-import { Exam, ExamFilters } from '@/types/cbc';
+import { Exam, ExamFilters } from "@/types/exam";
 
 export const examService = {
   async getExams(filters?: ExamFilters): Promise<Exam[]> {
     const response = await api.get('/exams/', filters);
-    const data = response.data;
-    return data.results;
+    return response.data.results || response.data;
   },
 };

@@ -33,10 +33,14 @@ export const api = {
   delete: <T>(url: string) => axiosInstance.delete<T>(url),
 };
 
-// Auth functions
+interface ApiResponse {
+  access?: string;
+  [key: string]: any;
+}
+
 export async function signIn(email: string, password: string) {
   try {
-    const response = await api.post("/auth/login/", { email, password });
+    const response = await api.post<ApiResponse>("/auth/login/", { email, password });
     // dj-rest-auth with JWT returns access & refresh tokens
     if (response.data.access) {
       localStorage.setItem("authToken", response.data.access);
@@ -71,7 +75,7 @@ export async function signOut() {
 
 export async function signUp(email: string, password: string) {
   try {
-    const response = await api.post("/auth/registration/", { email, password });
+    const response = await api.post<ApiResponse>("/auth/registration/", { email, password });
     if (response.data.access) {
       localStorage.setItem("authToken", response.data.access);
     }
