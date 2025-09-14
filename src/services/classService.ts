@@ -3,6 +3,7 @@ import {
   Class,
   Stream,
   ClassAllocation,
+  ClassSubjectAllocation,
   ClassFilters,
   StreamFilters,
   ClassStats,
@@ -14,8 +15,8 @@ import { Student } from "@/types/student";
 export const classService = {
   // Classes
   async getClasses(filters?: ClassFilters): Promise<Class[]> {
-    const response = await api.get("/classes/", filters);
-    return response.data.results;
+    const response = await api.get("/classes/", { params: filters });
+    return response.data.results || response.data;
   },
 
   async getClass(id: number): Promise<Class | null> {
@@ -45,8 +46,8 @@ export const classService = {
 
   // Streams
   async getStreams(filters?: StreamFilters): Promise<Stream[]> {
-    const response = await api.get("/streams/", filters);
-    return response.data.results;
+    const response = await api.get("/streams/", { params: filters });
+    return response.data.results || response.data;
   },
 
   async getStream(id: number): Promise<Stream | null> {
@@ -80,10 +81,12 @@ export const classService = {
     streamId?: number
   ): Promise<ClassAllocation[]> {
     const response = await api.get("/class-allocations/", {
-      class_id: classId,
-      stream_id: streamId,
+      params: {
+        class_id: classId,
+        stream_id: streamId,
+      }
     });
-    return response.data.results;
+    return response.data.results || response.data;
   },
 
   async assignStudentToClass(
@@ -109,7 +112,7 @@ export const classService = {
     streamId?: number
   ): Promise<Student[]> {
     const response = await api.get(`/classes/${classId}/students/`, {
-      stream_id: streamId,
+      params: { stream_id: streamId }
     });
     return response.data;
   },
