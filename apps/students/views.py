@@ -263,10 +263,34 @@ def class_subject_allocation_list(request):
     })
 
 # --- API Views ---
-from rest_framework import viewsets, permissions
-from .serializers import StudentSerializer
+from rest_framework import viewsets, permissions, generics
+from .serializers import StudentSerializer, ClassSerializer, StreamSerializer
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter
+
+class ClassListCreateAPIView(generics.ListCreateAPIView):
+    queryset = Class.objects.all()
+    serializer_class = ClassSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+
+class ClassRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Class.objects.all()
+    serializer_class = ClassSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+
+class StreamListCreateAPIView(generics.ListCreateAPIView):
+    queryset = Stream.objects.all()
+    serializer_class = StreamSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+
+class StreamRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Stream.objects.all()
+    serializer_class = StreamSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
 
 class StudentViewSet(viewsets.ModelViewSet):
     """

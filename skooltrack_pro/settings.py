@@ -92,28 +92,12 @@ TEMPLATES = [
 WSGI_APPLICATION = 'skooltrack_pro.wsgi.application'
 
 # Database
-import dj_database_url
-
-# Database
-SUPABASE_URL = config('SUPABASE_DB_URL', default=None)
-
-if SUPABASE_URL:
-    # Use Supabase database if URL provided
-    DATABASES = {
-        'default': dj_database_url.config(default=SUPABASE_URL, conn_max_age=600)
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
-else:
-    # Fallback to local Postgres
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': config('DB_NAME', default='skooltrack_pro'),
-            'USER': config('DB_USER', default='postgres'),
-            'PASSWORD': config('DB_PASSWORD', default='123'),
-            'HOST': config('DB_HOST', default='localhost'),
-            'PORT': config('DB_PORT', default='5432'),
-        }
-    }
+}
 
 
 # Password validation
@@ -165,8 +149,7 @@ LOGOUT_REDIRECT_URL = '/auth/login/'
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
-        'dj_rest_auth.jwt_auth.JWTCookieAuthentication',
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',

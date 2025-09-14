@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Student
+from .models import Student, Class, Stream
 from apps.core.middleware import get_current_school
 
 class StudentSerializer(serializers.ModelSerializer):
@@ -33,3 +33,15 @@ class StudentSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         # Handle photo updates carefully
         return super().update(instance, validated_data)
+
+
+class ClassSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Class
+        fields = '__all__'
+
+
+class StreamSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Stream
+        fields = '__all__'
