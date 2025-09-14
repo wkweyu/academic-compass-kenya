@@ -13,14 +13,16 @@ import {
 import { Student } from "@/types/student";
 
 export const classService = {
-  // Classes
+  // Classes - Using the correct authenticated endpoints
   async getClasses(filters?: ClassFilters): Promise<Class[]> {
-    const response = await api.get("/classes/", { params: filters });
-    return response.data.results || response.data;
+    const response = await api.get("/students/api/classes/", {
+      params: filters,
+    });
+    return response.data;
   },
 
   async getClass(id: number): Promise<Class | null> {
-    const response = await api.get(`/classes/${id}/`);
+    const response = await api.get(`/students/api/classes/${id}/`);
     return response.data;
   },
 
@@ -30,35 +32,37 @@ export const classService = {
       "id" | "created_at" | "total_streams" | "total_students" | "capacity"
     >
   ): Promise<Class> {
-    const response = await api.post("/classes/", data);
+    const response = await api.post("/students/api/classes/", data);
     return response.data;
   },
 
   async updateClass(id: number, data: Partial<Class>): Promise<Class | null> {
-    const response = await api.patch(`/classes/${id}/`, data);
+    const response = await api.patch(`/students/api/classes/${id}/`, data);
     return response.data;
   },
 
   async deleteClass(id: number): Promise<boolean> {
-    await api.delete(`/classes/${id}/`);
+    await api.delete(`/students/api/classes/${id}/`);
     return true;
   },
 
-  // Streams
+  // Streams - Using the correct authenticated endpoints
   async getStreams(filters?: StreamFilters): Promise<Stream[]> {
-    const response = await api.get("/streams/", { params: filters });
-    return response.data.results || response.data;
+    const response = await api.get("/students/api/streams/", {
+      params: filters,
+    });
+    return response.data;
   },
 
   async getStream(id: number): Promise<Stream | null> {
-    const response = await api.get(`/streams/${id}/`);
+    const response = await api.get(`/students/api/streams/${id}/`);
     return response.data;
   },
 
   async createStream(
     data: Omit<Stream, "id" | "created_at" | "current_enrollment">
   ): Promise<Stream> {
-    const response = await api.post("/streams/", data);
+    const response = await api.post("/students/api/streams/", data);
     return response.data;
   },
 
@@ -66,12 +70,12 @@ export const classService = {
     id: number,
     data: Partial<Stream>
   ): Promise<Stream | null> {
-    const response = await api.patch(`/streams/${id}/`, data);
+    const response = await api.patch(`/students/api/streams/${id}/`, data);
     return response.data;
   },
 
   async deleteStream(id: number): Promise<boolean> {
-    await api.delete(`/streams/${id}/`);
+    await api.delete(`/students/api/streams/${id}/`);
     return true;
   },
 
@@ -84,7 +88,7 @@ export const classService = {
       params: {
         class_id: classId,
         stream_id: streamId,
-      }
+      },
     });
     return response.data.results || response.data;
   },
@@ -112,12 +116,12 @@ export const classService = {
     streamId?: number
   ): Promise<Student[]> {
     const response = await api.get(`/classes/${classId}/students/`, {
-      params: { stream_id: streamId }
+      params: { stream_id: streamId },
     });
     return response.data;
   },
 
-  // Statistics (dashboard)
+  // Statistics (dashboard) - Using temporary endpoint
   async getClassStats(): Promise<ClassStats> {
     const response = await api.get("/dashboard/");
     return response.data;

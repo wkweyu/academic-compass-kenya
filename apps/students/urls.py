@@ -1,7 +1,14 @@
-
 from django.urls import path
 from . import views
-from .views import class_subject_allocation_list, class_subject_allocation_create
+from .views import (
+    class_subject_allocation_list, 
+    class_subject_allocation_create,
+    get_streams,
+    ClassListCreateAPIView,
+    ClassRetrieveUpdateDestroyAPIView,
+    StreamListCreateAPIView,
+    StreamRetrieveUpdateDestroyAPIView
+)
 
 app_name = 'students'
 
@@ -17,5 +24,9 @@ urlpatterns = [
     path('class-allocations/', views.class_subject_allocation_list, name='class_allocations'),
     path('class-allocations/create/', views.class_subject_allocation_create, name='create_class_allocation'),
 
-
+    # API endpoints
+    path('api/classes/', ClassListCreateAPIView.as_view(), name='api-classes-list'),
+    path('api/classes/<int:pk>/', ClassRetrieveUpdateDestroyAPIView.as_view(), name='api-classes-detail'),
+    path('api/streams/', StreamListCreateAPIView.as_view(), name='api-streams-list'),
+    path('api/streams/<int:pk>/', StreamRetrieveUpdateDestroyAPIView.as_view(), name='api-streams-detail'),
 ]

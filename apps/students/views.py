@@ -268,55 +268,70 @@ from .serializers import StudentSerializer, ClassSerializer, StreamSerializer
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter
 
+# In views.py, update your API views:
+
+# In views.py, add these imports
+from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.permissions import IsAuthenticated
+
 class ClassListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = ClassSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
+    authentication_classes = [SessionAuthentication, TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+    
     def get_queryset(self):
         user = self.request.user
-        if user.is_authenticated and hasattr(user, 'school'):
+        if user.is_authenticated and getattr(user, 'school', None):
             return Class.objects.filter(school=user.school)
         return Class.objects.none()
 
     def perform_create(self, serializer):
+        if not getattr(self.request.user, 'school', None):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You must be associated with a school to create classes.")
         serializer.save(school=self.request.user.school)
 
 
 class ClassRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = ClassSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    authentication_classes = [SessionAuthentication, TokenAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_authenticated and hasattr(user, 'school'):
+        if user.is_authenticated and getattr(user, 'school', None):
             return Class.objects.filter(school=user.school)
         return Class.objects.none()
 
 
 class StreamListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = StreamSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    authentication_classes = [SessionAuthentication, TokenAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_authenticated and hasattr(user, 'school'):
+        if user.is_authenticated and getattr(user, 'school', None):
             return Stream.objects.filter(school=user.school)
         return Stream.objects.none()
 
     def perform_create(self, serializer):
+        if not getattr(self.request.user, 'school', None):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You must be associated with a school to create streams.")
         serializer.save(school=self.request.user.school)
 
 
 class StreamRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = StreamSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    authentication_classes = [SessionAuthentication, TokenAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_authenticated and hasattr(user, 'school'):
+        if user.is_authenticated and getattr(user, 'school', None):
             return Stream.objects.filter(school=user.school)
         return Stream.objects.none()
-
 
 class StudentViewSet(viewsets.ModelViewSet):
     """

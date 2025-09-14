@@ -38,10 +38,21 @@ class StudentSerializer(serializers.ModelSerializer):
 class ClassSerializer(serializers.ModelSerializer):
     class Meta:
         model = Class
-        fields = '__all__'
-
+        # include only the fields you want to expose to the frontend
+        fields = [
+            'id', 
+            'name', 
+            'grade_level', 
+            'description'
+        ]
+        read_only_fields = ['id']
 
 class StreamSerializer(serializers.ModelSerializer):
     class Meta:
         model = Stream
-        fields = '__all__'
+        fields = [
+            'id',
+            'name',
+            'class_assigned'  # FK to Class
+        ]
+        read_only_fields = ['id']

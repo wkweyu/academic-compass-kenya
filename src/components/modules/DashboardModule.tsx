@@ -16,12 +16,16 @@ import {
   Target,
 } from "lucide-react";
 
-import { useQuery } from '@tanstack/react-query';
-import { dashboardService } from '@/services/dashboardService';
+import { useQuery } from "@tanstack/react-query"; // Add this import
+import { dashboardService } from "@/services/dashboardService";
 
 export function DashboardModule() {
-  const { data: dashboardData, isLoading } = useQuery({
-    queryKey: ['dashboardData'],
+  const {
+    data: dashboardData,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ["dashboardData"],
     queryFn: dashboardService.getDashboardData,
   });
 
@@ -29,7 +33,19 @@ export function DashboardModule() {
     return <div>Loading...</div>;
   }
 
-  const { stats, recentExams, performanceData } = dashboardData!;
+  if (error) {
+    console.error("Dashboard error:", error);
+    return <div>Error loading dashboard: {error.message}</div>;
+  }
+
+  if (!dashboardData) {
+    return <div>No dashboard data available</div>;
+  }
+
+  const { stats, recentExams = [], performanceData = [] } = dashboardData;
+
+  // Add this safety check for the stats object
+  const safeStats = stats || {};
 
   return (
     <div className="space-y-6">
@@ -48,9 +64,11 @@ export function DashboardModule() {
             <ClipboardList className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalExams}</div>
+            <div className="text-2xl font-bold">
+              {safeStats.totalExams || 0}
+            </div>
             <p className="text-xs text-muted-foreground">
-              {stats.activeExams} active this term
+              {safeStats.activeExams || 0} active this term
             </p>
           </CardContent>
         </Card>
@@ -61,7 +79,9 @@ export function DashboardModule() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalStudents}</div>
+            <div className="text-2xl font-bold">
+              {safeStats.totalStudents || 0}
+            </div>
             <p className="text-xs text-muted-foreground">Across all grades</p>
           </CardContent>
         </Card>
@@ -72,7 +92,9 @@ export function DashboardModule() {
             <BookOpen className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalSubjects}</div>
+            <div className="text-2xl font-bold">
+              {safeStats.totalSubjects || 0}
+            </div>
             <p className="text-xs text-muted-foreground">CBC curriculum</p>
           </CardContent>
         </Card>
@@ -83,8 +105,10 @@ export function DashboardModule() {
             <Target className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.completedScores}%</div>
-            <Progress value={stats.completedScores} className="mt-2" />
+            <div className="text-2xl font-bold">
+              {safeStats.completedScores || 0}%
+            </div>
+            <Progress value={safeStats.completedScores || 0} className="mt-2" />
           </CardContent>
         </Card>
       </div>
@@ -100,30 +124,36 @@ export function DashboardModule() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentExams.map((exam, index) => (
-                <div key={index} className="flex items-center space-x-4">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <div className="flex-1 space-y-1">
-                    <p className="text-sm font-medium leading-none">
-                      {exam.name}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {exam.class} {exam.stream} • {exam.date}
-                    </p>
+              {recentExams.length > 0 ? (
+                recentExams.map((exam, index) => (
+                  <div key={index} className="flex items-center space-x-4">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex-1 space-y-1">
+                      <p className="text-sm font-medium leading-none">
+                        {exam.name}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {exam.class} {exam.stream} • {exam.date}
+                      </p>
+                    </div>
+                    <Badge
+                      variant={
+                        exam.status === "Active"
+                          ? "default"
+                          : exam.status === "Completed"
+                          ? "secondary"
+                          : "outline"
+                      }
+                    >
+                      {exam.status}
+                    </Badge>
                   </div>
-                  <Badge
-                    variant={
-                      exam.status === "Active"
-                        ? "default"
-                        : exam.status === "Completed"
-                        ? "secondary"
-                        : "outline"
-                    }
-                  >
-                    {exam.status}
-                  </Badge>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No recent exams found
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -138,20 +168,26 @@ export function DashboardModule() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {performanceData.map((subject, index) => (
-                <div key={index} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium">{subject.subject}</p>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm">{subject.average}%</span>
-                      <Badge variant="outline" className="text-xs">
-                        {subject.grade}
-                      </Badge>
+              {performanceData.length > 0 ? (
+                performanceData.map((subject, index) => (
+                  <div key={index} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium">{subject.subject}</p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">{subject.average}%</span>
+                        <Badge variant="outline" className="text-xs">
+                          {subject.grade}
+                        </Badge>
+                      </div>
                     </div>
+                    <Progress value={subject.average} className="h-2" />
                   </div>
-                  <Progress value={subject.average} className="h-2" />
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No performance data available
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
