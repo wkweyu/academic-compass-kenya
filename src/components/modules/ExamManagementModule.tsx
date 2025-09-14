@@ -145,7 +145,7 @@ export function ExamManagementModule() {
                   <CardTitle className="text-lg">{exam.name}</CardTitle>
                   <CardDescription className="flex items-center gap-2">
                     <BookOpen className="h-4 w-4" />
-                    {exam.subject.name} ({exam.subject.code})
+                    {exam.subject}
                   </CardDescription>
                 </div>
                 <Badge variant={exam.is_published ? "default" : "outline"}>

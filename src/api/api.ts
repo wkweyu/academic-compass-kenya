@@ -2,21 +2,19 @@ import axios from "axios";
 
 const API_URL = "http://127.0.0.1:8000/api";
 
-// Create Axios instance
+// Axios instance
 const axiosInstance = axios.create({
   baseURL: API_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
-  withCredentials: true, // ensure cookies are sent if backend sets them
+  headers: { "Content-Type": "application/json" },
+  withCredentials: true, // required if backend uses cookies
 });
 
-// Automatically attach token if present
+// Attach token to every request
 axiosInstance.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("authToken");
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      config.headers.Authorization = `Token ${token}`; // TokenAuthentication for dj-rest-auth
     }
     return config;
   },
@@ -33,17 +31,20 @@ export const api = {
   delete: <T>(url: string) => axiosInstance.delete<T>(url),
 };
 
+// Auth API
 interface ApiResponse {
-  access?: string;
+  key?: string; // dj-rest-auth returns "key" for TokenAuthentication
   [key: string]: any;
 }
 
 export async function signIn(email: string, password: string) {
   try {
-    const response = await api.post<ApiResponse>("/auth/login/", { email, password });
-    // dj-rest-auth with JWT returns access & refresh tokens
-    if (response.data.access) {
-      localStorage.setItem("authToken", response.data.access);
+    const response = await api.post<ApiResponse>("/auth/login/", {
+      email,
+      password,
+    });
+    if (response.data.key) {
+      localStorage.setItem("authToken", response.data.key);
     }
     return response.data;
   } catch (err: any) {
@@ -75,9 +76,12 @@ export async function signOut() {
 
 export async function signUp(email: string, password: string) {
   try {
-    const response = await api.post<ApiResponse>("/auth/registration/", { email, password });
-    if (response.data.access) {
-      localStorage.setItem("authToken", response.data.access);
+    const response = await api.post<ApiResponse>("/auth/registration/", {
+      email,
+      password,
+    });
+    if (response.data.key) {
+      localStorage.setItem("authToken", response.data.key);
     }
     return response.data;
   } catch (err: any) {

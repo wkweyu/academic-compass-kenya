@@ -1,27 +1,25 @@
 import {
+  createContext,
+  useContext,
   useState,
   useEffect,
-  useContext,
-  createContext,
   ReactNode,
 } from "react";
 import { signIn, signUp, signOut, getCurrentUser } from "@/api/api";
 
 interface AuthContextType {
-  user: any | null;
-  loading: boolean;
+  user: any;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<any | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
 
+  // Fetch current user on mount
   useEffect(() => {
     (async () => {
       try {
@@ -29,8 +27,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(u);
       } catch {
         setUser(null);
-      } finally {
-        setLoading(false);
       }
     })();
   }, []);
@@ -53,7 +49,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, signOut: logout }}>
+    <AuthContext.Provider value={{ user, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );
@@ -61,6 +57,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) throw new Error("useAuth must be used within an AuthProvider");
+  if (!context) throw new Error("useAuth must be used within AuthProvider");
   return context;
 };
