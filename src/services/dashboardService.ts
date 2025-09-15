@@ -10,7 +10,7 @@ export const dashboardService = {
       const data = response.data || {};
 
       // Handle field name variations - both "stats" and "static"
-      const statsData = data.stats || data.static || {};
+      const statsData = (data as any)?.stats || (data as any)?.static || {};
 
       const result = {
         stats: {
@@ -23,8 +23,8 @@ export const dashboardService = {
           pendingResults:
             statsData.pendingResults || statsData.modelupdate || 0,
         },
-        recentExams: data.recentExams || [],
-        performanceData: data.performanceData || [],
+        recentExams: (data as any)?.recentExams || [],
+        performanceData: (data as any)?.performanceData || [],
       };
 
       console.log("Processed dashboard data:", result);
@@ -46,3 +46,33 @@ export const dashboardService = {
     }
   },
 };
+
+export async function getDashboardStats() {
+  try {
+    const response = await api.get("/dashboard/");
+    const data = response.data as any;
+    
+    // Provide fallback values for missing properties
+    return {
+      totalStudents: data?.stats?.totalStudents || data?.totalStudents || 0,
+      totalExams: data?.stats?.totalExams || data?.totalExams || 0, 
+      activeExams: data?.stats?.activeExams || data?.activeExams || 0,
+      totalSubjects: data?.stats?.totalSubjects || data?.totalSubjects || 0,
+      completedScores: data?.stats?.completedScores || data?.completedScores || 0,
+      recentExams: data?.recentExams || [],
+      performanceData: data?.performanceData || [],
+    };
+  } catch (error) {
+    console.error('Error fetching dashboard stats:', error);
+    // Return fallback data structure
+    return {
+      totalStudents: 0,
+      totalExams: 0,
+      activeExams: 0,
+      totalSubjects: 0,
+      completedScores: 0,
+      recentExams: [],
+      performanceData: [],
+    };
+  }
+}

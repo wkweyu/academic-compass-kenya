@@ -159,6 +159,12 @@ export async function signUp(
   }
 }
 
+// Auth headers helper for backwards compatibility
+export function authHeaders() {
+  const token = localStorage.getItem("authToken");
+  return token ? { Authorization: `Token ${token}` } : {};
+}
+
 // Test API connection
 export async function testConnection() {
   try {

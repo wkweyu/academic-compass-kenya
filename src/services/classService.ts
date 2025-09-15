@@ -15,15 +15,24 @@ import { Student } from "@/types/student";
 export const classService = {
   // Classes - Using the correct authenticated endpoints
   async getClasses(filters?: ClassFilters): Promise<Class[]> {
-    const response = await api.get("/students/api/classes/", {
-      params: filters,
-    });
-    return response.data;
+    try {
+      const response = await api.get("/students/api/classes/", filters);
+      const data = response.data as any;
+      return Array.isArray(data) ? data : (data?.results || data?.data || []);
+    } catch (error) {
+      console.error('Error fetching classes:', error);
+      return [];
+    }
   },
 
   async getClass(id: number): Promise<Class | null> {
-    const response = await api.get(`/students/api/classes/${id}/`);
-    return response.data;
+    try {
+      const response = await api.get(`/students/api/classes/${id}/`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching class:', error);
+      return null;
+    }
   },
 
   async createClass(
@@ -32,51 +41,90 @@ export const classService = {
       "id" | "created_at" | "total_streams" | "total_students" | "capacity"
     >
   ): Promise<Class> {
-    const response = await api.post("/students/api/classes/", data);
-    return response.data;
+    try {
+      const response = await api.post("/students/api/classes/", data);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating class:', error);
+      throw error;
+    }
   },
 
   async updateClass(id: number, data: Partial<Class>): Promise<Class | null> {
-    const response = await api.patch(`/students/api/classes/${id}/`, data);
-    return response.data;
+    try {
+      const response = await api.patch(`/students/api/classes/${id}/`, data);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating class:', error);
+      return null;
+    }
   },
 
   async deleteClass(id: number): Promise<boolean> {
-    await api.delete(`/students/api/classes/${id}/`);
-    return true;
+    try {
+      await api.delete(`/students/api/classes/${id}/`);
+      return true;
+    } catch (error) {
+      console.error('Error deleting class:', error);
+      return false;
+    }
   },
 
   // Streams - Using the correct authenticated endpoints
   async getStreams(filters?: StreamFilters): Promise<Stream[]> {
-    const response = await api.get("/students/api/streams/", {
-      params: filters,
-    });
-    return response.data;
+    try {
+      const response = await api.get("/students/api/streams/", filters);
+      const data = response.data as any;
+      return Array.isArray(data) ? data : (data?.results || data?.data || []);
+    } catch (error) {
+      console.error('Error fetching streams:', error);
+      return [];
+    }
   },
 
   async getStream(id: number): Promise<Stream | null> {
-    const response = await api.get(`/students/api/streams/${id}/`);
-    return response.data;
+    try {
+      const response = await api.get(`/students/api/streams/${id}/`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching stream:', error);
+      return null;
+    }
   },
 
   async createStream(
     data: Omit<Stream, "id" | "created_at" | "current_enrollment">
   ): Promise<Stream> {
-    const response = await api.post("/students/api/streams/", data);
-    return response.data;
+    try {
+      const response = await api.post("/students/api/streams/", data);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating stream:', error);
+      throw error;
+    }
   },
 
   async updateStream(
     id: number,
     data: Partial<Stream>
   ): Promise<Stream | null> {
-    const response = await api.patch(`/students/api/streams/${id}/`, data);
-    return response.data;
+    try {
+      const response = await api.patch(`/students/api/streams/${id}/`, data);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating stream:', error);
+      return null;
+    }
   },
 
   async deleteStream(id: number): Promise<boolean> {
-    await api.delete(`/students/api/streams/${id}/`);
-    return true;
+    try {
+      await api.delete(`/students/api/streams/${id}/`);
+      return true;
+    } catch (error) {
+      console.error('Error deleting stream:', error);
+      return false;
+    }
   },
 
   // Class Allocations
@@ -84,13 +132,17 @@ export const classService = {
     classId?: number,
     streamId?: number
   ): Promise<ClassAllocation[]> {
-    const response = await api.get("/class-allocations/", {
-      params: {
+    try {
+      const response = await api.get("/class-allocations/", {
         class_id: classId,
         stream_id: streamId,
-      },
-    });
-    return response.data.results || response.data;
+      });
+      const data = response.data as any;
+      return Array.isArray(data) ? data : (data?.results || data?.data || []);
+    } catch (error) {
+      console.error('Error fetching class allocations:', error);
+      return [];
+    }
   },
 
   async assignStudentToClass(
@@ -100,14 +152,19 @@ export const classService = {
     academicYear: number = 2024,
     term: 1 | 2 | 3 = 1
   ): Promise<ClassAllocation> {
-    const response = await api.post("/class-allocations/", {
-      student_id: studentId,
-      class_id: classId,
-      stream_id: streamId,
-      academic_year: academicYear,
-      term: term,
-    });
-    return response.data;
+    try {
+      const response = await api.post("/class-allocations/", {
+        student_id: studentId,
+        class_id: classId,
+        stream_id: streamId,
+        academic_year: academicYear,
+        term: term,
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error assigning student to class:', error);
+      throw error;
+    }
   },
 
   // Class Students
@@ -115,16 +172,41 @@ export const classService = {
     classId: number,
     streamId?: number
   ): Promise<Student[]> {
-    const response = await api.get(`/classes/${classId}/students/`, {
-      params: { stream_id: streamId },
-    });
-    return response.data;
+    try {
+      const response = await api.get(`/classes/${classId}/students/`, { stream_id: streamId });
+      const data = response.data as any;
+      return Array.isArray(data) ? data : (data?.results || data?.data || []);
+    } catch (error) {
+      console.error('Error fetching class students:', error);
+      return [];
+    }
   },
 
   // Statistics (dashboard) - Using temporary endpoint
   async getClassStats(): Promise<ClassStats> {
-    const response = await api.get("/dashboard/");
-    return response.data;
+    try {
+      const response = await api.get("/dashboard/");
+      return response.data || {
+        total_classes: 0,
+        total_streams: 0,
+        total_students_enrolled: 0,
+        average_class_size: 0,
+        capacity_utilization: 0,
+        classes_by_grade: {},
+        enrollment_by_year: [],
+      };
+    } catch (error) {
+      console.error('Error fetching class stats:', error);
+      return {
+        total_classes: 0,
+        total_streams: 0,
+        total_students_enrolled: 0,
+        average_class_size: 0,
+        capacity_utilization: 0,
+        classes_by_grade: {},
+        enrollment_by_year: [],
+      };
+    }
   },
 
   // Bulk Operations (stub)

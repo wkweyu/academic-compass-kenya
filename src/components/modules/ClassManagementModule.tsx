@@ -83,7 +83,8 @@ export const ClassManagementModule = () => {
       await classService.createClass({
         name: classForm.name.trim(),
         grade_level: classForm.grade_level,
-        description: classForm.description
+        description: classForm.description,
+        school: 1 // Default school ID - you might want to get this from user context
       });
       
       toast({
@@ -119,7 +120,8 @@ export const ClassManagementModule = () => {
         class_assigned: streamForm.class_assigned,
         year: streamForm.year,
         capacity: streamForm.capacity,
-        status: streamForm.status
+        status: streamForm.status,
+        school: 1 // Default school ID - you might want to get this from user context
       });
       
       toast({

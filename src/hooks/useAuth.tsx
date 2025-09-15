@@ -9,15 +9,18 @@ import { signIn, signUp, signOut, getCurrentUser } from "@/api/api";
 
 interface AuthContextType {
   user: any;
+  loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, confirmPassword: string) => Promise<void>;
   logout: () => Promise<void>;
+  signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   // Fetch current user on mount
   useEffect(() => {
@@ -27,6 +30,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(u);
       } catch {
         setUser(null);
+      } finally {
+        setLoading(false);
       }
     })();
   }, []);
@@ -37,8 +42,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(u);
   };
 
-  const register = async (email: string, password: string) => {
-    await signUp(email, password);
+  const register = async (email: string, password: string, confirmPassword: string) => {
+    await signUp(email, password, confirmPassword);
     const u = await getCurrentUser();
     setUser(u);
   };
@@ -48,8 +53,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
   };
 
+  const signOutHandler = async () => {
+    await signOut();
+    setUser(null);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, signOut: signOutHandler }}>
       {children}
     </AuthContext.Provider>
   );

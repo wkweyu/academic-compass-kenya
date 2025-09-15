@@ -20,26 +20,43 @@ export const staffService = {
   },
 
   async getStaffMember(id: number): Promise<Staff | null> {
-    const response = await api.get(`/staff/${id}/`);
-    const data = response.data;
-    return data;
+    try {
+      const response = await api.get(`/staff/${id}/`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching staff member:', error);
+      throw error;
+    }
   },
 
   async createStaff(data: Omit<Staff, 'id' | 'created_at' | 'updated_at' | 'full_name' | 'years_of_service' | 'gross_salary'>): Promise<Staff> {
-    const response = await api.post('/staff/', data);
-    const newStaff = response.data;
-    return newStaff;
+    try {
+      const response = await api.post('/staff/', data);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating staff:', error);
+      throw error;
+    }
   },
 
   async updateStaff(id: number, data: Partial<Staff>): Promise<Staff | null> {
-    const response = await api.patch(`/staff/${id}/`, data);
-    const updatedStaff = response.data;
-    return updatedStaff;
+    try {
+      const response = await api.patch(`/staff/${id}/`, data);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating staff:', error);
+      throw error;
+    }
   },
 
   async deleteStaff(id: number): Promise<boolean> {
-    await api.delete(`/staff/${id}/`);
-    return true;
+    try {
+      await api.delete(`/staff/${id}/`);
+      return true;
+    } catch (error) {
+      console.error('Error deleting staff:', error);
+      throw error;
+    }
   },
 
   // Subject assignments (mainly for teaching staff)

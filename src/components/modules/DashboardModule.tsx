@@ -44,8 +44,15 @@ export function DashboardModule() {
 
   const { stats, recentExams = [], performanceData = [] } = dashboardData;
 
-  // Add this safety check for the stats object
-  const safeStats = stats || {};
+  // Add this safety check for the stats object with proper typing
+  const safeStats = {
+    totalExams: stats?.totalExams || 0,
+    activeExams: stats?.activeExams || 0,
+    totalStudents: stats?.totalStudents || 0,
+    totalSubjects: stats?.totalSubjects || 0,
+    completedScores: stats?.completedScores || 0,
+    pendingResults: stats?.pendingResults || 0,
+  };
 
   return (
     <div className="space-y-6">

@@ -22,7 +22,7 @@ export const getStudentById = async (id: string): Promise<Student | null> => {
     return response.data;
   } catch (error) {
     console.error('Error fetching student:', error);
-    return null;
+    throw error;
   }
 };
 
@@ -44,7 +44,7 @@ export const updateStudent = async (id: string, studentData: Partial<Student>): 
     return response.data;
   } catch (error) {
     console.error('Error updating student:', error);
-    return null;
+    throw error;
   }
 };
 
