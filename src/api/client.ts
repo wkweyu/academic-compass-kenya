@@ -1,6 +1,6 @@
 import { authHeaders } from './api';
 
-const API_URL = "http://127.0.0.1:8000/api";
+const API_URL = "http://localhost:8000/api";
 
 async function client<T>(
   endpoint: string,

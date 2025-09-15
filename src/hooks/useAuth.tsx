@@ -26,9 +26,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     (async () => {
       try {
+        // Check if we have a token
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+          console.log('No auth token found');
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+
+        console.log('Auth token found, getting current user...');
         const u = await getCurrentUser();
+        console.log('Current user:', u);
         setUser(u);
-      } catch {
+      } catch (error) {
+        console.error('Failed to get current user:', error);
+        // Clear invalid token
+        localStorage.removeItem('authToken');
         setUser(null);
       } finally {
         setLoading(false);

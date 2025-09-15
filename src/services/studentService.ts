@@ -7,7 +7,7 @@ export const getStudents = async (
   params: StudentFilters = {}
 ): Promise<Student[]> => {
   try {
-    const response = await api.get('/students/', params);
+    const response = await api.get('/api/students/students/', params);
     const data = response.data as any;
     // Handle both paginated and direct array responses
     return Array.isArray(data) ? data : (data?.results || data?.data || []);
@@ -19,7 +19,7 @@ export const getStudents = async (
 
 export const getStudentById = async (id: string): Promise<Student | null> => {
   try {
-    const response = await api.get(`/students/${id}/`);
+    const response = await api.get(`/api/students/students/${id}/`);
     return response.data;
   } catch (error) {
     console.error('Error fetching student:', error);
@@ -31,7 +31,7 @@ export const createStudent = async (
   studentData: Omit<Student, "id" | "admission_number" | "created_at" | "updated_at">
 ): Promise<Student> => {
   try {
-    const response = await api.post('/students/', studentData);
+    const response = await api.post('/api/students/students/', studentData);
     return response.data;
   } catch (error) {
     console.error('Error creating student:', error);
@@ -41,7 +41,7 @@ export const createStudent = async (
 
 export const updateStudent = async (id: string, studentData: Partial<Student>): Promise<Student | null> => {
   try {
-    const response = await api.patch(`/students/${id}/`, studentData);
+    const response = await api.patch(`/api/students/students/${id}/`, studentData);
     return response.data;
   } catch (error) {
     console.error('Error updating student:', error);
@@ -51,7 +51,7 @@ export const updateStudent = async (id: string, studentData: Partial<Student>): 
 
 export const deleteStudent = async (id: string): Promise<boolean> => {
   try {
-    await api.delete(`/students/${id}/`);
+    await api.delete(`/api/students/students/${id}/`);
     return true;
   } catch (error) {
     console.error('Error deleting student:', error);
