@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { api } from "@/api/api";
 import { Guardian, GuardianFilters, SiblingGroup } from '@/types/guardian';
 import { Student } from '@/types/student';

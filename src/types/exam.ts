@@ -2,9 +2,9 @@ export interface Exam {
   id: number;
   name: string;
   subject_id: number;
-  subject_name: string; // Make required
+  subject_name: string;
   subject?: string;
-  subject_code?: string;
+  subject_code: string; // Make required for component compatibility
   class_id: number;
   class_name?: string;
   class_assigned?: string;

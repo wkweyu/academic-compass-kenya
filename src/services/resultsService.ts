@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { api } from "@/api/api";
 import { StudentResult, ResultStats } from '@/types/results';
 

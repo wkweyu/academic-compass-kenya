@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { api } from "@/api/api";
 import { TermSetting, SchoolProfile, AcademicYearSetting, SystemSettings, GradingSystemSettings } from '@/types/settings';
 

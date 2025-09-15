@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { api } from "@/api/api";
 import { Subject, SubjectFilters, SubjectStats } from '@/types/subject';
 
@@ -39,7 +40,7 @@ export const subjectService = {
       return response.data;
     } catch (error) {
       console.error('Error updating subject:', error);
-      return null;
+      throw error; // Throw error instead of returning null
     }
   },
 

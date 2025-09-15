@@ -2,9 +2,9 @@ export interface Subject {
   id: number;
   name: string;
   code: string;
-  description: string; // Make required
+  description: string;
   is_core: boolean;
-  grade_levels: number[];
+  grade_levels: number[]; // Keep as number[] but handle string conversion in components
   created_at: string;
   updated_at: string;
 }
