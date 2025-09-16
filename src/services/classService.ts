@@ -1,5 +1,4 @@
-// @ts-nocheck
-import { api } from "@/api/api";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Class,
   Stream,
@@ -14,12 +13,43 @@ import {
 import { Student } from "@/types/student";
 
 export const classService = {
-  // Classes - Using the correct API endpoints
+  // Classes - Using Supabase directly
   async getClasses(filters?: ClassFilters): Promise<Class[]> {
     try {
-      const response = await api.get("/api/students/classes/", { params: filters });
-      const data = response.data as any;
-      return Array.isArray(data) ? data : (data?.results || data?.data || []);
+      let query = supabase
+        .from('classes')
+        .select('*');
+      
+      if (filters?.search) {
+        query = query.ilike('name', `%${filters.search}%`);
+      }
+      
+      if (filters?.grade_level) {
+        query = query.eq('grade_level', filters.grade_level);
+      }
+      
+      if (filters?.academic_year) {
+        query = query.eq('academic_year', filters.academic_year.toString());
+      }
+
+      const { data, error } = await query;
+      
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+      
+      return data?.map((item: any) => ({
+        id: parseInt(item.id), // Convert uuid to number for compatibility
+        name: item.name,
+        grade_level: item.grade_level,
+        description: item.stream || '',
+        school: 1, // Default school ID
+        created_at: item.created_at,
+        total_streams: 1,
+        total_students: 0,
+        capacity: item.capacity || 40
+      })) || [];
     } catch (error) {
       console.error('Error fetching classes:', error);
       throw error;
@@ -28,8 +58,25 @@ export const classService = {
 
   async getClass(id: number): Promise<Class | null> {
     try {
-      const response = await api.get(`/api/students/classes/${id}/`);
-      return response.data;
+      const { data, error } = await supabase
+        .from('classes')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (error) throw error;
+      
+      return data ? {
+        id: parseInt(data.id),
+        name: data.name,
+        grade_level: data.grade_level,
+        description: data.stream || '',
+        school: 1,
+        created_at: data.created_at,
+        total_streams: 1,
+        total_students: 0,
+        capacity: data.capacity || 40
+      } : null;
     } catch (error) {
       console.error('Error fetching class:', error);
       throw error;
@@ -43,8 +90,31 @@ export const classService = {
     >
   ): Promise<Class> {
     try {
-      const response = await api.post("/api/students/classes/", data);
-      return response.data;
+      const { data: result, error } = await supabase
+        .from('classes')
+        .insert({
+          name: data.name,
+          grade_level: data.grade_level,
+          stream: data.description || '',
+          academic_year: new Date().getFullYear().toString(),
+          capacity: 40
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      return {
+        id: parseInt(result.id),
+        name: result.name,
+        grade_level: result.grade_level,
+        description: result.stream || '',
+        school: 1,
+        created_at: result.created_at,
+        total_streams: 1,
+        total_students: 0,
+        capacity: result.capacity || 40
+      };
     } catch (error) {
       console.error('Error creating class:', error);
       throw error;
@@ -53,8 +123,31 @@ export const classService = {
 
   async updateClass(id: number, data: Partial<Class>): Promise<Class | null> {
     try {
-      const response = await api.patch(`/api/students/classes/${id}/`, data);
-      return response.data;
+      const { data: result, error } = await supabase
+        .from('classes')
+        .update({
+          name: data.name,
+          grade_level: data.grade_level,
+          stream: data.description,
+          capacity: data.capacity
+        })
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      return result ? {
+        id: parseInt(result.id),
+        name: result.name,
+        grade_level: result.grade_level,
+        description: result.stream || '',
+        school: 1,
+        created_at: result.created_at,
+        total_streams: 1,
+        total_students: 0,
+        capacity: result.capacity || 40
+      } : null;
     } catch (error) {
       console.error('Error updating class:', error);
       return null;
@@ -63,7 +156,12 @@ export const classService = {
 
   async deleteClass(id: number): Promise<boolean> {
     try {
-      await api.delete(`/api/students/classes/${id}/`);
+      const { error } = await supabase
+        .from('classes')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
       return true;
     } catch (error) {
       console.error('Error deleting class:', error);
@@ -71,12 +169,36 @@ export const classService = {
     }
   },
 
-  // Streams - Using the correct API endpoints
+  // Streams - Generated from classes data since streams are embedded in classes
   async getStreams(filters?: StreamFilters): Promise<Stream[]> {
     try {
-      const response = await api.get("/api/students/streams/", filters);
-      const data = response.data as any;
-      return Array.isArray(data) ? data : (data?.results || data?.data || []);
+      let query = supabase
+        .from('classes')
+        .select('*');
+      
+      if (filters?.class_id) {
+        query = query.eq('id', filters.class_id);
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) throw error;
+      
+      // Generate streams from classes data
+      const streams = data?.map((classItem: any, index: number) => ({
+        id: parseInt(classItem.id),
+        name: classItem.stream || 'Main',
+        class_assigned: parseInt(classItem.id),
+        class_name: classItem.name,
+        year: parseInt(classItem.academic_year) || new Date().getFullYear(),
+        school: 1,
+        capacity: classItem.capacity || 40,
+        current_enrollment: 0,
+        created_at: classItem.created_at,
+        status: 'active' as const
+      })) || [];
+      
+      return streams;
     } catch (error) {
       console.error('Error fetching streams:', error);
       return [];
