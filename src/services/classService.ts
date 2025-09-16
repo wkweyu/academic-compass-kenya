@@ -62,7 +62,7 @@ export const classService = {
         .from('classes')
         .select('*')
         .eq('id', id)
-        .single();
+        .maybeSingle();
       
       if (error) throw error;
       
@@ -133,7 +133,7 @@ export const classService = {
         })
         .eq('id', id)
         .select()
-        .single();
+        .maybeSingle();
       
       if (error) throw error;
       
@@ -207,8 +207,26 @@ export const classService = {
 
   async getStream(id: number): Promise<Stream | null> {
     try {
-      const response = await api.get(`/api/students/streams/${id}/`);
-      return response.data;
+      const { data, error } = await supabase
+        .from('classes')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+      
+      if (error) throw error;
+      
+      return data ? {
+        id: parseInt(data.id),
+        name: data.stream || 'Main',
+        class_assigned: parseInt(data.id),
+        class_name: data.name,
+        year: parseInt(data.academic_year) || new Date().getFullYear(),
+        school: 1,
+        capacity: data.capacity || 40,
+        current_enrollment: 0,
+        created_at: data.created_at,
+        status: 'active' as const
+      } : null;
     } catch (error) {
       console.error('Error fetching stream:', error);
       return null;
@@ -219,8 +237,32 @@ export const classService = {
     data: Omit<Stream, "id" | "created_at" | "current_enrollment">
   ): Promise<Stream> {
     try {
-      const response = await api.post("/api/students/streams/", data);
-      return response.data;
+      const { data: result, error } = await supabase
+        .from('classes')
+        .insert({
+          name: data.class_assigned ? `Grade ${data.class_assigned}` : 'New Class',
+          grade_level: data.class_assigned || 1,
+          stream: data.name,
+          academic_year: data.year.toString(),
+          capacity: data.capacity
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      return {
+        id: parseInt(result.id),
+        name: result.stream || 'Main',
+        class_assigned: parseInt(result.id),
+        class_name: result.name,
+        year: parseInt(result.academic_year),
+        school: 1,
+        capacity: result.capacity || 40,
+        current_enrollment: 0,
+        created_at: result.created_at,
+        status: 'active' as const
+      };
     } catch (error) {
       console.error('Error creating stream:', error);
       throw error;
@@ -232,8 +274,30 @@ export const classService = {
     data: Partial<Stream>
   ): Promise<Stream | null> {
     try {
-      const response = await api.patch(`/api/students/streams/${id}/`, data);
-      return response.data;
+      const { data: result, error } = await supabase
+        .from('classes')
+        .update({
+          stream: data.name,
+          capacity: data.capacity
+        })
+        .eq('id', id)
+        .select()
+        .maybeSingle();
+      
+      if (error) throw error;
+      
+      return result ? {
+        id: parseInt(result.id),
+        name: result.stream || 'Main',
+        class_assigned: parseInt(result.id),
+        class_name: result.name,
+        year: parseInt(result.academic_year),
+        school: 1,
+        capacity: result.capacity || 40,
+        current_enrollment: 0,
+        created_at: result.created_at,
+        status: 'active' as const
+      } : null;
     } catch (error) {
       console.error('Error updating stream:', error);
       return null;
@@ -242,7 +306,12 @@ export const classService = {
 
   async deleteStream(id: number): Promise<boolean> {
     try {
-      await api.delete(`/api/students/streams/${id}/`);
+      const { error } = await supabase
+        .from('classes')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
       return true;
     } catch (error) {
       console.error('Error deleting stream:', error);
@@ -250,22 +319,13 @@ export const classService = {
     }
   },
 
-  // Class Allocations
+  // Class Allocations - Stub implementation
   async getClassAllocations(
     classId?: number,
     streamId?: number
   ): Promise<ClassAllocation[]> {
-    try {
-      const response = await api.get("/class-allocations/", {
-        class_id: classId,
-        stream_id: streamId,
-      });
-      const data = response.data as any;
-      return Array.isArray(data) ? data : (data?.results || data?.data || []);
-    } catch (error) {
-      console.error('Error fetching class allocations:', error);
-      return [];
-    }
+    console.log('getClassAllocations called with:', classId, streamId);
+    return [];
   },
 
   async assignStudentToClass(
@@ -275,49 +335,51 @@ export const classService = {
     academicYear: number = 2024,
     term: 1 | 2 | 3 = 1
   ): Promise<ClassAllocation> {
-    try {
-      const response = await api.post("/class-allocations/", {
-        student_id: studentId,
-        class_id: classId,
-        stream_id: streamId,
-        academic_year: academicYear,
-        term: term,
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error assigning student to class:', error);
-      throw error;
-    }
+    console.log('assignStudentToClass called');
+    return {
+      id: 'stub',
+      student_id: studentId,
+      class_id: classId,
+      stream_id: streamId,
+      academic_year: academicYear,
+      term,
+      date_assigned: new Date().toISOString(),
+      status: 'current'
+    };
   },
 
-  // Class Students
+  // Class Students - Stub implementation
   async getClassStudents(
     classId: number,
     streamId?: number
   ): Promise<Student[]> {
-    try {
-      const response = await api.get(`/classes/${classId}/students/`, { stream_id: streamId });
-      const data = response.data as any;
-      return Array.isArray(data) ? data : (data?.results || data?.data || []);
-    } catch (error) {
-      console.error('Error fetching class students:', error);
-      return [];
-    }
+    console.log('getClassStudents called with:', classId, streamId);
+    return [];
   },
 
-  // Statistics (dashboard) - Using temporary endpoint
+  // Statistics - Stub implementation
   async getClassStats(): Promise<ClassStats> {
     try {
-      const response = await api.get("/dashboard/");
-      const stats = response.data?.stats || response.data || {};
+      const { data, error } = await supabase
+        .from('classes')
+        .select('*');
+      
+      if (error) throw error;
+      
+      const classes = data || [];
+      const gradeGroups = classes.reduce((acc: any, cls: any) => {
+        acc[cls.grade_level] = (acc[cls.grade_level] || 0) + 1;
+        return acc;
+      }, {});
+
       return {
-        total_classes: stats.total_classes || 0,
-        total_streams: stats.total_streams || 0,
-        total_students_enrolled: stats.total_students_enrolled || 0,
-        average_class_size: stats.average_class_size || 0,
-        capacity_utilization: stats.capacity_utilization || 0,
-        classes_by_grade: stats.classes_by_grade || {},
-        enrollment_by_year: stats.enrollment_by_year || [],
+        total_classes: classes.length,
+        total_streams: classes.length, // Each class has one stream in our model
+        total_students_enrolled: 0, // TODO: Count from students table
+        average_class_size: 0,
+        capacity_utilization: 0,
+        classes_by_grade: gradeGroups,
+        enrollment_by_year: [],
       };
     } catch (error) {
       console.error('Error fetching class stats:', error);

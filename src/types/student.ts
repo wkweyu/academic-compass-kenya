@@ -16,12 +16,19 @@ export interface Student {
   birth_certificate_no?: string;
   upi_number?: string; // Government issued UPI number (unique but not mandatory)
   photo?: string | null;
+  photo_url?: string | null; // Supabase field
   
   // Contact Information
   phone?: string;
   email?: string;
   address?: string;
   residence?: string;
+  
+  // Medical and Emergency Information
+  medical_conditions?: string;
+  emergency_contact?: string;
+  emergency_phone?: string;
+  previous_school?: string;
   
   // Guardian Information
   guardian_id?: string; // Links to Guardian record
@@ -107,6 +114,7 @@ export interface StudentFilters {
   search?: string;
   admission_number?: string;
   class?: string;
+  class_id?: string; // Add Supabase field
   stream?: string;
   status?: string;
   academic_year?: number;

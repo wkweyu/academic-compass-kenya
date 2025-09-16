@@ -1,36 +1,6 @@
-// src/integrations/supabase/client.ts
-// This replaces the Supabase client with a simple REST API wrapper
+import { createClient } from '@supabase/supabase-js'
 
-export const api = {
-  async getSession() {
-    const res = await fetch("/api/auth/session/", { credentials: "include" });
-    return res.ok ? res.json() : null;
-  },
+const supabaseUrl = 'https://basvqricgupbxgznsfms.supabase.co'
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJhc3ZxcmljZ3VwYnhnem5zZm1zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQwMzc2NzAsImV4cCI6MjA2OTYxMzY3MH0.NMw_FM-eJUHTg1t7xWtjbiYQtQ-iscj3oq_HxXQHWsY'
 
-  async signIn(email: string, password: string) {
-    const res = await fetch("/api/auth/login/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ email, password }),
-    });
-    return res.json();
-  },
-
-  async signUp(email: string, password: string) {
-    const res = await fetch("/api/auth/register/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ email, password }),
-    });
-    return res.json();
-  },
-
-  async signOut() {
-    await fetch("/api/auth/logout/", {
-      method: "POST",
-      credentials: "include",
-    });
-  },
-};
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
