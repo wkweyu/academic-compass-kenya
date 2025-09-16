@@ -52,11 +52,17 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
+    console.error('API Error:', error.response?.status, error.response?.data);
+    
     if (error.response?.status === 401) {
       // Token expired or invalid
       localStorage.removeItem("authToken");
-      window.location.href = "/login";
+      // Only redirect if not already on auth page
+      if (window.location.pathname !== '/auth') {
+        window.location.href = "/auth";
+      }
     }
+    
     return Promise.reject(error);
   }
 );
@@ -80,9 +86,8 @@ interface ApiResponse {
 
 export async function signIn(email: string, password: string) {
   try {
-    // Try token authentication first
     const response = await api.post<ApiResponse>("/api-token-auth/", {
-      username: email, // Token auth usually uses 'username' field
+      username: email,
       password,
     });
 
@@ -91,17 +96,7 @@ export async function signIn(email: string, password: string) {
       return response.data;
     }
 
-    // Fallback to session authentication
-    const sessionResponse = await api.post<ApiResponse>("/api/auth/login/", {
-      email,
-      password,
-    });
-
-    if (sessionResponse.data.key) {
-      localStorage.setItem("authToken", sessionResponse.data.key);
-    }
-
-    return sessionResponse.data;
+    throw new Error("No token received");
   } catch (err: any) {
     console.error("Login error:", err.response?.data || err.message);
     throw new Error(
@@ -114,7 +109,8 @@ export async function signIn(email: string, password: string) {
 
 export async function getCurrentUser() {
   try {
-    const response = await api.get("/api/auth/user/");
+    // Try the correct Django user endpoint
+    const response = await api.get("/api/users/me/");
     return response.data;
   } catch (err: any) {
     console.error("User fetch error:", err.response?.data || err.message);

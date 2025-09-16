@@ -1,19 +1,18 @@
 // @ts-nocheck
 import { api } from "@/api/api";
 import { Student, StudentFilters, StudentStats, ImportResult } from "@/types/student";
-// import { createOrUpdateGuardian, getSiblings } from "./guardianService";
 
 export const getStudents = async (
   params: StudentFilters = {}
 ): Promise<Student[]> => {
   try {
-    const response = await api.get('/api/students/students/', params);
+    const response = await api.get('/api/students/students/', { params });
     const data = response.data as any;
     // Handle both paginated and direct array responses
     return Array.isArray(data) ? data : (data?.results || data?.data || []);
   } catch (error) {
     console.error('Error fetching students:', error);
-    return [];
+    throw error;
   }
 };
 

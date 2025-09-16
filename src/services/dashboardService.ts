@@ -4,7 +4,7 @@ import { DashboardData } from "@/types/dashboard";
 export const dashboardService = {
   async getDashboardData(): Promise<DashboardData> {
     try {
-      const response = await api.get("/dashboard/");
+      const response = await api.get("/api/dashboard/");
       console.log("Raw dashboard response:", response.data);
 
       const data = response.data || {};
@@ -49,7 +49,7 @@ export const dashboardService = {
 
 export async function getDashboardStats() {
   try {
-    const response = await api.get("/dashboard/");
+    const response = await api.get("/api/dashboard/");
     const data = response.data as any;
     
     // Provide fallback values for missing properties

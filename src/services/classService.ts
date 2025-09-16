@@ -17,12 +17,12 @@ export const classService = {
   // Classes - Using the correct API endpoints
   async getClasses(filters?: ClassFilters): Promise<Class[]> {
     try {
-      const response = await api.get("/api/students/classes/", filters);
+      const response = await api.get("/api/students/classes/", { params: filters });
       const data = response.data as any;
       return Array.isArray(data) ? data : (data?.results || data?.data || []);
     } catch (error) {
       console.error('Error fetching classes:', error);
-      return [];
+      throw error;
     }
   },
 
@@ -32,7 +32,7 @@ export const classService = {
       return response.data;
     } catch (error) {
       console.error('Error fetching class:', error);
-      return null;
+      throw error;
     }
   },
 
