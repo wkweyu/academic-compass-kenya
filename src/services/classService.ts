@@ -40,7 +40,7 @@ export const classService = {
       }
       
       return data?.map((item: any) => ({
-        id: parseInt(item.id), // Convert uuid to number for compatibility
+        id: item.id, // Keep as UUID string
         name: item.name,
         grade_level: item.grade_level,
         description: item.stream || '',
@@ -56,7 +56,7 @@ export const classService = {
     }
   },
 
-  async getClass(id: number): Promise<Class | null> {
+  async getClass(id: string): Promise<Class | null> {
     try {
       const { data, error } = await supabase
         .from('classes')
@@ -67,7 +67,7 @@ export const classService = {
       if (error) throw error;
       
       return data ? {
-        id: parseInt(data.id),
+        id: data.id,
         name: data.name,
         grade_level: data.grade_level,
         description: data.stream || '',
@@ -105,7 +105,7 @@ export const classService = {
       if (error) throw error;
       
       return {
-        id: parseInt(result.id),
+        id: result.id,
         name: result.name,
         grade_level: result.grade_level,
         description: result.stream || '',
@@ -121,7 +121,7 @@ export const classService = {
     }
   },
 
-  async updateClass(id: number, data: Partial<Class>): Promise<Class | null> {
+  async updateClass(id: string, data: Partial<Class>): Promise<Class | null> {
     try {
       const { data: result, error } = await supabase
         .from('classes')
@@ -138,7 +138,7 @@ export const classService = {
       if (error) throw error;
       
       return result ? {
-        id: parseInt(result.id),
+        id: result.id,
         name: result.name,
         grade_level: result.grade_level,
         description: result.stream || '',
@@ -154,7 +154,7 @@ export const classService = {
     }
   },
 
-  async deleteClass(id: number): Promise<boolean> {
+  async deleteClass(id: string): Promise<boolean> {
     try {
       const { error } = await supabase
         .from('classes')
@@ -186,9 +186,9 @@ export const classService = {
       
       // Generate streams from classes data
       const streams = data?.map((classItem: any, index: number) => ({
-        id: parseInt(classItem.id),
+        id: classItem.id,
         name: classItem.stream || 'Main',
-        class_assigned: parseInt(classItem.id),
+        class_assigned: classItem.id,
         class_name: classItem.name,
         year: parseInt(classItem.academic_year) || new Date().getFullYear(),
         school: 1,
@@ -205,7 +205,7 @@ export const classService = {
     }
   },
 
-  async getStream(id: number): Promise<Stream | null> {
+  async getStream(id: string): Promise<Stream | null> {
     try {
       const { data, error } = await supabase
         .from('classes')
@@ -216,9 +216,9 @@ export const classService = {
       if (error) throw error;
       
       return data ? {
-        id: parseInt(data.id),
+        id: data.id,
         name: data.stream || 'Main',
-        class_assigned: parseInt(data.id),
+        class_assigned: data.id,
         class_name: data.name,
         year: parseInt(data.academic_year) || new Date().getFullYear(),
         school: 1,
@@ -252,9 +252,9 @@ export const classService = {
       if (error) throw error;
       
       return {
-        id: parseInt(result.id),
+        id: result.id,
         name: result.stream || 'Main',
-        class_assigned: parseInt(result.id),
+        class_assigned: result.id,
         class_name: result.name,
         year: parseInt(result.academic_year),
         school: 1,
@@ -270,7 +270,7 @@ export const classService = {
   },
 
   async updateStream(
-    id: number,
+    id: string,
     data: Partial<Stream>
   ): Promise<Stream | null> {
     try {
@@ -287,9 +287,9 @@ export const classService = {
       if (error) throw error;
       
       return result ? {
-        id: parseInt(result.id),
+        id: result.id,
         name: result.stream || 'Main',
-        class_assigned: parseInt(result.id),
+        class_assigned: result.id,
         class_name: result.name,
         year: parseInt(result.academic_year),
         school: 1,
@@ -304,7 +304,7 @@ export const classService = {
     }
   },
 
-  async deleteStream(id: number): Promise<boolean> {
+  async deleteStream(id: string): Promise<boolean> {
     try {
       const { error } = await supabase
         .from('classes')
@@ -321,8 +321,8 @@ export const classService = {
 
   // Class Allocations - Stub implementation
   async getClassAllocations(
-    classId?: number,
-    streamId?: number
+    classId?: string,
+    streamId?: string
   ): Promise<ClassAllocation[]> {
     console.log('getClassAllocations called with:', classId, streamId);
     return [];
@@ -330,8 +330,8 @@ export const classService = {
 
   async assignStudentToClass(
     studentId: string,
-    classId: number,
-    streamId: number,
+    classId: string,
+    streamId: string,
     academicYear: number = 2024,
     term: 1 | 2 | 3 = 1
   ): Promise<ClassAllocation> {
@@ -350,8 +350,8 @@ export const classService = {
 
   // Class Students - Stub implementation
   async getClassStudents(
-    classId: number,
-    streamId?: number
+    classId: string,
+    streamId?: string
   ): Promise<Student[]> {
     console.log('getClassStudents called with:', classId, streamId);
     return [];

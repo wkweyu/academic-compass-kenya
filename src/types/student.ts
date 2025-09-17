@@ -42,8 +42,8 @@ export interface Student {
   siblings?: Student[]; // Other students with same guardian
   
   // Academic Information
-  current_class: number;
-  current_stream: number;
+  current_class: string | null;
+  current_stream: string | null;
   current_class_name: string;
   current_stream_name: string;
   current_class_stream: string;
@@ -71,7 +71,7 @@ export interface Student {
 }
 
 export interface Class {
-  id: number;
+  id: string;
   name: string;
   grade_level: number;
   description?: string;
@@ -79,9 +79,9 @@ export interface Class {
 }
 
 export interface Stream {
-  id: number;
+  id: string;
   name: string;
-  class_assigned: number;
+  class_assigned: string;
   year: number;
   capacity: number;
   current_enrollment: number;
@@ -90,10 +90,10 @@ export interface Stream {
 export interface StudentTransfer {
   id: string;
   student: string;
-  from_class: number;
-  from_stream: number;
-  to_class: number;
-  to_stream: number;
+  from_class: string;
+  from_stream: string;
+  to_class: string;
+  to_stream: string;
   transfer_date: string;
   reason: string;
   created_by: string;
@@ -102,8 +102,8 @@ export interface StudentTransfer {
 export interface StudentPromotion {
   id: string;
   student: string;
-  from_class: number;
-  to_class: number;
+  from_class: string;
+  to_class: string;
   academic_year: number;
   promotion_date: string;
   notes: string;

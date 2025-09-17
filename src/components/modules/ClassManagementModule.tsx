@@ -35,10 +35,10 @@ export const ClassManagementModule = () => {
   
   const [streamForm, setStreamForm] = useState({
     name: '',
-    class_assigned: 0,
+    class_assigned: '',
     year: new Date().getFullYear(),
     capacity: 40,
-    class_teacher: 0,
+    class_teacher: '',
     status: 'active' as const
   });
 
@@ -132,10 +132,10 @@ export const ClassManagementModule = () => {
       setIsCreateStreamOpen(false);
       setStreamForm({
         name: '',
-        class_assigned: 0,
+        class_assigned: '',
         year: new Date().getFullYear(),
         capacity: 40,
-        class_teacher: 0,
+        class_teacher: '',
         status: 'active'
       });
       loadData();
@@ -199,15 +199,15 @@ export const ClassManagementModule = () => {
                 <div className="grid gap-2">
                   <Label htmlFor="stream-class">Class</Label>
                   <Select
-                    value={streamForm.class_assigned.toString()}
-                    onValueChange={(value) => setStreamForm(prev => ({ ...prev, class_assigned: parseInt(value) }))}
+                    value={streamForm.class_assigned}
+                    onValueChange={(value) => setStreamForm(prev => ({ ...prev, class_assigned: value }))}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select class" />
                     </SelectTrigger>
                     <SelectContent>
                       {classes.map((cls) => (
-                        <SelectItem key={cls.id} value={cls.id.toString()}>
+                        <SelectItem key={cls.id} value={cls.id}>
                           {cls.name}
                         </SelectItem>
                       ))}
@@ -458,7 +458,7 @@ export const ClassManagementModule = () => {
                   value={streamFilters.class_id?.toString() || 'all'}
                   onValueChange={(value) => setStreamFilters(prev => ({ 
                     ...prev, 
-                    class_id: value === 'all' ? undefined : parseInt(value) 
+                    class_id: value === 'all' ? undefined : value 
                   }))}
                 >
                   <SelectTrigger className="w-48">

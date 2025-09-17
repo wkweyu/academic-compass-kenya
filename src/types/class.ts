@@ -1,7 +1,7 @@
 // Class Management Types for Comprehensive School Administration
 
 export interface Class {
-  id: number;
+  id: string;
   name: string;
   grade_level: number;
   description?: string;
@@ -14,9 +14,9 @@ export interface Class {
 }
 
 export interface Stream {
-  id: number;
+  id: string;
   name: string;
-  class_assigned: number;
+  class_assigned: string;
   class_name?: string;
   year: number;
   school: number;
@@ -24,7 +24,7 @@ export interface Stream {
   current_enrollment: number;
   created_at: string;
   // Teacher assignment
-  class_teacher?: number;
+  class_teacher?: string;
   class_teacher_name?: string;
   status: 'active' | 'archived';
 }
@@ -34,8 +34,8 @@ export interface ClassAllocation {
   student_id: string;
   student_name?: string;
   student_admission_no?: string;
-  class_id: number;
-  stream_id: number;
+  class_id: string;
+  stream_id: string;
   academic_year: number;
   term: 1 | 2 | 3;
   date_assigned: string;
@@ -44,16 +44,16 @@ export interface ClassAllocation {
 }
 
 export interface ClassSubjectAllocation {
-  id: number;
+  id: string;
   academic_year: number;
   term: 1 | 2 | 3;
-  school_class: number;
-  stream: number;
-  subject: number;
+  school_class: string;
+  stream: string;
+  subject: string;
   subject_name?: string;
-  subject_teacher?: number;
+  subject_teacher?: string;
   subject_teacher_name?: string;
-  class_teacher?: number;
+  class_teacher?: string;
   class_teacher_name?: string;
 }
 
@@ -62,12 +62,12 @@ export interface ClassFilters {
   grade_level?: number;
   academic_year?: number;
   status?: 'active' | 'archived';
-  class_teacher?: number;
+  class_teacher?: string;
 }
 
 export interface StreamFilters {
   search?: string;
-  class_id?: number;
+  class_id?: string;
   academic_year?: number;
   status?: 'active' | 'archived';
   has_capacity?: boolean;
@@ -84,8 +84,8 @@ export interface ClassStats {
 }
 
 export interface BulkPromotionRequest {
-  from_class_id: number;
-  to_class_id: number;
+  from_class_id: string;
+  to_class_id: string;
   academic_year: number;
   student_ids?: string[];
   promotion_date: string;
@@ -94,10 +94,10 @@ export interface BulkPromotionRequest {
 
 export interface ClassTransferRequest {
   student_id: string;
-  from_class_id: number;
-  from_stream_id: number;
-  to_class_id: number;
-  to_stream_id: number;
+  from_class_id: string;
+  from_stream_id: string;
+  to_class_id: string;
+  to_stream_id: string;
   transfer_date: string;
   reason: string;
 }
