@@ -5,13 +5,15 @@ import {
   useEffect,
   ReactNode,
 } from "react";
-import { signIn, signUp, signOut, getCurrentUser } from "@/api/api";
+import { supabase } from "@/integrations/supabase/client";
+import type { User, Session } from "@supabase/supabase-js";
 
 interface AuthContextType {
-  user: any;
+  user: User | null;
+  session: Session | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, confirmPassword: string) => Promise<void>;
+  register: (email: string, password: string, confirmPassword?: string) => Promise<void>;
   logout: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -19,61 +21,74 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Fetch current user on mount
   useEffect(() => {
-    (async () => {
-      try {
-        // Check if we have a token
-        const token = localStorage.getItem('authToken');
-        if (!token) {
-          console.log('No auth token found');
-          setUser(null);
-          setLoading(false);
-          return;
-        }
-
-        console.log('Auth token found, getting current user...');
-        const u = await getCurrentUser();
-        console.log('Current user:', u);
-        setUser(u);
-      } catch (error) {
-        console.error('Failed to get current user:', error);
-        // Clear invalid token
-        localStorage.removeItem('authToken');
-        setUser(null);
-      } finally {
+    // Set up auth state listener first
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
         setLoading(false);
       }
-    })();
+    );
+
+    // Then check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const login = async (email: string, password: string) => {
-    await signIn(email, password);
-    const u = await getCurrentUser();
-    setUser(u);
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    
+    if (error) {
+      throw new Error(error.message);
+    }
   };
 
-  const register = async (email: string, password: string, confirmPassword: string) => {
-    await signUp(email, password, confirmPassword);
-    const u = await getCurrentUser();
-    setUser(u);
+  const register = async (email: string, password: string, confirmPassword?: string) => {
+    if (confirmPassword && password !== confirmPassword) {
+      throw new Error("Passwords do not match");
+    }
+    
+    const redirectUrl = `${window.location.origin}/dashboard`;
+    
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: redirectUrl
+      }
+    });
+    
+    if (error) {
+      throw new Error(error.message);
+    }
   };
 
   const logout = async () => {
-    await signOut();
-    setUser(null);
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      throw new Error(error.message);
+    }
   };
 
   const signOutHandler = async () => {
-    await signOut();
-    setUser(null);
+    await logout();
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, signOut: signOutHandler }}>
+    <AuthContext.Provider value={{ user, session, loading, login, register, logout, signOut: signOutHandler }}>
       {children}
     </AuthContext.Provider>
   );
