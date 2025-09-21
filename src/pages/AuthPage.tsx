@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 
 const AuthPage = () => {
   const navigate = useNavigate();
-  const { user, login, register } = useAuth();
+  const { user, login, register, loading } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -13,8 +13,10 @@ const AuthPage = () => {
 
   // Redirect to dashboard if user is already logged in
   useEffect(() => {
-    if (user) navigate("/dashboard");
-  }, [user, navigate]);
+    if (!loading && user) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [user, loading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
