@@ -5,6 +5,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.http import HttpResponse
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from apps.dashboard.api_views import dashboard_data
 
 # Simple root view (always works)
 def root_view(request):
@@ -50,6 +51,8 @@ urlpatterns = [
     path('subjects/', include('apps.subjects.urls')),
     path('exams/', include('apps.exams.urls')),
     path('grading/', include('apps.grading.urls')),
+    
+    path('api/dashboard/', dashboard_data, name='dashboard-data'),
 ]
 
 # Serve media & static during development

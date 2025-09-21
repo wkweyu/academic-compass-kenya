@@ -25,22 +25,6 @@ def root_view(request):
     </ul>
     """)
 
-# Temporary endpoints to prevent 404 errors - made public
-@api_view(['GET'])
-@permission_classes([AllowAny])
-def temporary_dashboard(request):
-    return Response({
-        "stats": {
-            "totalExams": 0,
-            "activeExams": 0,
-            "totalStudents": 0,
-            "totalSubjects": 0,
-            "completedScores": 0,
-            "pendingResults": 0,
-        },
-        "recentExams": [],
-        "performanceData": []
-    })
 
 urlpatterns = [
     # Root
@@ -49,14 +33,14 @@ urlpatterns = [
     # Admin
     path('admin/', admin.site.urls),
 
-    # Authentication (Token + Session)
-    path('api/auth/', include('dj_rest_auth.urls')),                # login, logout, user
-    path('api/auth/registration/', include('dj_rest_auth.registration.urls')),  # register
-    path('api-token-auth/', obtain_auth_token, name='api_token_auth'),  # Token authentication
-    path('accounts/', include('allauth.urls')),                     # optional for social/allauth routes
+    # Authentication
+    path('api/auth/', include('dj_rest_auth.urls')),
+    path('api/auth/registration/', include('dj_rest_auth.registration.urls')),
+    path('api-token-auth/', obtain_auth_token, name='api_token_auth'),
+    path('accounts/', include('allauth.urls')),
 
     # App URLs
-    path('students/', include('apps.students.urls')),               # Template views
+    path('students/', include('apps.students.urls')),
     path('teachers/', include('apps.teachers.urls')),
     path('subjects/', include('apps.subjects.urls')),
     path('exams/', include('apps.exams.urls')),
@@ -68,11 +52,13 @@ urlpatterns = [
     path('api/fees/', include('apps.fees.urls')),
     path('api/transport/', include('apps.transport.urls')),
     path('api/procurement/', include('apps.procurement.urls')),
-    path('api/students/', include('apps.students.api_urls')),       # Student API endpoints
+    path('api/students/', include('apps.students.api_urls')),
 
-    # Temporary endpoint to prevent frontend 404 errors
-    path('dashboard/', temporary_dashboard),
+    # Dashboard API
+    path('api/dashboard/', include('apps.dashboard.urls')),
+    
 ]
+
 
 # Serve media/static during development
 if settings.DEBUG:
