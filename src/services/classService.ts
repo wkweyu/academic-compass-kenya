@@ -175,15 +175,15 @@ export const classService = {
       let query = supabase
         .from('classes')
         .select('*');
-      
+
       if (filters?.class_id) {
         query = query.eq('id', filters.class_id);
       }
-      
+
       const { data, error } = await query;
-      
+
       if (error) throw error;
-      
+
       // Generate streams from classes data
       const streams = data?.map((classItem: any, index: number) => ({
         id: classItem.id,
@@ -197,7 +197,7 @@ export const classService = {
         created_at: classItem.created_at,
         status: 'active' as const
       })) || [];
-      
+
       return streams;
     } catch (error) {
       console.error('Error fetching streams:', error);
@@ -248,9 +248,9 @@ export const classService = {
         })
         .select()
         .single();
-      
+
       if (error) throw error;
-      
+
       return {
         id: result.id,
         name: result.stream || 'Main',
