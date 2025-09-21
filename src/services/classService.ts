@@ -52,7 +52,7 @@ export const classService = {
       })) || [];
     } catch (error) {
       console.error('Error fetching classes:', error);
-      return [];
+      throw error;
     }
   },
 
@@ -95,7 +95,7 @@ export const classService = {
         .insert({
           name: data.name,
           grade_level: data.grade_level,
-          stream: data.description || 'Main',
+          stream: data.description || '',
           academic_year: new Date().getFullYear().toString(),
           capacity: 40
         })
@@ -172,46 +172,31 @@ export const classService = {
   // Streams - Generated from classes data since streams are embedded in classes
   async getStreams(filters?: StreamFilters): Promise<Stream[]> {
     try {
-      let query = supabase.from('classes').select('*');
+      let query = supabase
+        .from('classes')
+        .select('*');
 
       if (filters?.class_id) {
-        const { data: classData, error: classError } = await supabase
-          .from('classes')
-          .select('name')
-          .eq('id', filters.class_id)
-          .single();
-
-        if (classError || !classData) {
-          console.error('Could not find class for stream filter', classError);
-          return [];
-        }
-        query = query.eq('name', classData.name);
-      }
-
-      if (filters?.search) {
-        query = query.ilike('stream', `%${filters.search}%`);
+        query = query.eq('id', filters.class_id);
       }
 
       const { data, error } = await query;
 
-      if (error) {
-        console.error('Supabase error fetching streams:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      const streams =
-        data?.map((classItem: any) => ({
-          id: classItem.id,
-          name: classItem.stream || 'Main',
-          class_assigned: classItem.name,
-          class_name: classItem.name,
-          year: parseInt(classItem.academic_year) || new Date().getFullYear(),
-          school: 1,
-          capacity: classItem.capacity || 40,
-          current_enrollment: 0,
-          created_at: classItem.created_at,
-          status: 'active' as const,
-        })) || [];
+      // Generate streams from classes data
+      const streams = data?.map((classItem: any, index: number) => ({
+        id: classItem.id,
+        name: classItem.stream || 'Main',
+        class_assigned: classItem.id,
+        class_name: classItem.name,
+        year: parseInt(classItem.academic_year) || new Date().getFullYear(),
+        school: 1,
+        capacity: classItem.capacity || 40,
+        current_enrollment: 0,
+        created_at: classItem.created_at,
+        status: 'active' as const
+      })) || [];
 
       return streams;
     } catch (error) {
@@ -252,24 +237,14 @@ export const classService = {
     data: Omit<Stream, "id" | "created_at" | "current_enrollment">
   ): Promise<Stream> {
     try {
-      const { data: classData, error: classError } = await supabase
-        .from('classes')
-        .select('name, grade_level')
-        .eq('id', data.class_assigned)
-        .single();
-
-      if (classError || !classData) {
-        throw new Error('Parent class not found for creating stream');
-      }
-
       const { data: result, error } = await supabase
         .from('classes')
         .insert({
-          name: classData.name,
-          grade_level: classData.grade_level,
+          name: data.class_assigned ? `Grade ${data.class_assigned}` : 'New Class',
+          grade_level: data.class_assigned || 1,
           stream: data.name,
           academic_year: data.year.toString(),
-          capacity: data.capacity,
+          capacity: data.capacity
         })
         .select()
         .single();
@@ -279,14 +254,14 @@ export const classService = {
       return {
         id: result.id,
         name: result.stream || 'Main',
-        class_assigned: result.name,
+        class_assigned: result.id,
         class_name: result.name,
         year: parseInt(result.academic_year),
         school: 1,
         capacity: result.capacity || 40,
         current_enrollment: 0,
         created_at: result.created_at,
-        status: 'active' as const,
+        status: 'active' as const
       };
     } catch (error) {
       console.error('Error creating stream:', error);
