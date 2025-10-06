@@ -2524,6 +2524,46 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_current_user_profile: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          created_at: string
+          date_joined: string
+          email: string
+          first_name: string
+          id: number
+          is_active: boolean
+          is_staff: boolean
+          is_superuser: boolean
+          last_login: string
+          last_name: string
+          phone: string
+          role: string
+          school_id: number
+          updated_at: string
+          username: string
+        }[]
+      }
+      get_school_users: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          created_at: string
+          date_joined: string
+          email: string
+          first_name: string
+          id: number
+          is_active: boolean
+          is_staff: boolean
+          is_superuser: boolean
+          last_login: string
+          last_name: string
+          phone: string
+          role: string
+          school_id: number
+          updated_at: string
+          username: string
+        }[]
+      }
       get_user_school_id: {
         Args: Record<PropertyKey, never>
         Returns: number
