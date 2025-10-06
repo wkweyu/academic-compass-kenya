@@ -138,8 +138,8 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
       status: initialData?.status || 'active',
       current_class: initialData?.current_class || null,
       current_stream: initialData?.current_stream || null,
-      current_class_name: initialData?.current_class_name || 'Grade 1',
-      current_stream_name: initialData?.current_stream_name || 'East',
+      current_class_name: initialData?.current_class_name || '',
+      current_stream_name: initialData?.current_stream_name || '',
       current_class_stream: initialData?.current_class_stream || 'Grade 1 East',
       admission_year: initialData?.admission_year || new Date().getFullYear(),
       term: (initialData?.term || TermManager.getCurrentTerm()) as 1 | 2 | 3,
@@ -165,8 +165,8 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
            academic_year: data.academic_year!,
            enrollment_date: data.enrollment_date!,
            status: data.status!,
-           current_class: data.current_class!,
-           current_stream: data.current_stream!,
+           current_class: data.current_class || null,
+           current_stream: data.current_stream || null,
            current_class_name: data.current_class_name!,
            current_stream_name: data.current_stream_name!,
            current_class_stream: `${data.current_class_name} ${data.current_stream_name}`,
@@ -423,13 +423,22 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Class Name</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select 
+                  onValueChange={(value) => {
+                    const selectedClass = classes.find((c: Class) => c.id === value);
+                    if (selectedClass) {
+                      field.onChange(selectedClass.name);
+                      form.setValue('current_class', selectedClass.id);
+                    }
+                  }} 
+                  defaultValue={classes.find((c: Class) => c.name === field.value)?.id}
+                >
                   <FormControl>
                     <SelectTrigger><SelectValue placeholder="Select class" /></SelectTrigger>
                   </FormControl>
                   <SelectContent>
                     {classes.map((classItem: Class) => (
-                      <SelectItem key={classItem.id} value={classItem.name}>
+                      <SelectItem key={classItem.id} value={classItem.id}>
                         {classItem.name}
                       </SelectItem>
                     ))}
@@ -445,13 +454,22 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Stream Name</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select 
+                  onValueChange={(value) => {
+                    const selectedStream = streams.find((s: Stream) => s.id === value);
+                    if (selectedStream) {
+                      field.onChange(selectedStream.name);
+                      form.setValue('current_stream', selectedStream.id);
+                    }
+                  }} 
+                  defaultValue={streams.find((s: Stream) => s.name === field.value)?.id}
+                >
                   <FormControl>
                     <SelectTrigger><SelectValue placeholder="Select stream" /></SelectTrigger>
                   </FormControl>
                   <SelectContent>
                     {streams.map((stream: Stream) => (
-                      <SelectItem key={stream.id} value={stream.name}>
+                      <SelectItem key={stream.id} value={stream.id}>
                         {stream.name}
                       </SelectItem>
                     ))}
@@ -517,8 +535,8 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
                   academic_year: formData.academic_year!,
                   enrollment_date: formData.enrollment_date!,
                   status: formData.status!,
-                  current_class: formData.current_class!,
-                  current_stream: formData.current_stream!,
+                  current_class: formData.current_class || null,
+                  current_stream: formData.current_stream || null,
                   current_class_name: formData.current_class_name!,
                   current_stream_name: formData.current_stream_name!,
                   current_class_stream: `${formData.current_class_name} ${formData.current_stream_name}`,
