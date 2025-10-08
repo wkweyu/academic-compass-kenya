@@ -28,8 +28,38 @@ export const settingsService = {
 
   updateTermSetting: async (id: number, termSetting: Partial<TermSetting>): Promise<TermSetting> => {
     try {
-      const response = await api.patch(`/settings/terms/${id}/`, termSetting);
-      return response.data;
+      // Get user's school ID
+      const { data: profiles } = await supabase.rpc('get_current_user_profile');
+      const profile = profiles?.[0] as { school_id: number } | undefined;
+      
+      if (!profile?.school_id) {
+        throw new Error('Unable to get user school information');
+      }
+
+      const updateData: any = {};
+      if (termSetting.year !== undefined) updateData.year = termSetting.year;
+      if (termSetting.term !== undefined) updateData.term = termSetting.term;
+      if (termSetting.start_date !== undefined) updateData.start_date = termSetting.start_date;
+      if (termSetting.end_date !== undefined) updateData.end_date = termSetting.end_date;
+
+      const { data, error } = await supabase
+        .from('settings_termsetting')
+        .update(updateData)
+        .eq('id', id)
+        .eq('school_id', profile.school_id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return {
+        id: data.id,
+        school: data.school_id,
+        year: data.year,
+        term: data.term,
+        start_date: data.start_date,
+        end_date: data.end_date
+      };
     } catch (error) {
       console.error('Error updating term setting:', error);
       throw error;
@@ -84,19 +114,34 @@ export const settingsService = {
   updateSchoolProfile: async (profile: Partial<SchoolProfile>): Promise<SchoolProfile> => {
     try {
       // Get user's school ID first
-      const { data: profiles } = await supabase.rpc('get_current_user_profile');
+      const { data: profiles, error: profileError } = await supabase.rpc('get_current_user_profile');
+      
+      if (profileError) {
+        console.error('Error fetching user profile:', profileError);
+        throw new Error('Unable to fetch user profile');
+      }
+
       const userProfile = profiles?.[0] as { school_id: number } | undefined;
       
       if (!userProfile?.school_id) {
         throw new Error('Unable to get user school information');
       }
 
-      // Prepare update data with proper defaults for required fields
+      // Prepare update data - ensure all required fields have values
       const updateData: any = {};
-      if (profile.name !== undefined) updateData.name = profile.name;
-      if (profile.address !== undefined) updateData.address = profile.address || '';
-      if (profile.phone !== undefined) updateData.phone = profile.phone || '';
-      if (profile.email !== undefined) updateData.email = profile.email || '';
+      
+      // Name is required
+      if (profile.name !== undefined && profile.name.trim() !== '') {
+        updateData.name = profile.name.trim();
+      }
+      
+      // Optional fields - provide empty string if undefined or empty
+      updateData.address = profile.address?.trim() || '';
+      updateData.phone = profile.phone?.trim() || '';
+      updateData.email = profile.email?.trim() || '';
+
+      console.log('Updating school profile with data:', updateData);
+      console.log('School ID:', userProfile.school_id);
 
       const { data, error } = await supabase
         .from('schools_school')
@@ -106,8 +151,17 @@ export const settingsService = {
         .single();
 
       if (error) {
-        console.error('Supabase error updating school profile:', error);
-        throw error;
+        console.error('Supabase error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        throw new Error(`Failed to update school profile: ${error.message}`);
+      }
+
+      if (!data) {
+        throw new Error('No data returned from update');
       }
 
       return {
@@ -121,9 +175,9 @@ export const settingsService = {
         active: data.active,
         created_at: data.created_at
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating school profile:', error);
-      throw error;
+      throw new Error(error.message || 'Failed to update school profile');
     }
   },
 
