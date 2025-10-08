@@ -84,7 +84,7 @@ export const ClassManagementModule = () => {
         name: classForm.name.trim(),
         grade_level: classForm.grade_level,
         description: classForm.description,
-        school: 1 // Default school ID - you might want to get this from user context
+        school: 0 // School ID will be fetched automatically from user profile
       });
       
       toast({
@@ -121,7 +121,7 @@ export const ClassManagementModule = () => {
         year: streamForm.year,
         capacity: streamForm.capacity,
         status: streamForm.status,
-        school: 1 // Default school ID - you might want to get this from user context
+        school: 0 // School ID will be fetched automatically from user profile
       });
       
       toast({

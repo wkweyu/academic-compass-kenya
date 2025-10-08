@@ -90,14 +90,23 @@ export const classService = {
     >
   ): Promise<Class> {
     try {
+      // Get the current user's profile to get their school_id
+      const { data: profiles, error: profileError } = await supabase
+        .rpc('get_current_user_profile');
+      
+      const profile = profiles?.[0] as { school_id: number } | undefined;
+      
+      if (profileError || !profile?.school_id) {
+        throw new Error('Unable to get user school information');
+      }
+
       const { data: result, error } = await supabase
         .from('classes')
         .insert({
           name: data.name,
           grade_level: data.grade_level,
-          stream: data.description || '',
-          academic_year: new Date().getFullYear().toString(),
-          capacity: 40
+          description: data.description || '',
+          school_id: profile.school_id
         })
         .select()
         .single();
@@ -237,14 +246,24 @@ export const classService = {
     data: Omit<Stream, "id" | "created_at" | "current_enrollment">
   ): Promise<Stream> {
     try {
+      // Get the current user's profile to get their school_id
+      const { data: profiles, error: profileError } = await supabase
+        .rpc('get_current_user_profile');
+      
+      const profile = profiles?.[0] as { school_id: number } | undefined;
+      
+      if (profileError || !profile?.school_id) {
+        throw new Error('Unable to get user school information');
+      }
+
       const { data: result, error } = await supabase
-        .from('classes')
+        .from('streams')
         .insert({
-          name: data.class_assigned ? `Grade ${data.class_assigned}` : 'New Class',
-          grade_level: data.class_assigned || 1,
-          stream: data.name,
-          academic_year: data.year.toString(),
-          capacity: data.capacity
+          name: data.name,
+          class_assigned_id: parseInt(data.class_assigned),
+          year: data.year,
+          capacity: data.capacity,
+          school_id: profile.school_id
         })
         .select()
         .single();
@@ -252,13 +271,12 @@ export const classService = {
       if (error) throw error;
 
       return {
-        id: result.id,
-        name: result.stream || 'Main',
-        class_assigned: result.id,
-        class_name: result.name,
-        year: parseInt(result.academic_year),
-        school: 1,
-        capacity: result.capacity || 40,
+        id: result.id.toString(),
+        name: result.name,
+        class_assigned: result.class_assigned_id.toString(),
+        year: result.year,
+        school: profile.school_id,
+        capacity: result.capacity,
         current_enrollment: 0,
         created_at: result.created_at,
         status: 'active' as const
