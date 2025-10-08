@@ -91,19 +91,24 @@ export const settingsService = {
         throw new Error('Unable to get user school information');
       }
 
+      // Prepare update data with proper defaults for required fields
+      const updateData: any = {};
+      if (profile.name !== undefined) updateData.name = profile.name;
+      if (profile.address !== undefined) updateData.address = profile.address || '';
+      if (profile.phone !== undefined) updateData.phone = profile.phone || '';
+      if (profile.email !== undefined) updateData.email = profile.email || '';
+
       const { data, error } = await supabase
         .from('schools_school')
-        .update({
-          name: profile.name,
-          address: profile.address,
-          phone: profile.phone,
-          email: profile.email,
-        })
+        .update(updateData)
         .eq('id', userProfile.school_id)
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error updating school profile:', error);
+        throw error;
+      }
 
       return {
         id: data.id,
