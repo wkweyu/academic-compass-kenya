@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { api } from "@/api/api";
+import { supabase } from "@/integrations/supabase/client";
 import { TermSetting, SchoolProfile, AcademicYearSetting, SystemSettings, GradingSystemSettings } from '@/types/settings';
 
 export const settingsService = {
@@ -47,8 +48,33 @@ export const settingsService = {
   // School Profile
   getSchoolProfile: async (): Promise<SchoolProfile> => {
     try {
-      const response = await api.get('/settings/school-profile/');
-      return response.data;
+      // Get user's school ID first
+      const { data: profiles } = await supabase.rpc('get_current_user_profile');
+      const profile = profiles?.[0] as { school_id: number } | undefined;
+      
+      if (!profile?.school_id) {
+        throw new Error('Unable to get user school information');
+      }
+
+      const { data, error } = await supabase
+        .from('schools_school')
+        .select('*')
+        .eq('id', profile.school_id)
+        .single();
+
+      if (error) throw error;
+      
+      return {
+        id: data.id,
+        name: data.name,
+        code: data.code,
+        address: data.address,
+        phone: data.phone,
+        email: data.email,
+        logo: data.logo,
+        active: data.active,
+        created_at: data.created_at
+      };
     } catch (error) {
       console.error('Error fetching school profile:', error);
       throw error;
@@ -57,8 +83,39 @@ export const settingsService = {
 
   updateSchoolProfile: async (profile: Partial<SchoolProfile>): Promise<SchoolProfile> => {
     try {
-      const response = await api.patch('/settings/school-profile/', profile);
-      return response.data;
+      // Get user's school ID first
+      const { data: profiles } = await supabase.rpc('get_current_user_profile');
+      const userProfile = profiles?.[0] as { school_id: number } | undefined;
+      
+      if (!userProfile?.school_id) {
+        throw new Error('Unable to get user school information');
+      }
+
+      const { data, error } = await supabase
+        .from('schools_school')
+        .update({
+          name: profile.name,
+          address: profile.address,
+          phone: profile.phone,
+          email: profile.email,
+        })
+        .eq('id', userProfile.school_id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return {
+        id: data.id,
+        name: data.name,
+        code: data.code,
+        address: data.address,
+        phone: data.phone,
+        email: data.email,
+        logo: data.logo,
+        active: data.active,
+        created_at: data.created_at
+      };
     } catch (error) {
       console.error('Error updating school profile:', error);
       throw error;
