@@ -124,21 +124,33 @@ export const settingsService = {
       const userProfile = profiles?.[0] as { school_id: number } | undefined;
       
       if (!userProfile?.school_id) {
-        throw new Error('Unable to get user school information');
+        throw new Error('No school associated with your account. Please contact support.');
       }
 
-      // Prepare update data - ensure all required fields have values
+      // Prepare update data - only include fields that are being changed
       const updateData: any = {};
       
-      // Name is required
+      // Only update fields that are provided and have values
       if (profile.name !== undefined && profile.name.trim() !== '') {
         updateData.name = profile.name.trim();
       }
       
-      // Optional fields - provide empty string if undefined or empty
-      updateData.address = profile.address?.trim() || '';
-      updateData.phone = profile.phone?.trim() || '';
-      updateData.email = profile.email?.trim() || '';
+      if (profile.address !== undefined) {
+        updateData.address = profile.address.trim();
+      }
+      
+      if (profile.phone !== undefined) {
+        updateData.phone = profile.phone.trim();
+      }
+      
+      if (profile.email !== undefined) {
+        updateData.email = profile.email.trim();
+      }
+
+      // Check if there's anything to update
+      if (Object.keys(updateData).length === 0) {
+        throw new Error('No fields to update');
+      }
 
       console.log('Updating school profile with data:', updateData);
       console.log('School ID:', userProfile.school_id);

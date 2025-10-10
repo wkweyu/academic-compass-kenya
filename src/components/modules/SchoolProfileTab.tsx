@@ -14,9 +14,9 @@ import { Loader2, Save } from 'lucide-react';
 
 const schoolProfileSchema = z.object({
   name: z.string().min(1, 'School name is required'),
-  address: z.string().optional(),
-  phone: z.string().optional(),
-  email: z.string().email('Invalid email address').optional().or(z.literal('')),
+  address: z.string(),
+  phone: z.string(),
+  email: z.string().email('Invalid email address').or(z.literal('')),
 });
 
 type SchoolProfileFormData = z.infer<typeof schoolProfileSchema>;
@@ -71,12 +71,13 @@ export function SchoolProfileTab() {
         description: 'School profile updated successfully',
       });
       loadSchoolProfile();
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: 'Error',
-        description: 'Failed to update school profile',
+        description: error.message || 'Failed to update school profile',
         variant: 'destructive',
       });
+      console.error('Update error:', error);
     } finally {
       setLoading(false);
     }
