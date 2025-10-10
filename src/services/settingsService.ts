@@ -76,14 +76,15 @@ export const settingsService = {
   },
 
   // School Profile
-  getSchoolProfile: async (): Promise<SchoolProfile> => {
+  getSchoolProfile: async (): Promise<SchoolProfile | null> => {
     try {
       // Get user's school ID first
       const { data: profiles } = await supabase.rpc('get_current_user_profile');
       const profile = profiles?.[0] as { school_id: number } | undefined;
       
+      // Return null if user doesn't have a school yet (they need to create one)
       if (!profile?.school_id) {
-        throw new Error('Unable to get user school information');
+        return null;
       }
 
       const { data, error } = await supabase
@@ -108,6 +109,48 @@ export const settingsService = {
     } catch (error) {
       console.error('Error fetching school profile:', error);
       throw error;
+    }
+  },
+
+  createSchoolProfile: async (profile: { name: string; address: string; phone: string; email: string }): Promise<SchoolProfile> => {
+    try {
+      // Generate a unique school code
+      const timestamp = Date.now().toString().slice(-6);
+      const randomStr = Math.random().toString(36).substring(2, 5).toUpperCase();
+      const schoolCode = `SCH${timestamp}${randomStr}`;
+
+      const { data, error } = await supabase
+        .from('schools_school')
+        .insert({
+          name: profile.name.trim(),
+          address: profile.address.trim(),
+          phone: profile.phone.trim(),
+          email: profile.email.trim(),
+          code: schoolCode,
+          active: true
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Supabase error details:', error);
+        throw new Error(`Failed to create school: ${error.message}`);
+      }
+
+      return {
+        id: data.id,
+        name: data.name,
+        code: data.code,
+        address: data.address,
+        phone: data.phone,
+        email: data.email,
+        logo: data.logo,
+        active: data.active,
+        created_at: data.created_at
+      };
+    } catch (error: any) {
+      console.error('Error creating school profile:', error);
+      throw new Error(error.message || 'Failed to create school profile');
     }
   },
 

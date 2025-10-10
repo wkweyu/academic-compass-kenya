@@ -24,6 +24,7 @@ type SchoolProfileFormData = z.infer<typeof schoolProfileSchema>;
 export function SchoolProfileTab() {
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<SchoolProfile | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<SchoolProfileFormData>({
@@ -44,13 +45,21 @@ export function SchoolProfileTab() {
     try {
       setLoading(true);
       const data = await settingsService.getSchoolProfile();
-      setProfile(data);
-      form.reset({
-        name: data.name,
-        address: data.address,
-        phone: data.phone,
-        email: data.email,
-      });
+      
+      if (data === null) {
+        // User doesn't have a school yet
+        setIsCreating(true);
+        setProfile(null);
+      } else {
+        setIsCreating(false);
+        setProfile(data);
+        form.reset({
+          name: data.name,
+          address: data.address,
+          phone: data.phone,
+          email: data.email,
+        });
+      }
     } catch (error) {
       toast({
         title: 'Error',
@@ -65,19 +74,36 @@ export function SchoolProfileTab() {
   const onSubmit = async (data: SchoolProfileFormData) => {
     try {
       setLoading(true);
-      await settingsService.updateSchoolProfile(data);
-      toast({
-        title: 'Success',
-        description: 'School profile updated successfully',
-      });
+      
+      if (isCreating) {
+        // Create new school - all fields are validated by zod schema
+        await settingsService.createSchoolProfile({
+          name: data.name,
+          address: data.address,
+          phone: data.phone,
+          email: data.email,
+        });
+        toast({
+          title: 'Success',
+          description: 'School profile created successfully',
+        });
+      } else {
+        // Update existing school
+        await settingsService.updateSchoolProfile(data);
+        toast({
+          title: 'Success',
+          description: 'School profile updated successfully',
+        });
+      }
+      
       loadSchoolProfile();
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to update school profile',
+        description: error.message || `Failed to ${isCreating ? 'create' : 'update'} school profile`,
         variant: 'destructive',
       });
-      console.error('Update error:', error);
+      console.error(`${isCreating ? 'Create' : 'Update'} error:`, error);
     } finally {
       setLoading(false);
     }
@@ -94,7 +120,14 @@ export function SchoolProfileTab() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>School Profile Information</CardTitle>
+        <CardTitle>
+          {isCreating ? 'Create School Profile' : 'School Profile Information'}
+        </CardTitle>
+        {isCreating && (
+          <p className="text-sm text-muted-foreground mt-2">
+            Welcome! Please create your school profile to get started.
+          </p>
+        )}
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -114,12 +147,14 @@ export function SchoolProfileTab() {
                 )}
               />
 
-              <div className="flex items-center space-x-2">
-                <FormLabel>School Code:</FormLabel>
-                <span className="font-medium text-muted-foreground">
-                  {profile?.code || 'N/A'}
-                </span>
-              </div>
+              {!isCreating && (
+                <div className="flex items-center space-x-2">
+                  <FormLabel>School Code:</FormLabel>
+                  <span className="font-medium text-muted-foreground">
+                    {profile?.code || 'N/A'}
+                  </span>
+                </div>
+              )}
             </div>
 
             <FormField
@@ -172,21 +207,23 @@ export function SchoolProfileTab() {
             </div>
 
             <div className="flex justify-end space-x-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={loadSchoolProfile}
-                disabled={loading}
-              >
-                Reset
-              </Button>
+              {!isCreating && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={loadSchoolProfile}
+                  disabled={loading}
+                >
+                  Reset
+                </Button>
+              )}
               <Button type="submit" disabled={loading}>
                 {loading ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 ) : (
                   <Save className="h-4 w-4 mr-2" />
                 )}
-                Save Changes
+                {isCreating ? 'Create School' : 'Save Changes'}
               </Button>
             </div>
           </form>
