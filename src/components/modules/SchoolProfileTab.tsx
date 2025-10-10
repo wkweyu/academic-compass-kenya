@@ -14,9 +14,9 @@ import { Loader2, Save } from 'lucide-react';
 
 const schoolProfileSchema = z.object({
   name: z.string().min(1, 'School name is required'),
-  address: z.string(),
-  phone: z.string(),
-  email: z.string().email('Invalid email address').or(z.literal('')),
+  address: z.string().min(1, 'Address is required'),
+  phone: z.string().min(1, 'Phone number is required'),
+  email: z.string().min(1, 'Email is required').email('Invalid email address'),
 });
 
 type SchoolProfileFormData = z.infer<typeof schoolProfileSchema>;
@@ -127,7 +127,7 @@ export function SchoolProfileTab() {
               name="address"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Address</FormLabel>
+                  <FormLabel>Address *</FormLabel>
                   <FormControl>
                     <Textarea 
                       placeholder="Enter school address" 
@@ -147,7 +147,7 @@ export function SchoolProfileTab() {
                 name="phone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Phone Number</FormLabel>
+                    <FormLabel>Phone Number *</FormLabel>
                     <FormControl>
                       <Input placeholder="e.g. +254 700 123 456" {...field} />
                     </FormControl>
@@ -161,7 +161,7 @@ export function SchoolProfileTab() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email Address</FormLabel>
+                    <FormLabel>Email Address *</FormLabel>
                     <FormControl>
                       <Input placeholder="e.g. info@school.ac.ke" {...field} />
                     </FormControl>

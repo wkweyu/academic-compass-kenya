@@ -127,23 +127,23 @@ export const settingsService = {
         throw new Error('No school associated with your account. Please contact support.');
       }
 
-      // Prepare update data - only include fields that are being changed
+      // Prepare update data - only include fields that are provided and have values
       const updateData: any = {};
       
-      // Only update fields that are provided and have values
+      // Only update fields that are provided and not empty (all fields are NOT NULL in DB)
       if (profile.name !== undefined && profile.name.trim() !== '') {
         updateData.name = profile.name.trim();
       }
       
-      if (profile.address !== undefined) {
+      if (profile.address !== undefined && profile.address.trim() !== '') {
         updateData.address = profile.address.trim();
       }
       
-      if (profile.phone !== undefined) {
+      if (profile.phone !== undefined && profile.phone.trim() !== '') {
         updateData.phone = profile.phone.trim();
       }
       
-      if (profile.email !== undefined) {
+      if (profile.email !== undefined && profile.email.trim() !== '') {
         updateData.email = profile.email.trim();
       }
 
