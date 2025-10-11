@@ -104,7 +104,10 @@ export const settingsService = {
         email: data.email,
         logo: data.logo,
         active: data.active,
-        created_at: data.created_at
+        created_at: data.created_at,
+        type: data.type,
+        motto: data.motto,
+        website: data.website
       };
     } catch (error) {
       console.error('Error fetching school profile:', error);
@@ -112,23 +115,31 @@ export const settingsService = {
     }
   },
 
-  createSchoolProfile: async (profile: { name: string; address: string; phone: string; email: string }): Promise<SchoolProfile> => {
+  createSchoolProfile: async (profile: { name: string; address: string; phone: string; email: string; type?: string; motto?: string; website?: string; logo?: string }): Promise<SchoolProfile> => {
     try {
       // Generate a unique school code
       const timestamp = Date.now().toString().slice(-6);
       const randomStr = Math.random().toString(36).substring(2, 5).toUpperCase();
       const schoolCode = `SCH${timestamp}${randomStr}`;
 
+      const insertData: any = {
+        name: profile.name.trim(),
+        address: profile.address.trim(),
+        phone: profile.phone.trim(),
+        email: profile.email.trim(),
+        code: schoolCode,
+        active: true
+      };
+
+      // Add optional fields if provided
+      if (profile.type) insertData.type = profile.type;
+      if (profile.motto) insertData.motto = profile.motto;
+      if (profile.website) insertData.website = profile.website;
+      if (profile.logo) insertData.logo = profile.logo;
+
       const { data, error } = await supabase
         .from('schools_school')
-        .insert({
-          name: profile.name.trim(),
-          address: profile.address.trim(),
-          phone: profile.phone.trim(),
-          email: profile.email.trim(),
-          code: schoolCode,
-          active: true
-        })
+        .insert(insertData)
         .select()
         .single();
 
@@ -146,7 +157,10 @@ export const settingsService = {
         email: data.email,
         logo: data.logo,
         active: data.active,
-        created_at: data.created_at
+        created_at: data.created_at,
+        type: data.type,
+        motto: data.motto,
+        website: data.website
       };
     } catch (error: any) {
       console.error('Error creating school profile:', error);
@@ -190,6 +204,12 @@ export const settingsService = {
         updateData.email = profile.email.trim();
       }
 
+      // Optional fields
+      if (profile.type !== undefined) updateData.type = profile.type;
+      if (profile.motto !== undefined) updateData.motto = profile.motto;
+      if (profile.website !== undefined) updateData.website = profile.website;
+      if (profile.logo !== undefined) updateData.logo = profile.logo;
+
       // Check if there's anything to update
       if (Object.keys(updateData).length === 0) {
         throw new Error('No fields to update');
@@ -228,7 +248,10 @@ export const settingsService = {
         email: data.email,
         logo: data.logo,
         active: data.active,
-        created_at: data.created_at
+        created_at: data.created_at,
+        type: data.type,
+        motto: data.motto,
+        website: data.website
       };
     } catch (error: any) {
       console.error('Error updating school profile:', error);

@@ -1441,8 +1441,11 @@ export type Database = {
           email: string
           id: number
           logo: string | null
+          motto: string | null
           name: string
           phone: string
+          type: string | null
+          website: string | null
         }
         Insert: {
           active: boolean
@@ -1452,8 +1455,11 @@ export type Database = {
           email: string
           id?: number
           logo?: string | null
+          motto?: string | null
           name: string
           phone: string
+          type?: string | null
+          website?: string | null
         }
         Update: {
           active?: boolean
@@ -1463,8 +1469,11 @@ export type Database = {
           email?: string
           id?: number
           logo?: string | null
+          motto?: string | null
           name?: string
           phone?: string
+          type?: string | null
+          website?: string | null
         }
         Relationships: []
       }

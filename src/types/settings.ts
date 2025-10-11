@@ -17,6 +17,9 @@ export interface SchoolProfile {
   logo?: string;
   active: boolean;
   created_at: string;
+  type?: string;
+  motto?: string;
+  website?: string;
 }
 
 export interface AcademicYearSetting {

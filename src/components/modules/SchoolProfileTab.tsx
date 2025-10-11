@@ -7,16 +7,21 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { settingsService } from '@/services/settingsService';
 import { SchoolProfile } from '@/types/settings';
-import { Loader2, Save } from 'lucide-react';
+import { Loader2, Save, Upload } from 'lucide-react';
 
 const schoolProfileSchema = z.object({
   name: z.string().min(1, 'School name is required'),
   address: z.string().min(1, 'Address is required'),
   phone: z.string().min(1, 'Phone number is required'),
   email: z.string().min(1, 'Email is required').email('Invalid email address'),
+  type: z.string().optional(),
+  motto: z.string().optional(),
+  website: z.string().url('Invalid URL').optional().or(z.literal('')),
+  logo: z.string().optional(),
 });
 
 type SchoolProfileFormData = z.infer<typeof schoolProfileSchema>;
@@ -34,6 +39,10 @@ export function SchoolProfileTab() {
       address: '',
       phone: '',
       email: '',
+      type: '',
+      motto: '',
+      website: '',
+      logo: '',
     },
   });
 
@@ -58,6 +67,10 @@ export function SchoolProfileTab() {
           address: data.address,
           phone: data.phone,
           email: data.email,
+          type: data.type || '',
+          motto: data.motto || '',
+          website: data.website || '',
+          logo: data.logo || '',
         });
       }
     } catch (error) {
@@ -82,6 +95,10 @@ export function SchoolProfileTab() {
           address: data.address,
           phone: data.phone,
           email: data.email,
+          type: data.type,
+          motto: data.motto,
+          website: data.website,
+          logo: data.logo,
         });
         toast({
           title: 'Success',
@@ -205,6 +222,74 @@ export function SchoolProfileTab() {
                 )}
               />
             </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>School Type</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select school type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Primary">Primary School</SelectItem>
+                        <SelectItem value="Secondary">Secondary School</SelectItem>
+                        <SelectItem value="Pre-Primary">Pre-Primary</SelectItem>
+                        <SelectItem value="Mixed">Mixed (Primary & Secondary)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="website"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Website</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. https://www.school.ac.ke" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="motto"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>School Motto</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter school motto" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="logo"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>School Logo URL</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter logo URL" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <div className="flex justify-end space-x-4">
               {!isCreating && (
