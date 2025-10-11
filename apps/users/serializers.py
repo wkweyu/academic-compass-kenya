@@ -7,4 +7,5 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'role', 'school']
+        fields = ['id', 'username', 'email', 'school']
+        # Note: Roles are managed via Supabase user_roles table

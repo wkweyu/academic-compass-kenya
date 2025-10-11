@@ -6,18 +6,10 @@ from apps.schools.models import School
 class User(AbstractUser):
     """
     Custom user model for CBC System
+    Note: Roles are stored in Supabase user_roles table, not here
     """
-    ROLE_CHOICES = [
-        ('superadmin', 'Super Admin'),
-        ('schooladmin', 'School Admin'),
-        ('finance', 'Finance Officer'),
-        ('transport', 'Transport Manager'),
-        ('teacher', 'Teacher'),
-        ('parent', 'Parent/Guardian'),
-    ]
     school = models.ForeignKey(School, on_delete=models.CASCADE, null=True, blank=True)
     email = models.EmailField(unique=True)
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='staff')
     phone = models.CharField(max_length=15, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

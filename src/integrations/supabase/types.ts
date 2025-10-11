@@ -2407,7 +2407,6 @@ export type Database = {
           last_name: string
           password: string
           phone: string
-          role: string
           school_id: number | null
           updated_at: string
           username: string
@@ -2425,7 +2424,6 @@ export type Database = {
           last_name: string
           password: string
           phone: string
-          role: string
           school_id?: number | null
           updated_at: string
           username: string
@@ -2443,7 +2441,6 @@ export type Database = {
           last_name?: string
           password?: string
           phone?: string
-          role?: string
           school_id?: number | null
           updated_at?: string
           username?: string

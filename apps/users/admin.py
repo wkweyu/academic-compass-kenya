@@ -5,19 +5,21 @@ from .models import User
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    list_display = ('email', 'full_name', 'role', 'is_active', 'created_at')
-    list_filter = ('role', 'is_active', 'is_staff', 'created_at')
+    list_display = ('email', 'full_name', 'is_active', 'created_at')
+    list_filter = ('is_active', 'is_staff', 'created_at')
     search_fields = ('email', 'first_name', 'last_name')
     ordering = ('-created_at',)
     
     fieldsets = BaseUserAdmin.fieldsets + (
         ('Additional Info', {
-            'fields': ('role', 'phone')
+            'fields': ('phone',)
         }),
     )
     
     add_fieldsets = BaseUserAdmin.add_fieldsets + (
         ('Additional Info', {
-            'fields': ('email', 'role', 'phone', 'first_name', 'last_name')
+            'fields': ('email', 'phone', 'first_name', 'last_name')
         }),
     )
+    
+    # Note: User roles are managed via Supabase user_roles table
