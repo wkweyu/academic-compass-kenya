@@ -7,22 +7,59 @@ export const settingsService = {
   // Term Settings
   getTermSettings: async (): Promise<TermSetting[]> => {
     try {
-      const response = await api.get('/settings/terms/');
-      const data = response.data as any;
-      return Array.isArray(data) ? data : (data?.results || data?.data || []);
-    } catch (error) {
+      // Get term settings from Supabase
+      const { data, error } = await supabase
+        .from('settings_termsetting')
+        .select('*')
+        .order('year', { ascending: false })
+        .order('term', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching term settings:', error);
+        throw new Error(`Failed to fetch term settings: ${error.message}`);
+      }
+
+      return data || [];
+    } catch (error: any) {
       console.error('Error fetching term settings:', error);
-      return [];
+      return []; // Return empty array instead of throwing to allow graceful handling
     }
   },
 
   createTermSetting: async (termSetting: Omit<TermSetting, 'id'>): Promise<TermSetting> => {
     try {
-      const response = await api.post('/settings/terms/', termSetting);
-      return response.data;
-    } catch (error) {
+      // Get user's school ID
+      const { data: profiles } = await supabase.rpc('get_current_user_profile');
+      const userProfile = profiles?.[0] as { school_id: number } | undefined;
+
+      if (!userProfile?.school_id) {
+        throw new Error('No school associated with your account. Please create a school profile first.');
+      }
+
+      // Prepare insert data
+      const insertData = {
+        ...termSetting,
+        school_id: userProfile.school_id
+      };
+
+      const { data, error } = await supabase
+        .from('settings_termsetting')
+        .insert(insertData)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating term setting:', error);
+        if (error.message.includes('unique')) {
+          throw new Error('A term setting for this year and term already exists');
+        }
+        throw new Error(`Failed to create term setting: ${error.message}`);
+      }
+
+      return data;
+    } catch (error: any) {
       console.error('Error creating term setting:', error);
-      throw error;
+      throw new Error(error.message || 'Failed to create term setting');
     }
   },
 
@@ -68,55 +105,71 @@ export const settingsService = {
 
   deleteTermSetting: async (id: number): Promise<void> => {
     try {
-      await api.delete(`/settings/terms/${id}/`);
-    } catch (error) {
+      const { error } = await supabase
+        .from('settings_termsetting')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error('Error deleting term setting:', error);
+        throw new Error(`Failed to delete term setting: ${error.message}`);
+      }
+    } catch (error: any) {
       console.error('Error deleting term setting:', error);
-      throw error;
+      throw new Error(error.message || 'Failed to delete term setting');
     }
   },
 
   // School Profile
   getSchoolProfile: async (): Promise<SchoolProfile | null> => {
     try {
-      // Get user's school ID first
-      const { data: profiles } = await supabase.rpc('get_current_user_profile');
-      const profile = profiles?.[0] as { school_id: number } | undefined;
+      // Use the new helper function that safely gets school profile
+      const { data, error } = await supabase.rpc('get_or_create_school_profile');
+
+      if (error) {
+        console.error('Error fetching school profile:', error);
+        throw error;
+      }
       
-      // Return null if user doesn't have a school yet (they need to create one)
-      if (!profile?.school_id) {
+      // Return null if no school profile exists (user needs to create one)
+      if (!data || data.length === 0) {
         return null;
       }
 
-      const { data, error } = await supabase
-        .from('schools_school')
-        .select('*')
-        .eq('id', profile.school_id)
-        .single();
-
-      if (error) throw error;
-      
+      const school = data[0];
       return {
-        id: data.id,
-        name: data.name,
-        code: data.code,
-        address: data.address,
-        phone: data.phone,
-        email: data.email,
-        logo: data.logo,
-        active: data.active,
-        created_at: data.created_at,
-        type: data.type,
-        motto: data.motto,
-        website: data.website
+        id: school.id,
+        name: school.name,
+        code: school.code,
+        address: school.address,
+        phone: school.phone,
+        email: school.email,
+        logo: school.logo || '',
+        active: school.active,
+        created_at: school.created_at,
+        type: school.type || '',
+        motto: school.motto || '',
+        website: school.website || ''
       };
     } catch (error) {
       console.error('Error fetching school profile:', error);
-      throw error;
+      return null; // Return null instead of throwing to allow graceful handling
     }
   },
 
   createSchoolProfile: async (profile: { name: string; address: string; phone: string; email: string; type?: string; motto?: string; website?: string; logo?: string }): Promise<SchoolProfile> => {
     try {
+      // Validate required fields
+      if (!profile.name?.trim() || !profile.address?.trim() || !profile.phone?.trim() || !profile.email?.trim()) {
+        throw new Error('Name, address, phone, and email are required fields');
+      }
+
+      // Check if user already has a school
+      const existingProfile = await settingsService.getSchoolProfile();
+      if (existingProfile) {
+        throw new Error('You already have a school profile. Please update it instead of creating a new one.');
+      }
+
       // Generate a unique school code
       const timestamp = Date.now().toString().slice(-6);
       const randomStr = Math.random().toString(36).substring(2, 5).toUpperCase();
@@ -131,11 +184,13 @@ export const settingsService = {
         active: true
       };
 
-      // Add optional fields if provided
-      if (profile.type) insertData.type = profile.type;
-      if (profile.motto) insertData.motto = profile.motto;
-      if (profile.website) insertData.website = profile.website;
-      if (profile.logo) insertData.logo = profile.logo;
+      // Add optional fields if provided and not empty
+      if (profile.type?.trim()) insertData.type = profile.type.trim();
+      if (profile.motto?.trim()) insertData.motto = profile.motto.trim();
+      if (profile.website?.trim()) insertData.website = profile.website.trim();
+      if (profile.logo?.trim()) insertData.logo = profile.logo.trim();
+
+      console.log('Creating school with data:', { ...insertData, code: schoolCode });
 
       const { data, error } = await supabase
         .from('schools_school')
@@ -144,9 +199,20 @@ export const settingsService = {
         .single();
 
       if (error) {
-        console.error('Supabase error details:', error);
+        console.error('Supabase error creating school:', error);
+        
+        // Provide user-friendly error messages
+        if (error.message.includes('row-level security')) {
+          throw new Error('Unable to create school. You may already have a school associated with your account.');
+        }
         throw new Error(`Failed to create school: ${error.message}`);
       }
+
+      if (!data) {
+        throw new Error('School created but no data returned. Please refresh the page.');
+      }
+
+      console.log('School created successfully:', data);
 
       return {
         id: data.id,
@@ -155,12 +221,12 @@ export const settingsService = {
         address: data.address,
         phone: data.phone,
         email: data.email,
-        logo: data.logo,
+        logo: data.logo || '',
         active: data.active,
         created_at: data.created_at,
-        type: data.type,
-        motto: data.motto,
-        website: data.website
+        type: data.type || '',
+        motto: data.motto || '',
+        website: data.website || ''
       };
     } catch (error: any) {
       console.error('Error creating school profile:', error);
@@ -170,53 +236,76 @@ export const settingsService = {
 
   updateSchoolProfile: async (profile: Partial<SchoolProfile>): Promise<SchoolProfile> => {
     try {
-      // Get user's school ID first
+      // Get user's school ID
       const { data: profiles, error: profileError } = await supabase.rpc('get_current_user_profile');
       
       if (profileError) {
         console.error('Error fetching user profile:', profileError);
-        throw new Error('Unable to fetch user profile');
+        throw new Error('Unable to fetch your profile. Please try again.');
       }
 
       const userProfile = profiles?.[0] as { school_id: number } | undefined;
       
       if (!userProfile?.school_id) {
-        throw new Error('No school associated with your account. Please contact support.');
+        throw new Error('No school associated with your account. Please create a school profile first.');
       }
 
-      // Prepare update data - only include fields that are provided and have values
+      // Prepare update data - only include fields that are provided
       const updateData: any = {};
       
-      // Only update fields that are provided and not empty (all fields are NOT NULL in DB)
-      if (profile.name !== undefined && profile.name.trim() !== '') {
-        updateData.name = profile.name.trim();
+      // Required fields - trim and validate
+      if (profile.name !== undefined) {
+        const trimmedName = profile.name.trim();
+        if (trimmedName === '') {
+          throw new Error('School name cannot be empty');
+        }
+        updateData.name = trimmedName;
       }
       
-      if (profile.address !== undefined && profile.address.trim() !== '') {
-        updateData.address = profile.address.trim();
+      if (profile.address !== undefined) {
+        const trimmedAddress = profile.address.trim();
+        if (trimmedAddress === '') {
+          throw new Error('Address cannot be empty');
+        }
+        updateData.address = trimmedAddress;
       }
       
-      if (profile.phone !== undefined && profile.phone.trim() !== '') {
-        updateData.phone = profile.phone.trim();
+      if (profile.phone !== undefined) {
+        const trimmedPhone = profile.phone.trim();
+        if (trimmedPhone === '') {
+          throw new Error('Phone cannot be empty');
+        }
+        updateData.phone = trimmedPhone;
       }
       
-      if (profile.email !== undefined && profile.email.trim() !== '') {
-        updateData.email = profile.email.trim();
+      if (profile.email !== undefined) {
+        const trimmedEmail = profile.email.trim();
+        if (trimmedEmail === '') {
+          throw new Error('Email cannot be empty');
+        }
+        updateData.email = trimmedEmail;
       }
 
-      // Optional fields
-      if (profile.type !== undefined) updateData.type = profile.type;
-      if (profile.motto !== undefined) updateData.motto = profile.motto;
-      if (profile.website !== undefined) updateData.website = profile.website;
-      if (profile.logo !== undefined) updateData.logo = profile.logo;
+      // Optional fields - allow empty strings to clear values
+      if (profile.type !== undefined) {
+        updateData.type = profile.type?.trim() || null;
+      }
+      if (profile.motto !== undefined) {
+        updateData.motto = profile.motto?.trim() || null;
+      }
+      if (profile.website !== undefined) {
+        updateData.website = profile.website?.trim() || null;
+      }
+      if (profile.logo !== undefined) {
+        updateData.logo = profile.logo?.trim() || null;
+      }
 
       // Check if there's anything to update
       if (Object.keys(updateData).length === 0) {
-        throw new Error('No fields to update');
+        throw new Error('No fields provided to update');
       }
 
-      console.log('Updating school profile with data:', updateData);
-      console.log('School ID:', userProfile.school_id);
+      console.log('Updating school profile:', { school_id: userProfile.school_id, fields: Object.keys(updateData) });
 
       const { data, error } = await supabase
         .from('schools_school')
@@ -226,18 +315,20 @@ export const settingsService = {
         .single();
 
       if (error) {
-        console.error('Supabase error details:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
+        console.error('Supabase error updating school:', error);
+        
+        // Provide user-friendly error messages
+        if (error.message.includes('row-level security')) {
+          throw new Error('You do not have permission to update this school profile.');
+        }
         throw new Error(`Failed to update school profile: ${error.message}`);
       }
 
       if (!data) {
-        throw new Error('No data returned from update');
+        throw new Error('Update succeeded but no data returned. Please refresh the page.');
       }
+
+      console.log('School profile updated successfully');
 
       return {
         id: data.id,
@@ -246,12 +337,12 @@ export const settingsService = {
         address: data.address,
         phone: data.phone,
         email: data.email,
-        logo: data.logo,
+        logo: data.logo || '',
         active: data.active,
         created_at: data.created_at,
-        type: data.type,
-        motto: data.motto,
-        website: data.website
+        type: data.type || '',
+        motto: data.motto || '',
+        website: data.website || ''
       };
     } catch (error: any) {
       console.error('Error updating school profile:', error);

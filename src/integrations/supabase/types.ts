@@ -2550,6 +2550,23 @@ export type Database = {
           username: string
         }[]
       }
+      get_or_create_school_profile: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          active: boolean
+          address: string
+          code: string
+          created_at: string
+          email: string
+          id: number
+          logo: string
+          motto: string
+          name: string
+          phone: string
+          type: string
+          website: string
+        }[]
+      }
       get_school_users: {
         Args: Record<PropertyKey, never>
         Returns: {
