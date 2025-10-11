@@ -86,12 +86,11 @@ export function TermSettingsTab() {
   const onSubmit = async (data: TermSettingFormData) => {
     try {
       setLoading(true);
-      const termData: Omit<TermSetting, 'id'> = {
+      const termData = {
         year: data.year,
         term: parseInt(data.term) as 1 | 2 | 3,
         start_date: data.start_date,
         end_date: data.end_date,
-        school: 1, // Default school ID
       };
 
       if (editingTerm) {

@@ -1,6 +1,6 @@
 export interface TermSetting {
   id?: number;
-  school: number;
+  school?: number;
   year: number;
   term: 1 | 2 | 3;
   start_date: string;
