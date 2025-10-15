@@ -94,10 +94,19 @@ export const classService = {
       const { data: profiles, error: profileError } = await supabase
         .rpc('get_current_user_profile');
       
+      if (profileError) {
+        console.error('Error fetching user profile:', profileError);
+        throw new Error('Unable to fetch your profile. Please try again.');
+      }
+
       const profile = profiles?.[0] as { school_id: number } | undefined;
       
-      if (profileError || !profile?.school_id) {
-        throw new Error('Unable to get user school information');
+      if (!profile) {
+        throw new Error('No user profile found. Please ensure you are logged in.');
+      }
+      
+      if (!profile.school_id) {
+        throw new Error('No school associated with your account. Please create a school profile first in Settings.');
       }
 
       const { data: result, error } = await supabase
