@@ -164,10 +164,12 @@ export const settingsService = {
         throw new Error('Name, address, phone, and email are required fields');
       }
 
-      // Check if user already has a school
-      const existingProfile = await settingsService.getSchoolProfile();
-      if (existingProfile) {
-        throw new Error('You already have a school profile. Please update it instead of creating a new one.');
+      // Clear any orphaned school references first
+      try {
+        await supabase.rpc('clear_orphaned_school_reference');
+      } catch (cleanupError) {
+        console.warn('Failed to clear orphaned school reference:', cleanupError);
+        // Continue anyway - the RLS policy will catch real duplicates
       }
 
       // Generate a unique school code
@@ -202,8 +204,11 @@ export const settingsService = {
         console.error('Supabase error creating school:', error);
         
         // Provide user-friendly error messages
-        if (error.message.includes('row-level security')) {
-          throw new Error('Unable to create school. You may already have a school associated with your account.');
+        if (error.message.includes('row-level security') || error.message.includes('violates row-level security')) {
+          throw new Error('You already have a school profile. Please refresh the page and try updating it instead.');
+        }
+        if (error.message.includes('duplicate key') || error.message.includes('unique constraint')) {
+          throw new Error('A school with this information already exists. Please use different details.');
         }
         throw new Error(`Failed to create school: ${error.message}`);
       }

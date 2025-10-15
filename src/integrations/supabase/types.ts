@@ -2526,6 +2526,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      clear_orphaned_school_reference: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       generate_admission_number: {
         Args: Record<PropertyKey, never>
         Returns: string
