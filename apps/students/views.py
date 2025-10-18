@@ -280,16 +280,18 @@ class ClassListCreateAPIView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
-        user = self.request.user
-        if user.is_authenticated and getattr(user, 'school', None):
-            return Class.objects.filter(school=user.school)
+        # In a single-school setup, all classes belong to the first school.
+        school = School.objects.first()
+        if school:
+            return Class.objects.filter(school=school)
         return Class.objects.none()
 
     def perform_create(self, serializer):
-        if not getattr(self.request.user, 'school', None):
+        school = School.objects.first()
+        if not school:
             from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("You must be associated with a school to create classes.")
-        serializer.save(school=self.request.user.school)
+            raise PermissionDenied("A school profile must be created before you can add classes.")
+        serializer.save(school=school)
 
 
 class ClassRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
