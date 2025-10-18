@@ -83,8 +83,7 @@ export const ClassManagementModule = () => {
       await classService.createClass({
         name: classForm.name.trim(),
         grade_level: classForm.grade_level,
-        description: classForm.description,
-        school: 0 // School ID will be fetched automatically from user profile
+        description: classForm.description
       });
       
       toast({
