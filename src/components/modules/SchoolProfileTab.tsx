@@ -56,13 +56,9 @@ export function SchoolProfileTab() {
       setLoading(true);
       const data = await settingsService.getSchoolProfile();
       
-      if (data === null) {
-        // User doesn't have a school yet
-        setIsCreating(true);
-        setProfile(null);
-      } else {
-        setIsCreating(false);
+      if (data) {
         setProfile(data);
+        setIsCreating(false);
         form.reset({
           name: data.name,
           address: data.address,
@@ -73,6 +69,9 @@ export function SchoolProfileTab() {
           website: data.website || '',
           logo: data.logo || '',
         });
+      } else {
+        setProfile(null);
+        setIsCreating(true);
       }
     } catch (error) {
       toast({
