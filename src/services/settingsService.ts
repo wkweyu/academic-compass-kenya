@@ -239,6 +239,23 @@ export const settingsService = {
     }
   },
 
+  deleteSchoolProfile: async (schoolId: number): Promise<void> => {
+    try {
+      const { error } = await supabase
+        .from('schools_school')
+        .delete()
+        .eq('id', schoolId);
+
+      if (error) {
+        console.error('Error deleting school profile:', error);
+        throw new Error('Failed to delete school profile');
+      }
+    } catch (error: any) {
+      console.error('Error deleting school profile:', error);
+      throw new Error(error.message || 'Failed to delete school profile');
+    }
+  },
+
   updateSchoolProfile: async (profile: Partial<SchoolProfile>): Promise<SchoolProfile> => {
     try {
       // Get user's school ID

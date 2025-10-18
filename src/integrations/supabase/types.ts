@@ -2395,6 +2395,7 @@ export type Database = {
       }
       users: {
         Row: {
+          auth_user_id: string | null
           created_at: string
           date_joined: string
           email: string
@@ -2405,13 +2406,14 @@ export type Database = {
           is_superuser: boolean
           last_login: string | null
           last_name: string
-          password: string
-          phone: string
+          password: string | null
+          phone: string | null
           school_id: number | null
           updated_at: string
           username: string
         }
         Insert: {
+          auth_user_id?: string | null
           created_at: string
           date_joined: string
           email: string
@@ -2422,13 +2424,14 @@ export type Database = {
           is_superuser: boolean
           last_login?: string | null
           last_name: string
-          password: string
-          phone: string
+          password?: string | null
+          phone?: string | null
           school_id?: number | null
           updated_at: string
           username: string
         }
         Update: {
+          auth_user_id?: string | null
           created_at?: string
           date_joined?: string
           email?: string
@@ -2439,8 +2442,8 @@ export type Database = {
           is_superuser?: boolean
           last_login?: string | null
           last_name?: string
-          password?: string
-          phone?: string
+          password?: string | null
+          phone?: string | null
           school_id?: number | null
           updated_at?: string
           username?: string

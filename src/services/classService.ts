@@ -90,19 +90,32 @@ export const classService = {
     >
   ): Promise<Class> {
     try {
+      // Check if user is authenticated
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('You must be logged in to create classes. Please log in and try again.');
+      }
+
       // Get the current user's profile to get their school_id
       const { data: profiles, error: profileError } = await supabase
         .rpc('get_current_user_profile');
       
       if (profileError) {
         console.error('Error fetching user profile:', profileError);
-        throw new Error('Unable to fetch your profile. Please try again.');
+        console.error('Auth user:', user.id);
+        throw new Error('Unable to fetch your profile. Please refresh the page and try again.');
       }
 
-      const profile = profiles?.[0] as { school_id: number } | undefined;
+      if (!profiles || profiles.length === 0) {
+        console.error('No profile returned for user:', user.id);
+        throw new Error('Your profile is not set up correctly. Please log out and log back in, or contact support.');
+      }
+
+      const profile = profiles[0] as { school_id: number } | undefined;
       
       if (!profile) {
-        throw new Error('No user profile found. Please ensure you are logged in.');
+        throw new Error('No user profile found. Please log out and log back in.');
       }
       
       if (!profile.school_id) {
@@ -120,20 +133,23 @@ export const classService = {
         .select()
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error inserting class:', error);
+        throw error;
+      }
       
       return {
         id: result.id,
         name: result.name,
         grade_level: result.grade_level,
-        description: result.stream || '',
-        school: 1,
+        description: result.description || '',
+        school: profile.school_id,
         created_at: result.created_at,
         total_streams: 1,
         total_students: 0,
         capacity: result.capacity || 40
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating class:', error);
       throw error;
     }
