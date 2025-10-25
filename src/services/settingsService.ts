@@ -1,31 +1,67 @@
-import { api } from "@/api/api";
+import { supabase } from "@/integrations/supabase/client";
 import { SchoolProfile, TermSetting, AcademicYearSetting, SystemSettings, GradingSystemSettings } from "@/types/settings";
 
 export const settingsService = {
   getSchoolProfile: async (): Promise<SchoolProfile | null> => {
     try {
-      const response = await api.get<SchoolProfile>("/schools/");
-      return response.data;
+      const { data, error } = await supabase.rpc('get_or_create_school_profile');
+      
+      if (error) throw error;
+      if (!data || data.length === 0) return null;
+      
+      return data[0] as SchoolProfile;
     } catch (error: any) {
-      if (error.response && error.response.status === 404) {
-        return null;
-      }
-      throw error;
+      console.error('Error fetching school profile:', error);
+      return null;
     }
   },
 
   createSchoolProfile: async (profile: Omit<SchoolProfile, "id" | "code" | "created_at" | "active">): Promise<SchoolProfile> => {
-    const response = await api.post<SchoolProfile>("/schools/create/", profile);
-    return response.data;
+    const { data, error } = await supabase
+      .from('schools_school')
+      .insert({
+        name: profile.name,
+        address: profile.address,
+        phone: profile.phone,
+        email: profile.email,
+        logo: profile.logo || '',
+        type: profile.type || '',
+        motto: profile.motto || '',
+        website: profile.website || '',
+        active: true
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as SchoolProfile;
   },
 
   updateSchoolProfile: async (profile: Partial<SchoolProfile>): Promise<SchoolProfile> => {
-    const response = await api.put<SchoolProfile>(`/schools/`, profile);
-    return response.data;
+    const { data: currentProfile } = await supabase.rpc('get_or_create_school_profile');
+    if (!currentProfile || currentProfile.length === 0) {
+      throw new Error('No school profile found to update');
+    }
+
+    const schoolId = currentProfile[0].id;
+    const { data, error } = await supabase
+      .from('schools_school')
+      .update(profile)
+      .eq('id', schoolId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as SchoolProfile;
   },
 
   deleteSchoolProfile: async (schoolId: number): Promise<void> => {
-    await api.delete(`/schools/`);
+    const { error } = await supabase
+      .from('schools_school')
+      .delete()
+      .eq('id', schoolId);
+
+    if (error) throw error;
   },
 
   // Term Settings

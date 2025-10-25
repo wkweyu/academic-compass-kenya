@@ -163,17 +163,63 @@ export function SchoolProfileTab() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>
-          {isCreating ? 'Create School Profile' : 'School Profile Information'}
-        </CardTitle>
-        {isCreating && (
-          <p className="text-sm text-muted-foreground mt-2">
-            Welcome! Please create your school profile to get started.
-          </p>
-        )}
-      </CardHeader>
+    <div className="space-y-6">
+      {!isCreating && profile && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Current School Profile</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="font-semibold">School Name:</span> {profile.name}
+              </div>
+              <div>
+                <span className="font-semibold">School Code:</span> {profile.code}
+              </div>
+              <div>
+                <span className="font-semibold">Email:</span> {profile.email}
+              </div>
+              <div>
+                <span className="font-semibold">Phone:</span> {profile.phone}
+              </div>
+              {profile.type && (
+                <div>
+                  <span className="font-semibold">Type:</span> {profile.type}
+                </div>
+              )}
+              {profile.website && (
+                <div>
+                  <span className="font-semibold">Website:</span>{' '}
+                  <a href={profile.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                    {profile.website}
+                  </a>
+                </div>
+              )}
+              <div className="md:col-span-2">
+                <span className="font-semibold">Address:</span> {profile.address}
+              </div>
+              {profile.motto && (
+                <div className="md:col-span-2">
+                  <span className="font-semibold">Motto:</span> <em>{profile.motto}</em>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            {isCreating ? 'Create School Profile' : 'Edit School Profile'}
+          </CardTitle>
+          {isCreating && (
+            <p className="text-sm text-muted-foreground mt-2">
+              Welcome! Please create your school profile to get started.
+            </p>
+          )}
+        </CardHeader>
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -361,5 +407,6 @@ export function SchoolProfileTab() {
         </Form>
       </CardContent>
     </Card>
+    </div>
   );
 }
