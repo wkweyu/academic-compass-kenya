@@ -119,8 +119,7 @@ export const ClassManagementModule = () => {
         class_assigned: streamForm.class_assigned,
         year: streamForm.year,
         capacity: streamForm.capacity,
-        status: streamForm.status,
-        school: 0 // School ID will be fetched automatically from user profile
+        status: streamForm.status
       });
       
       toast({

@@ -23,21 +23,29 @@ class SchoolCreateView(generics.CreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
-        # Prevent creating a new school if one already exists
-        if School.objects.exists():
+        # Check if user already has a school
+        user = request.user
+        if user.school:
             return Response(
-                {"detail": "A school profile already exists. You can update it instead."},
+                {"detail": "You already have a school profile. You can update it instead."},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        
+        # Check if a school already exists globally (single-school mode)
+        if School.objects.exists():
+            existing_school = School.objects.first()
+            # Link the user to the existing school
+            user.school = existing_school
+            user.save()
+            serializer = self.get_serializer(existing_school)
+            return Response(serializer.data, status=status.HTTP_200_OK)
 
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         school = serializer.instance
 
-        # Associate this school with the user who created it.
-        # This is useful for tracking, but the rest of the app will use School.objects.first()
-        user = request.user
+        # Associate this school with the user who created it
         user.school = school
         user.save()
 

@@ -280,17 +280,23 @@ class ClassListCreateAPIView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
-        # In a single-school setup, all classes belong to the first school.
+        user = self.request.user
+        # Check if user has a school association
+        if user.school:
+            return Class.objects.filter(school=user.school)
+        # Fallback to first school for single-school mode
         school = School.objects.first()
         if school:
             return Class.objects.filter(school=school)
         return Class.objects.none()
 
     def perform_create(self, serializer):
-        school = School.objects.first()
+        user = self.request.user
+        # Use user's school if available
+        school = user.school if user.school else School.objects.first()
         if not school:
             from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("A school profile must be created before you can add classes.")
+            raise PermissionDenied("No school profile found. Please create a school profile first.")
         serializer.save(school=school)
 
 
@@ -313,15 +319,19 @@ class StreamListCreateAPIView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_authenticated and getattr(user, 'school', None):
-            return Stream.objects.filter(school=user.school)
+        # Use user's school if available, fallback to first school
+        school = user.school if user.school else School.objects.first()
+        if school:
+            return Stream.objects.filter(school=school)
         return Stream.objects.none()
 
     def perform_create(self, serializer):
-        if not getattr(self.request.user, 'school', None):
+        user = self.request.user
+        school = user.school if user.school else School.objects.first()
+        if not school:
             from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("You must be associated with a school to create streams.")
-        serializer.save(school=self.request.user.school)
+            raise PermissionDenied("No school profile found. Please create a school profile first.")
+        serializer.save(school=school)
 
 
 class StreamRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
@@ -352,6 +362,16 @@ class StudentViewSet(viewsets.ModelViewSet):
         for the currently authenticated user's school.
         """
         user = self.request.user
-        if user.is_authenticated and hasattr(user, 'school'):
-            return Student.objects.filter(school=user.school, is_active=True).order_by('-created_at')
+        # Use user's school if available, fallback to first school
+        school = user.school if user.school else School.objects.first()
+        if school:
+            return Student.objects.filter(school=school, is_active=True).order_by('-created_at')
         return Student.objects.none() # Return empty queryset if no school
+    
+    def perform_create(self, serializer):
+        user = self.request.user
+        school = user.school if user.school else School.objects.first()
+        if not school:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("No school profile found. Please create a school profile first.")
+        serializer.save(school=school)
