@@ -2529,16 +2529,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      clear_orphaned_school_reference: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      generate_admission_number: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      clear_orphaned_school_reference: { Args: never; Returns: undefined }
+      generate_admission_number: { Args: never; Returns: string }
       get_current_user_profile: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           created_at: string
           date_joined: string
@@ -2558,7 +2552,7 @@ export type Database = {
         }[]
       }
       get_or_create_school_profile: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           active: boolean
           address: string
@@ -2575,7 +2569,7 @@ export type Database = {
         }[]
       }
       get_school_users: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           created_at: string
           date_joined: string
@@ -2594,10 +2588,7 @@ export type Database = {
           username: string
         }[]
       }
-      get_user_school_id: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
+      get_user_school_id: { Args: never; Returns: number }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -2605,10 +2596,7 @@ export type Database = {
         }
         Returns: boolean
       }
-      is_admin: {
-        Args: { _user_id: string }
-        Returns: boolean
-      }
+      is_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       app_role:
