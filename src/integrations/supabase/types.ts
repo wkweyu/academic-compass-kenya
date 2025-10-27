@@ -1793,7 +1793,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "streams_class_assigned_id_5f727004_fk_classes_id"
+            foreignKeyName: "streams_class_assigned_id_fk_classes"
             columns: ["class_assigned_id"]
             isOneToOne: false
             referencedRelation: "classes"
@@ -2143,14 +2143,14 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "students_current_class_id_05b7cb5e_fk_classes_id"
+            foreignKeyName: "students_current_class_id_fk_classes"
             columns: ["current_class_id"]
             isOneToOne: false
             referencedRelation: "classes"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "students_current_stream_id_585d2899_fk_streams_id"
+            foreignKeyName: "students_current_stream_id_fk_streams"
             columns: ["current_stream_id"]
             isOneToOne: false
             referencedRelation: "streams"

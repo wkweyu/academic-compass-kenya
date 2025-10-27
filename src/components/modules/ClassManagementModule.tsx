@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Users, BookOpen, Settings, TrendingUp, Filter } from 'lucide-react';
+import { Plus, Search, Users, BookOpen, Settings, TrendingUp, Filter, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -141,6 +141,48 @@ export const ClassManagementModule = () => {
       toast({
         title: "Error",
         description: error.message || "Failed to create stream",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteClass = async (classId: string) => {
+    if (!window.confirm('Are you sure you want to delete this class? This will also delete all associated streams.')) {
+      return;
+    }
+
+    try {
+      await classService.deleteClass(classId);
+      toast({
+        title: "Success",
+        description: "Class deleted successfully",
+      });
+      loadData();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete class. It may have students assigned to it.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteStream = async (streamId: string) => {
+    if (!window.confirm('Are you sure you want to delete this stream?')) {
+      return;
+    }
+
+    try {
+      await classService.deleteStream(streamId);
+      toast({
+        title: "Success",
+        description: "Stream deleted successfully",
+      });
+      loadData();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete stream. It may have students assigned to it.",
         variant: "destructive",
       });
     }
@@ -426,9 +468,19 @@ export const ClassManagementModule = () => {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="sm">
-                          <Settings className="h-4 w-4" />
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="sm">
+                            <Settings className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleDeleteClass(cls.id)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -504,9 +556,19 @@ export const ClassManagementModule = () => {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="sm">
-                          <Settings className="h-4 w-4" />
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="sm">
+                            <Settings className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleDeleteStream(stream.id)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
