@@ -151,10 +151,16 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
   // Get selected class ID for filtering streams (must be after form declaration)
   const selectedClassId = form.watch('current_class');
   
+  console.log('Selected class ID:', selectedClassId);
+  console.log('All streams:', streams);
+  
   // Filter streams based on selected class
-  const filteredStreams = streams.filter((stream: Stream) => 
-    !selectedClassId || stream.class_assigned === selectedClassId
-  );
+  const filteredStreams = streams.filter((stream: Stream) => {
+    if (!selectedClassId) return false; // Don't show any streams if no class selected
+    const match = stream.class_assigned === selectedClassId;
+    console.log(`Stream ${stream.name}: class_assigned=${stream.class_assigned}, match=${match}`);
+    return match;
+  });
 
   return (
     <Form {...form}>

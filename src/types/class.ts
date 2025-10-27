@@ -16,7 +16,8 @@ export interface Class {
 export interface Stream {
   id: string;
   name: string;
-  class_assigned: string;
+  class_assigned: string; // Frontend field
+  class_assigned_id?: string; // Database field (for compatibility)
   class_name?: string;
   year: number;
   school: number;

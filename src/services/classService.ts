@@ -79,6 +79,7 @@ export const classService = {
     
     return (data || []).map(stream => ({
       ...stream,
+      class_assigned: stream.class_assigned_id, // Map database field to frontend field
       class_name: stream.classes?.name || ''
     })) as Stream[];
   },
@@ -94,11 +95,12 @@ export const classService = {
     
     return {
       ...data,
+      class_assigned: data.class_assigned_id, // Map database field to frontend field
       class_name: data.classes?.name || ''
     } as Stream;
   },
 
-  async createStream(data: Omit<Stream, "id" | "created_at" | "current_enrollment" | "school" | "class_name">): Promise<Stream> {
+  async createStream(data: Omit<Stream, "id" | "created_at" | "current_enrollment" | "school" | "class_name" | "class_assigned_id">): Promise<Stream> {
     const { data: schoolId } = await supabase.rpc('get_user_school_id');
     
     const { data: newStream, error } = await supabase
@@ -117,14 +119,22 @@ export const classService = {
     
     return {
       ...newStream,
+      class_assigned: newStream.class_assigned_id, // Map database field to frontend field
       class_name: newStream.classes?.name || ''
     } as Stream;
   },
 
   async updateStream(id: string, data: Partial<Stream>): Promise<Stream | null> {
+    const updateData: any = { ...data };
+    // Map frontend field to database field if present
+    if (data.class_assigned) {
+      updateData.class_assigned_id = data.class_assigned;
+      delete updateData.class_assigned;
+    }
+    
     const { data: updated, error } = await supabase
       .from('streams')
-      .update(data)
+      .update(updateData)
       .eq('id', id)
       .select('*, classes(name)')
       .single();
@@ -133,6 +143,7 @@ export const classService = {
     
     return {
       ...updated,
+      class_assigned: updated.class_assigned_id, // Map database field to frontend field
       class_name: updated.classes?.name || ''
     } as Stream;
   },
