@@ -91,8 +91,9 @@ const StudentManagementModule = () => {
         }, 100);
       }
     },
-    onError: (error) => {
-      toast.error('Failed to create student');
+    onError: (error: any) => {
+      const errorMessage = error?.message || 'Failed to create student';
+      toast.error(errorMessage);
       console.error('Create student error:', error);
     },
   });

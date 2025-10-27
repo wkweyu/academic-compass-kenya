@@ -154,7 +154,7 @@ export const createStudent = async (
     
     if (error) {
       console.error('Error creating student:', error);
-      throw error;
+      throw new Error(error.message || 'Failed to create student');
     }
     
     if (!data || data.length === 0) {
