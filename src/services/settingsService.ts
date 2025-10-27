@@ -28,6 +28,13 @@ export const settingsService = {
   createSchoolProfile: async (profile: Omit<SchoolProfile, "id" | "code" | "created_at" | "active">): Promise<SchoolProfile> => {
     try {
       console.log('Creating school profile:', profile);
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      console.log('Current user:', userData?.user?.id);
+      
+      if (userError || !userData?.user) {
+        throw new Error('User not authenticated');
+      }
+      
       const { data, error } = await supabase
         .from('schools_school')
         .insert({
@@ -39,16 +46,18 @@ export const settingsService = {
           type: profile.type || '',
           motto: profile.motto || '',
           website: profile.website || '',
+          active: true
         })
         .select()
         .single();
 
       if (error) {
         console.error('Create school error:', error);
+        console.error('Error details:', JSON.stringify(error, null, 2));
         throw error;
       }
       
-      console.log('School created:', data);
+      console.log('School created successfully:', data);
       return data as SchoolProfile;
     } catch (error) {
       console.error('Failed to create school:', error);
