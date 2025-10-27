@@ -34,7 +34,7 @@ const studentFormSchema = z.object({
   current_class: z.string().nullable(),
   current_stream: z.string().nullable(),
   current_class_name: z.string().min(1, 'Class name is required'),
-  current_stream_name: z.string().min(1, 'Stream name is required'),
+  current_stream_name: z.string().optional().or(z.literal('')), // Make stream optional
   current_class_stream: z.string().optional(),
   admission_year: z.coerce.number().min(2020, 'Admission year must be valid'),
   term: z.union([z.literal(1), z.literal(2), z.literal(3)]),
@@ -164,11 +164,12 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(async (data) => {
-        console.log('Form submitted with data:', data);
-        
-        // Transform form data to required Student format
-         const studentData = {
+      <form onSubmit={form.handleSubmit(
+        async (data) => {
+          console.log('Form submitted with data:', data);
+          
+          // Transform form data to required Student format
+          const studentData = {
            full_name: data.full_name!,
            date_of_birth: data.date_of_birth!,
            gender: data.gender!,
@@ -204,17 +205,26 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
            last_name: data.full_name.split(' ').slice(1).join(' ') || data.full_name.split(' ')[0],
          } as Omit<Student, 'id' | 'admission_number' | 'created_at' | 'updated_at'>;
         
-        console.log('Transformed student data:', studentData);
-        setSubmittedStudent(studentData);
-        
-        try {
-          await onSubmit(studentData);
-          console.log('Student created successfully');
-        } catch (error) {
-          console.error('Error submitting form:', error);
-          toast.error('Failed to save student. Please check the console for errors.');
+          console.log('Transformed student data:', studentData);
+          setSubmittedStudent(studentData);
+          
+          try {
+            await onSubmit(studentData);
+            console.log('Student created successfully');
+          } catch (error) {
+            console.error('Error submitting form:', error);
+            toast.error('Failed to save student. Please check the console for errors.');
+          }
+        },
+        (errors) => {
+          // Log validation errors
+          console.error('Form validation errors:', errors);
+          const errorMessages = Object.entries(errors)
+            .map(([field, error]) => `${field}: ${error.message}`)
+            .join(', ');
+          toast.error(`Please fix the following errors: ${errorMessages}`);
         }
-      })} className="space-y-6">
+      )} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <FormField
             control={form.control}
