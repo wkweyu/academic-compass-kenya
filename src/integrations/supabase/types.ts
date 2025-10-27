@@ -2530,6 +2530,32 @@ export type Database = {
     }
     Functions: {
       clear_orphaned_school_reference: { Args: never; Returns: undefined }
+      create_school_profile: {
+        Args: {
+          p_address: string
+          p_email: string
+          p_logo?: string
+          p_motto?: string
+          p_name: string
+          p_phone: string
+          p_type?: string
+          p_website?: string
+        }
+        Returns: {
+          active: boolean
+          address: string
+          code: string
+          created_at: string
+          email: string
+          id: number
+          logo: string
+          motto: string
+          name: string
+          phone: string
+          type: string
+          website: string
+        }[]
+      }
       generate_admission_number: { Args: never; Returns: string }
       generate_school_code: { Args: never; Returns: string }
       get_current_user_profile: {

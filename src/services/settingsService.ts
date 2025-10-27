@@ -27,7 +27,7 @@ export const settingsService = {
 
   createSchoolProfile: async (profile: Omit<SchoolProfile, "id" | "code" | "created_at" | "active">): Promise<SchoolProfile> => {
     try {
-      console.log('Creating school profile:', profile);
+      console.log('Creating school profile via RPC:', profile);
       const { data: userData, error: userError } = await supabase.auth.getUser();
       console.log('Current user:', userData?.user?.id);
       
@@ -35,30 +35,32 @@ export const settingsService = {
         throw new Error('User not authenticated');
       }
       
-      const { data, error } = await supabase
-        .from('schools_school')
-        .insert({
-          name: profile.name,
-          address: profile.address,
-          phone: profile.phone,
-          email: profile.email,
-          logo: profile.logo || '',
-          type: profile.type || '',
-          motto: profile.motto || '',
-          website: profile.website || '',
-          active: true
-        })
-        .select()
-        .single();
+      // Use RPC function to create school with elevated privileges
+      const { data, error } = await supabase.rpc('create_school_profile', {
+        p_name: profile.name,
+        p_address: profile.address,
+        p_phone: profile.phone,
+        p_email: profile.email,
+        p_type: profile.type || '',
+        p_motto: profile.motto || '',
+        p_website: profile.website || '',
+        p_logo: profile.logo || ''
+      });
 
       if (error) {
-        console.error('Create school error:', error);
+        console.error('Create school RPC error:', error);
         console.error('Error details:', JSON.stringify(error, null, 2));
         throw error;
       }
       
-      console.log('School created successfully:', data);
-      return data as SchoolProfile;
+      console.log('School created successfully via RPC:', data);
+      
+      // RPC returns an array, get the first item
+      if (!data || data.length === 0) {
+        throw new Error('School created but no data returned');
+      }
+      
+      return data[0] as SchoolProfile;
     } catch (error) {
       console.error('Failed to create school:', error);
       throw error;
