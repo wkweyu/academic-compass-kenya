@@ -401,8 +401,17 @@ export const getStudentStats = async (): Promise<StudentStats> => {
     // Calculate stats
     const total_students = studentList.length;
     const active_students = studentList.filter(s => s.is_active).length;
-    const male_students = studentList.filter(s => s.gender?.toLowerCase() === 'male').length;
-    const female_students = studentList.filter(s => s.gender?.toLowerCase() === 'female').length;
+    
+    // Gender comparison - handle both single letters (M/F) and full words (Male/Female)
+    const male_students = studentList.filter(s => {
+      const gender = s.gender?.toLowerCase();
+      return gender === 'male' || gender === 'm';
+    }).length;
+    
+    const female_students = studentList.filter(s => {
+      const gender = s.gender?.toLowerCase();
+      return gender === 'female' || gender === 'f';
+    }).length;
     
     console.log('Student stats calculated:', { total_students, active_students, male_students, female_students });
     
