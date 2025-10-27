@@ -343,18 +343,17 @@ export const updateStudent = async (id: string, studentData: Partial<Student>): 
 };
 
 export const deleteStudent = async (id: string): Promise<boolean> => {
-  try {
-    const { error } = await supabase
-      .from('students')
-      .delete()
-      .eq('id', id);
-    
-    if (error) throw error;
-    return true;
-  } catch (error) {
+  const { error } = await supabase
+    .from('students')
+    .delete()
+    .eq('id', id);
+  
+  if (error) {
     console.error('Error deleting student:', error);
-    return false;
+    throw new Error(error.message || 'Failed to delete student');
   }
+  
+  return true;
 };
 
 export const getStudentStats = async (): Promise<StudentStats> => {
