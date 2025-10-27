@@ -107,9 +107,16 @@ export const settingsService = {
   },
 
   createTermSetting: async (term: Omit<TermSetting, "id" | "school">): Promise<TermSetting> => {
+    // Get the user's school_id
+    const { data: schoolId, error: schoolError } = await supabase.rpc('get_user_school_id');
+    if (schoolError || !schoolId) {
+      throw new Error('Unable to determine user school');
+    }
+
     const { data, error } = await supabase
       .from('settings_termsetting')
       .insert({
+        school_id: schoolId,
         year: term.year,
         term: term.term,
         start_date: term.start_date,
