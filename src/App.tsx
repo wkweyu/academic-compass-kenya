@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { MainLayout } from "./components/layout/MainLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AuthPage from "./pages/AuthPage";
@@ -24,36 +25,38 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/auth" element={<AuthPage />} />
-            <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/exams" element={<ExamsPage />} />
-              <Route path="/students" element={<StudentsPage />} />
-              <Route path="/students/:id" element={<StudentProfilePage />} />
-              <Route path="/classes" element={<ClassesPage />} />
-              <Route path="/teachers" element={<TeachersPage />} />
-              <Route path="/subjects" element={<SubjectsPage />} />
-              <Route path="/scores" element={<ScoresPage />} />
-              <Route path="/results" element={<ResultsPage />} />
-              <Route path="/fees" element={<FeesPage />} />
-              <Route path="/payroll" element={<ComingSoonPage title="Payroll Management" />} />
-              <Route path="/accounting" element={<ComingSoonPage title="Accounting" />} />
-              <Route path="/settings" element={<SettingsPage />} />
-            </Route>
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </AuthProvider>
-  </QueryClientProvider>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/auth" element={<AuthPage />} />
+              <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/exams" element={<ExamsPage />} />
+                <Route path="/students" element={<StudentsPage />} />
+                <Route path="/students/:id" element={<StudentProfilePage />} />
+                <Route path="/classes" element={<ClassesPage />} />
+                <Route path="/teachers" element={<TeachersPage />} />
+                <Route path="/subjects" element={<SubjectsPage />} />
+                <Route path="/scores" element={<ScoresPage />} />
+                <Route path="/results" element={<ResultsPage />} />
+                <Route path="/fees" element={<FeesPage />} />
+                <Route path="/payroll" element={<ComingSoonPage title="Payroll Management" />} />
+                <Route path="/accounting" element={<ComingSoonPage title="Accounting" />} />
+                <Route path="/settings" element={<SettingsPage />} />
+              </Route>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;
