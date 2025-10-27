@@ -9,6 +9,7 @@ import { Student } from '@/types/student';
 import { Class, Stream } from '@/types/class';
 import { useQuery } from '@tanstack/react-query';
 import { classService } from '@/services/classService';
+import { settingsService } from '@/services/settingsService';
 import { TermManager } from '@/utils/termManager';
 import { getSiblings, findPotentialSiblings, findExistingGuardian } from '@/services/guardianService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -69,6 +70,33 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
     queryKey: ['streams'],
     queryFn: () => classService.getStreams(),
   });
+
+  // Fetch term settings to auto-populate current term
+  const { data: termSettings = [] } = useQuery({
+    queryKey: ['termSettings'],
+    queryFn: () => settingsService.getTermSettings(),
+  });
+
+  // Get current term from settings based on current date
+  const getCurrentTermFromSettings = (): 1 | 2 | 3 => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    
+    // Find active term for current year
+    const activeTerm = termSettings.find(term => {
+      if (term.year !== currentYear) return false;
+      const startDate = new Date(term.start_date);
+      const endDate = new Date(term.end_date);
+      return now >= startDate && now <= endDate;
+    });
+    
+    if (activeTerm) {
+      return activeTerm.term;
+    }
+    
+    // Fallback to TermManager if no settings found
+    return TermManager.getCurrentTerm() as 1 | 2 | 3;
+  };
 
   // Detect potential siblings when guardian info changes
   const checkForPotentialSiblings = async (name: string, phone: string) => {
@@ -142,7 +170,7 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
       current_stream_name: initialData?.current_stream_name || '',
       current_class_stream: initialData?.current_class_stream || 'Grade 1 East',
       admission_year: initialData?.admission_year || new Date().getFullYear(),
-      term: (initialData?.term || TermManager.getCurrentTerm()) as 1 | 2 | 3,
+      term: (initialData?.term || getCurrentTermFromSettings()) as 1 | 2 | 3,
       is_on_transport: initialData?.is_on_transport || false,
       is_active: initialData?.is_active !== undefined ? initialData.is_active : true,
     },
@@ -529,26 +557,7 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
               </FormItem>
             )}
           />
-          <FormField
-            control={form.control}
-            name="term"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Current Term</FormLabel>
-                <Select onValueChange={(value) => field.onChange(parseInt(value) as 1 | 2 | 3)} defaultValue={field.value?.toString()}>
-                  <FormControl>
-                    <SelectTrigger><SelectValue placeholder="Select term" /></SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="1">Term 1</SelectItem>
-                    <SelectItem value="2">Term 2</SelectItem>
-                    <SelectItem value="3">Term 3</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {/* Term is auto-populated from Term Settings - no manual input needed */}
         </div>
         <div className="flex gap-4">
           <Button type="submit" disabled={isSubmitting}>

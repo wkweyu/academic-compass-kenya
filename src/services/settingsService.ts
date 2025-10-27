@@ -96,23 +96,56 @@ export const settingsService = {
 
   // Term Settings
   getTermSettings: async (): Promise<TermSetting[]> => {
-    // TODO: Implement backend endpoint
-    return [];
+    const { data, error } = await supabase
+      .from('settings_termsetting')
+      .select('*')
+      .order('year', { ascending: false })
+      .order('term', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
   },
 
   createTermSetting: async (term: Omit<TermSetting, "id" | "school">): Promise<TermSetting> => {
-    // TODO: Implement backend endpoint
-    throw new Error("Not implemented yet");
+    const { data, error } = await supabase
+      .from('settings_termsetting')
+      .insert({
+        year: term.year,
+        term: term.term,
+        start_date: term.start_date,
+        end_date: term.end_date,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
   },
 
   updateTermSetting: async (id: number, term: Partial<TermSetting>): Promise<TermSetting> => {
-    // TODO: Implement backend endpoint
-    throw new Error("Not implemented yet");
+    const { data, error } = await supabase
+      .from('settings_termsetting')
+      .update({
+        year: term.year,
+        term: term.term,
+        start_date: term.start_date,
+        end_date: term.end_date,
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
   },
 
   deleteTermSetting: async (id: number): Promise<void> => {
-    // TODO: Implement backend endpoint
-    throw new Error("Not implemented yet");
+    const { error } = await supabase
+      .from('settings_termsetting')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
   },
 
   // Academic Years
