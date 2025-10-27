@@ -31,8 +31,8 @@ const studentFormSchema = z.object({
   academic_year: z.coerce.number().min(2020, 'Academic year must be valid'),
   enrollment_date: z.string().refine((val) => !isNaN(Date.parse(val)), { message: 'Invalid date' }),
   status: z.enum(['active', 'inactive', 'graduated', 'transferred', 'suspended']),
-  current_class: z.string().nullable(),
-  current_stream: z.string().nullable(),
+  current_class: z.union([z.string(), z.number()]).nullable(),
+  current_stream: z.union([z.string(), z.number()]).nullable(),
   current_class_name: z.string().min(1, 'Class name is required'),
   current_stream_name: z.string().optional().or(z.literal('')), // Make stream optional
   current_class_stream: z.string().optional(),
