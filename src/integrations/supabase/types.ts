@@ -2556,6 +2556,44 @@ export type Database = {
           website: string
         }[]
       }
+      create_student: {
+        Args: {
+          p_admission_year: number
+          p_current_class_id: number
+          p_current_stream_id: number
+          p_date_of_birth: string
+          p_full_name: string
+          p_gender: string
+          p_guardian_email: string
+          p_guardian_name: string
+          p_guardian_phone: string
+          p_guardian_relationship: string
+          p_is_on_transport?: boolean
+          p_level: string
+          p_photo?: string
+        }
+        Returns: {
+          admission_number: string
+          admission_year: number
+          created_at: string
+          current_class_id: number
+          current_stream_id: number
+          date_of_birth: string
+          full_name: string
+          gender: string
+          guardian_email: string
+          guardian_name: string
+          guardian_phone: string
+          guardian_relationship: string
+          id: number
+          is_active: boolean
+          is_on_transport: boolean
+          level: string
+          photo: string
+          school_id: number
+          updated_at: string
+        }[]
+      }
       generate_admission_number: { Args: never; Returns: string }
       generate_school_code: { Args: never; Returns: string }
       get_current_user_profile: {

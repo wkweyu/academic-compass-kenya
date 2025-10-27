@@ -135,88 +135,69 @@ export const createStudent = async (
   try {
     console.log('Creating student with data:', studentData);
     
-    // Get current user
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
-    
-    console.log('User authenticated:', user.id);
-    
-    // Get user's school ID
-    const { data: schoolId } = await supabase.rpc('get_user_school_id');
-    console.log('User school ID:', schoolId);
-    
-    if (!schoolId) {
-      throw new Error('User does not have a school assigned');
-    }
-    
-    // Generate admission number - the database will do this automatically
-    const insertData = {
-      school_id: schoolId,
-      full_name: studentData.full_name,
-      gender: studentData.gender,
-      date_of_birth: studentData.date_of_birth,
-      guardian_name: studentData.guardian_name,
-      guardian_phone: studentData.guardian_phone,
-      guardian_email: studentData.guardian_email || '',
-      guardian_relationship: studentData.guardian_relationship,
-      current_class_id: studentData.current_class ? parseInt(studentData.current_class) : null,
-      current_stream_id: studentData.current_stream ? parseInt(studentData.current_stream) : null,
-      level: studentData.level,
-      admission_year: studentData.academic_year || new Date().getFullYear(),
-      is_on_transport: studentData.is_on_transport || false,
-      is_active: studentData.is_active !== undefined ? studentData.is_active : true,
-      photo: studentData.photo_url || null,
-    };
-    
-    console.log('Inserting data:', insertData);
-    
-    const { data, error } = await supabase
-      .from('students')
-      .insert(insertData)
-      .select()
-      .single();
+    // Use the create_student function (similar to create_school_profile)
+    const { data, error } = await supabase.rpc('create_student', {
+      p_full_name: studentData.full_name,
+      p_gender: studentData.gender,
+      p_date_of_birth: studentData.date_of_birth,
+      p_guardian_name: studentData.guardian_name,
+      p_guardian_phone: studentData.guardian_phone,
+      p_guardian_email: studentData.guardian_email || '',
+      p_guardian_relationship: studentData.guardian_relationship,
+      p_current_class_id: studentData.current_class ? parseInt(studentData.current_class) : null,
+      p_current_stream_id: studentData.current_stream ? parseInt(studentData.current_stream) : null,
+      p_level: studentData.level,
+      p_admission_year: studentData.academic_year || new Date().getFullYear(),
+      p_is_on_transport: studentData.is_on_transport || false,
+      p_photo: studentData.photo_url || null
+    });
     
     if (error) {
-      console.error('Supabase insert error:', error);
+      console.error('Error creating student:', error);
       throw error;
     }
     
-    console.log('Student created successfully:', data);
+    if (!data || data.length === 0) {
+      throw new Error('No student data returned');
+    }
+    
+    const createdStudent = Array.isArray(data) ? data[0] : data;
+    console.log('Student created successfully:', createdStudent);
     
     // Split full_name into first and last name for return data
-    const nameParts = data.full_name.split(' ');
+    const nameParts = createdStudent.full_name.split(' ');
     const firstName = nameParts[0];
     const lastName = nameParts.slice(1).join(' ') || nameParts[0];
     
     return {
-      id: data.id,
-      admission_number: data.admission_number,
-      level: data.level,
-      full_name: data.full_name,
+      id: createdStudent.id,
+      admission_number: createdStudent.admission_number,
+      level: createdStudent.level,
+      full_name: createdStudent.full_name,
       first_name: firstName,
       last_name: lastName,
-      date_of_birth: data.date_of_birth,
-      gender: data.gender,
-      guardian_name: data.guardian_name,
-      guardian_phone: data.guardian_phone,
-      guardian_email: data.guardian_email || '',
-      guardian_relationship: data.guardian_relationship,
-      current_class: data.current_class_id?.toString() || null,
-      current_stream: data.current_stream_id?.toString() || null,
+      date_of_birth: createdStudent.date_of_birth,
+      gender: createdStudent.gender,
+      guardian_name: createdStudent.guardian_name,
+      guardian_phone: createdStudent.guardian_phone,
+      guardian_email: createdStudent.guardian_email || '',
+      guardian_relationship: createdStudent.guardian_relationship,
+      current_class: createdStudent.current_class_id?.toString() || null,
+      current_stream: createdStudent.current_stream_id?.toString() || null,
       current_class_name: studentData.current_class_name,
       current_stream_name: studentData.current_stream_name,
       current_class_stream: studentData.current_class_stream || '',
-      academic_year: data.admission_year,
+      academic_year: createdStudent.admission_year,
       enrollment_date: new Date().toISOString().split('T')[0],
-      admission_year: data.admission_year,
+      admission_year: createdStudent.admission_year,
       term: studentData.term || 1,
       upi_number: undefined,
-      status: data.is_active ? 'active' : 'inactive',
-      is_active: data.is_active,
-      is_on_transport: data.is_on_transport,
+      status: createdStudent.is_active ? 'active' : 'inactive',
+      is_active: createdStudent.is_active,
+      is_on_transport: createdStudent.is_on_transport,
       stream: studentData.stream || 'Main',
-      photo_url: data.photo || null,
-      photo: data.photo || null,
+      photo_url: createdStudent.photo || null,
+      photo: createdStudent.photo || null,
       address: undefined,
       phone: undefined,
       email: undefined,
@@ -224,8 +205,8 @@ export const createStudent = async (
       emergency_contact: undefined,
       emergency_phone: undefined,
       previous_school: undefined,
-      created_at: data.created_at,
-      updated_at: data.updated_at
+      created_at: createdStudent.created_at,
+      updated_at: createdStudent.updated_at
     };
   } catch (error) {
     console.error('Error creating student:', error);
