@@ -148,9 +148,19 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
     },
   });
 
+  // Get selected class ID for filtering streams (must be after form declaration)
+  const selectedClassId = form.watch('current_class');
+  
+  // Filter streams based on selected class
+  const filteredStreams = streams.filter((stream: Stream) => 
+    !selectedClassId || stream.class_assigned === selectedClassId
+  );
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(async (data) => {
+        console.log('Form submitted with data:', data);
+        
         // Transform form data to required Student format
          const studentData = {
            full_name: data.full_name!,
@@ -188,8 +198,16 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
            last_name: data.full_name.split(' ').slice(1).join(' ') || data.full_name.split(' ')[0],
          } as Omit<Student, 'id' | 'admission_number' | 'created_at' | 'updated_at'>;
         
+        console.log('Transformed student data:', studentData);
         setSubmittedStudent(studentData);
-        await onSubmit(studentData);
+        
+        try {
+          await onSubmit(studentData);
+          console.log('Student created successfully');
+        } catch (error) {
+          console.error('Error submitting form:', error);
+          toast.error('Failed to save student. Please check the console for errors.');
+        }
       })} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <FormField
@@ -424,6 +442,9 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
                     if (selectedClass) {
                       field.onChange(selectedClass.name);
                       form.setValue('current_class', selectedClass.id);
+                      // Reset stream when class changes
+                      form.setValue('current_stream', null);
+                      form.setValue('current_stream_name', '');
                     }
                   }} 
                   value={classes.find((c: Class) => c.name === field.value)?.id || ''}
@@ -451,23 +472,28 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
                 <FormLabel>Stream Name</FormLabel>
                 <Select 
                   onValueChange={(value) => {
-                    const selectedStream = streams.find((s: Stream) => s.id === value);
+                    const selectedStream = filteredStreams.find((s: Stream) => s.id === value);
                     if (selectedStream) {
                       field.onChange(selectedStream.name);
                       form.setValue('current_stream', selectedStream.id);
                     }
                   }} 
-                  value={streams.find((s: Stream) => s.name === field.value)?.id || ''}
+                  value={filteredStreams.find((s: Stream) => s.name === field.value)?.id || ''}
+                  disabled={!selectedClassId}
                 >
                   <FormControl>
-                    <SelectTrigger><SelectValue placeholder="Select stream" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={!selectedClassId ? "Select class first" : "Select stream"} /></SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {streams.map((stream: Stream) => (
-                      <SelectItem key={stream.id} value={stream.id}>
-                        {stream.name}
-                      </SelectItem>
-                    ))}
+                    {filteredStreams.length === 0 ? (
+                      <div className="px-4 py-2 text-sm text-muted-foreground">No streams available for this class</div>
+                    ) : (
+                      filteredStreams.map((stream: Stream) => (
+                        <SelectItem key={stream.id} value={stream.id}>
+                          {stream.name} (Capacity: {stream.capacity})
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -516,8 +542,12 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
             type="button" 
             variant="outline" 
             onClick={async () => {
+              console.log('Preview button clicked');
+              
               // Trigger validation first
               const isValid = await form.trigger();
+              console.log('Form validation result:', isValid);
+              console.log('Form errors:', form.formState.errors);
               
               if (isValid) {
                 const formData = form.getValues();
