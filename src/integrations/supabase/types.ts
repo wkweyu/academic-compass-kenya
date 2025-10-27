@@ -1722,6 +1722,47 @@ export type Database = {
           },
         ]
       }
+      stream_name_settings: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_order: number
+          id: number
+          is_active: boolean
+          name: string
+          school_id: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: number
+          is_active?: boolean
+          name: string
+          school_id?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: number
+          is_active?: boolean
+          name?: string
+          school_id?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stream_name_settings_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       streams: {
         Row: {
           capacity: number

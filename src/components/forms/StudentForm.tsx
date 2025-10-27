@@ -40,6 +40,8 @@ const studentFormSchema = z.object({
   admission_year: z.coerce.number().min(2020, 'Admission year must be valid'),
   term: z.union([z.literal(1), z.literal(2), z.literal(3)]),
   is_on_transport: z.boolean().default(false),
+  transport_route: z.string().optional(),
+  transport_type: z.string().optional(),
   is_active: z.boolean().default(true),
   photo: z.any().optional(),
 });
@@ -172,6 +174,8 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
       admission_year: initialData?.admission_year || new Date().getFullYear(),
       term: (initialData?.term || getCurrentTermFromSettings()) as 1 | 2 | 3,
       is_on_transport: initialData?.is_on_transport || false,
+      transport_route: initialData?.transport_route?.toString() || '',
+      transport_type: initialData?.transport_type || undefined,
       is_active: initialData?.is_active !== undefined ? initialData.is_active : true,
     },
   });
@@ -218,6 +222,8 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
            admission_year: data.admission_year!,
            term: data.term!,
            is_on_transport: data.is_on_transport!,
+           transport_route: data.transport_route ? parseInt(data.transport_route) : undefined,
+           transport_type: data.transport_type,
            is_active: data.is_active!,
            stream: data.current_stream_name || 'Main', // Add required stream property
            photo: data.photo || null,
@@ -557,6 +563,69 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
               </FormItem>
             )}
           />
+          
+          {/* Transport Information */}
+          <FormField
+            control={form.control}
+            name="is_on_transport"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <FormLabel className="text-base">
+                    School Transport
+                  </FormLabel>
+                  <div className="text-sm text-muted-foreground">
+                    Does this student use school transport?
+                  </div>
+                </div>
+                <FormControl>
+                  <Input 
+                    type="checkbox" 
+                    checked={field.value} 
+                    onChange={(e) => field.onChange(e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+          
+          {form.watch('is_on_transport') && (
+            <>
+              <FormField
+                control={form.control}
+                name="transport_route"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Transport Route Number</FormLabel>
+                    <FormControl>
+                      <Input type="number" placeholder="e.g., 1, 2, 3" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="transport_type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Transport Type</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger><SelectValue placeholder="Select transport type" /></SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="one_way">One Way</SelectItem>
+                        <SelectItem value="two_way">Two Way</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </>
+          )}
           {/* Term is auto-populated from Term Settings - no manual input needed */}
         </div>
         <div className="flex gap-4">

@@ -6,6 +6,8 @@ import { SchoolProfileTab } from './SchoolProfileTab';
 import { AcademicYearTab } from './AcademicYearTab';
 import { GeneralSettingsTab } from './GeneralSettingsTab';
 import { GradingSystemTab } from './GradingSystemTab';
+import { StreamNamingTab } from './StreamNamingTab';
+import { PredefinedClassesTab } from './PredefinedClassesTab';
 
 export function SystemSettingsModule() {
   const [activeTab, setActiveTab] = useState('school-profile');
@@ -18,10 +20,12 @@ export function SystemSettingsModule() {
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="school-profile">School Profile</TabsTrigger>
               <TabsTrigger value="academic-year">Academic Years</TabsTrigger>
               <TabsTrigger value="terms">Term Settings</TabsTrigger>
+              <TabsTrigger value="predefined-classes">Predefined Classes</TabsTrigger>
+              <TabsTrigger value="stream-naming">Stream Naming</TabsTrigger>
               <TabsTrigger value="grading">Grading System</TabsTrigger>
               <TabsTrigger value="general">General</TabsTrigger>
             </TabsList>
@@ -36,6 +40,14 @@ export function SystemSettingsModule() {
 
             <TabsContent value="terms" className="mt-6">
               <TermSettingsTab />
+            </TabsContent>
+
+            <TabsContent value="predefined-classes" className="mt-6">
+              <PredefinedClassesTab />
+            </TabsContent>
+
+            <TabsContent value="stream-naming" className="mt-6">
+              <StreamNamingTab />
             </TabsContent>
 
             <TabsContent value="grading" className="mt-6">
