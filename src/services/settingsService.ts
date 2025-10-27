@@ -4,37 +4,56 @@ import { SchoolProfile, TermSetting, AcademicYearSetting, SystemSettings, Gradin
 export const settingsService = {
   getSchoolProfile: async (): Promise<SchoolProfile | null> => {
     try {
+      console.log('Fetching school profile...');
       const { data, error } = await supabase.rpc('get_or_create_school_profile');
       
-      if (error) throw error;
-      if (!data || data.length === 0) return null;
+      if (error) {
+        console.error('RPC error:', error);
+        throw error;
+      }
+      
+      console.log('School profile data:', data);
+      if (!data || data.length === 0) {
+        console.log('No school profile found');
+        return null;
+      }
       
       return data[0] as SchoolProfile;
     } catch (error: any) {
       console.error('Error fetching school profile:', error);
-      return null;
+      throw error;
     }
   },
 
   createSchoolProfile: async (profile: Omit<SchoolProfile, "id" | "code" | "created_at" | "active">): Promise<SchoolProfile> => {
-    const { data, error } = await supabase
-      .from('schools_school')
-      .insert({
-        name: profile.name,
-        address: profile.address,
-        phone: profile.phone,
-        email: profile.email,
-        logo: profile.logo || '',
-        type: profile.type || '',
-        motto: profile.motto || '',
-        website: profile.website || '',
-        active: true
-      })
-      .select()
-      .single();
+    try {
+      console.log('Creating school profile:', profile);
+      const { data, error } = await supabase
+        .from('schools_school')
+        .insert({
+          name: profile.name,
+          address: profile.address,
+          phone: profile.phone,
+          email: profile.email,
+          logo: profile.logo || '',
+          type: profile.type || '',
+          motto: profile.motto || '',
+          website: profile.website || '',
+        })
+        .select()
+        .single();
 
-    if (error) throw error;
-    return data as SchoolProfile;
+      if (error) {
+        console.error('Create school error:', error);
+        throw error;
+      }
+      
+      console.log('School created:', data);
+      return data as SchoolProfile;
+    } catch (error) {
+      console.error('Failed to create school:', error);
+      throw error;
+    }
   },
 
   updateSchoolProfile: async (profile: Partial<SchoolProfile>): Promise<SchoolProfile> => {

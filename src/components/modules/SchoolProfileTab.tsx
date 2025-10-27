@@ -54,9 +54,11 @@ export function SchoolProfileTab() {
   const loadSchoolProfile = async () => {
     try {
       setLoading(true);
+      console.log('Loading school profile...');
       const data = await settingsService.getSchoolProfile();
       
       if (data) {
+        console.log('Profile loaded:', data);
         setProfile(data);
         setIsCreating(false);
         form.reset({
@@ -70,15 +72,20 @@ export function SchoolProfileTab() {
           logo: data.logo || '',
         });
       } else {
+        console.log('No profile found, showing create form');
         setProfile(null);
         setIsCreating(true);
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Failed to load school profile:', error);
       toast({
         title: 'Error',
-        description: 'Failed to load school profile',
+        description: error?.message || 'Failed to load school profile',
         variant: 'destructive',
       });
+      // Still show the create form if loading fails
+      setProfile(null);
+      setIsCreating(true);
     } finally {
       setLoading(false);
     }
