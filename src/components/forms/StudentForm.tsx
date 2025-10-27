@@ -431,7 +431,7 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
                       form.setValue('current_class', selectedClass.id);
                     }
                   }} 
-                  defaultValue={classes.find((c: Class) => c.name === field.value)?.id}
+                  value={classes.find((c: Class) => c.name === field.value)?.id || ''}
                 >
                   <FormControl>
                     <SelectTrigger><SelectValue placeholder="Select class" /></SelectTrigger>
@@ -462,7 +462,7 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
                       form.setValue('current_stream', selectedStream.id);
                     }
                   }} 
-                  defaultValue={streams.find((s: Stream) => s.name === field.value)?.id}
+                  value={streams.find((s: Stream) => s.name === field.value)?.id || ''}
                 >
                   <FormControl>
                     <SelectTrigger><SelectValue placeholder="Select stream" /></SelectTrigger>
