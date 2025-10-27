@@ -357,19 +357,64 @@ export const deleteStudent = async (id: string): Promise<boolean> => {
 };
 
 export const getStudentStats = async (): Promise<StudentStats> => {
-  // TODO: Implement this function
-  // const response = await api.get('/students/stats/');
-  // const data = JSON.parse(response.data as string);
-  // return data;
-  return {
-    total_students: 0,
-    active_students: 0,
-    male_students: 0,
-    female_students: 0,
-    students_by_class: {},
-    students_by_status: {},
-    enrollment_trend: [],
-  };
+  try {
+    // Get user's school ID
+    const { data: schoolId } = await supabase.rpc('get_user_school_id');
+    
+    if (!schoolId) {
+      throw new Error('No school associated with user');
+    }
+
+    // Fetch all students for this school
+    const { data: students, error } = await supabase
+      .from('students')
+      .select('*, classes:current_class_id(name)')
+      .eq('school_id', schoolId);
+    
+    if (error) throw error;
+
+    const studentList = students || [];
+    
+    // Calculate stats
+    const total_students = studentList.length;
+    const active_students = studentList.filter(s => s.is_active).length;
+    const male_students = studentList.filter(s => s.gender?.toLowerCase() === 'male').length;
+    const female_students = studentList.filter(s => s.gender?.toLowerCase() === 'female').length;
+    
+    // Group by class
+    const students_by_class: Record<string, number> = {};
+    studentList.forEach(student => {
+      const className = (student.classes as any)?.name || 'Unassigned';
+      students_by_class[className] = (students_by_class[className] || 0) + 1;
+    });
+    
+    // Group by status
+    const students_by_status: Record<string, number> = {
+      active: active_students,
+      inactive: total_students - active_students
+    };
+
+    return {
+      total_students,
+      active_students,
+      male_students,
+      female_students,
+      students_by_class,
+      students_by_status,
+      enrollment_trend: [],
+    };
+  } catch (error) {
+    console.error('Error fetching student stats:', error);
+    return {
+      total_students: 0,
+      active_students: 0,
+      male_students: 0,
+      female_students: 0,
+      students_by_class: {},
+      students_by_status: {},
+      enrollment_trend: [],
+    };
+  }
 };
 
 export const bulkImportStudents = async (file: File): Promise<ImportResult> => {

@@ -12,7 +12,7 @@ export const dashboardService = {
         .from("users")
         .select("school_id")
         .eq("auth_user_id", user.id)
-        .single();
+        .maybeSingle();
 
       if (!userData?.school_id) throw new Error("No school associated with user");
 

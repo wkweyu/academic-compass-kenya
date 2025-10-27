@@ -159,15 +159,76 @@ export const classService = {
   },
 
   async getClassStats(): Promise<ClassStats> {
-    // This endpoint doesn't exist yet, so we'll return a stub
-    return {
-      total_classes: 0,
-      total_streams: 0,
-      total_students_enrolled: 0,
-      average_class_size: 0,
-      capacity_utilization: 0,
-      classes_by_grade: {},
-      enrollment_by_year: [],
-    };
+    try {
+      const { data: schoolId } = await supabase.rpc('get_user_school_id');
+      
+      if (!schoolId) {
+        throw new Error('No school associated with user');
+      }
+
+      // Fetch classes, streams, and students in parallel
+      const [classesResult, streamsResult, studentsResult] = await Promise.all([
+        supabase
+          .from('classes')
+          .select('id, grade_level')
+          .eq('school_id', schoolId),
+        supabase
+          .from('streams')
+          .select('id, capacity')
+          .eq('school_id', schoolId),
+        supabase
+          .from('students')
+          .select('id, current_class_id')
+          .eq('school_id', schoolId)
+          .eq('is_active', true)
+      ]);
+
+      const classes = classesResult.data || [];
+      const streams = streamsResult.data || [];
+      const students = studentsResult.data || [];
+
+      const total_classes = classes.length;
+      const total_streams = streams.length;
+      const total_students_enrolled = students.length;
+      
+      // Calculate average class size
+      const average_class_size = total_classes > 0 
+        ? Math.round(total_students_enrolled / total_classes) 
+        : 0;
+
+      // Calculate capacity utilization
+      const total_capacity = streams.reduce((sum, s) => sum + (s.capacity || 0), 0);
+      const capacity_utilization = total_capacity > 0 
+        ? Math.round((total_students_enrolled / total_capacity) * 100) 
+        : 0;
+
+      // Group classes by grade
+      const classes_by_grade: Record<string, number> = {};
+      classes.forEach(cls => {
+        const grade = `Grade ${cls.grade_level}`;
+        classes_by_grade[grade] = (classes_by_grade[grade] || 0) + 1;
+      });
+
+      return {
+        total_classes,
+        total_streams,
+        total_students_enrolled,
+        average_class_size,
+        capacity_utilization,
+        classes_by_grade,
+        enrollment_by_year: [],
+      };
+    } catch (error) {
+      console.error('Error fetching class stats:', error);
+      return {
+        total_classes: 0,
+        total_streams: 0,
+        total_students_enrolled: 0,
+        average_class_size: 0,
+        capacity_utilization: 0,
+        classes_by_grade: {},
+        enrollment_by_year: [],
+      };
+    }
   },
 };
