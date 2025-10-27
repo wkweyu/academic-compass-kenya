@@ -4,19 +4,32 @@ import { DashboardData } from "@/types/dashboard";
 export const dashboardService = {
   async getDashboardData(): Promise<DashboardData> {
     try {
+      console.log('Fetching dashboard data...');
+      
       // Get user's school ID
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+      if (!user) {
+        console.error('User not authenticated');
+        throw new Error("Not authenticated");
+      }
 
-      const { data: userData } = await supabase
+      const { data: userData, error: userError } = await supabase
         .from("users")
         .select("school_id")
         .eq("auth_user_id", user.id)
         .maybeSingle();
 
-      if (!userData?.school_id) throw new Error("No school associated with user");
+      console.log('User data:', userData, 'Error:', userError);
+
+      if (userError) throw userError;
+      
+      if (!userData?.school_id) {
+        console.warn('No school associated with user');
+        throw new Error("No school associated with user");
+      }
 
       const schoolId = userData.school_id;
+      console.log('Using school ID:', schoolId);
 
       // Fetch all statistics in parallel
       const [

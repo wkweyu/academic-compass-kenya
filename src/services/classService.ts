@@ -160,10 +160,28 @@ export const classService = {
 
   async getClassStats(): Promise<ClassStats> {
     try {
-      const { data: schoolId } = await supabase.rpc('get_user_school_id');
+      console.log('Fetching class stats...');
+      
+      const { data: schoolId, error: schoolError } = await supabase.rpc('get_user_school_id');
+      
+      console.log('School ID for class stats:', schoolId, 'Error:', schoolError);
+      
+      if (schoolError) {
+        console.error('Error getting school ID:', schoolError);
+        throw schoolError;
+      }
       
       if (!schoolId) {
-        throw new Error('No school associated with user');
+        console.warn('No school associated with user');
+        return {
+          total_classes: 0,
+          total_streams: 0,
+          total_students_enrolled: 0,
+          average_class_size: 0,
+          capacity_utilization: 0,
+          classes_by_grade: {},
+          enrollment_by_year: [],
+        };
       }
 
       // Fetch classes, streams, and students in parallel
@@ -182,6 +200,14 @@ export const classService = {
           .eq('school_id', schoolId)
           .eq('is_active', true)
       ]);
+
+      console.log('Classes fetched:', classesResult.data?.length, 'Error:', classesResult.error);
+      console.log('Streams fetched:', streamsResult.data?.length, 'Error:', streamsResult.error);
+      console.log('Students fetched:', studentsResult.data?.length, 'Error:', studentsResult.error);
+
+      if (classesResult.error) throw classesResult.error;
+      if (streamsResult.error) throw streamsResult.error;
+      if (studentsResult.error) throw studentsResult.error;
 
       const classes = classesResult.data || [];
       const streams = streamsResult.data || [];
@@ -209,6 +235,14 @@ export const classService = {
         classes_by_grade[grade] = (classes_by_grade[grade] || 0) + 1;
       });
 
+      console.log('Class stats calculated:', { 
+        total_classes, 
+        total_streams, 
+        total_students_enrolled, 
+        average_class_size, 
+        capacity_utilization 
+      });
+
       return {
         total_classes,
         total_streams,
@@ -219,7 +253,7 @@ export const classService = {
         enrollment_by_year: [],
       };
     } catch (error) {
-      console.error('Error fetching class stats:', error);
+      console.error('Error in getClassStats:', error);
       return {
         total_classes: 0,
         total_streams: 0,

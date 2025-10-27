@@ -358,11 +358,29 @@ export const deleteStudent = async (id: string): Promise<boolean> => {
 
 export const getStudentStats = async (): Promise<StudentStats> => {
   try {
+    console.log('Fetching student stats...');
+    
     // Get user's school ID
-    const { data: schoolId } = await supabase.rpc('get_user_school_id');
+    const { data: schoolId, error: schoolError } = await supabase.rpc('get_user_school_id');
+    
+    console.log('School ID:', schoolId, 'Error:', schoolError);
+    
+    if (schoolError) {
+      console.error('Error getting school ID:', schoolError);
+      throw schoolError;
+    }
     
     if (!schoolId) {
-      throw new Error('No school associated with user');
+      console.warn('No school associated with user');
+      return {
+        total_students: 0,
+        active_students: 0,
+        male_students: 0,
+        female_students: 0,
+        students_by_class: {},
+        students_by_status: {},
+        enrollment_trend: [],
+      };
     }
 
     // Fetch all students for this school
@@ -371,7 +389,12 @@ export const getStudentStats = async (): Promise<StudentStats> => {
       .select('*, classes:current_class_id(name)')
       .eq('school_id', schoolId);
     
-    if (error) throw error;
+    console.log('Students fetched:', students?.length, 'Error:', error);
+    
+    if (error) {
+      console.error('Error fetching students:', error);
+      throw error;
+    }
 
     const studentList = students || [];
     
@@ -380,6 +403,8 @@ export const getStudentStats = async (): Promise<StudentStats> => {
     const active_students = studentList.filter(s => s.is_active).length;
     const male_students = studentList.filter(s => s.gender?.toLowerCase() === 'male').length;
     const female_students = studentList.filter(s => s.gender?.toLowerCase() === 'female').length;
+    
+    console.log('Student stats calculated:', { total_students, active_students, male_students, female_students });
     
     // Group by class
     const students_by_class: Record<string, number> = {};
@@ -404,7 +429,7 @@ export const getStudentStats = async (): Promise<StudentStats> => {
       enrollment_trend: [],
     };
   } catch (error) {
-    console.error('Error fetching student stats:', error);
+    console.error('Error in getStudentStats:', error);
     return {
       total_students: 0,
       active_students: 0,
