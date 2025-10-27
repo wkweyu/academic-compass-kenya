@@ -13,11 +13,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Class, Stream, ClassStats, ClassFilters, StreamFilters, CLASS_GROUPS } from '@/types/class';
 import { classService } from '@/services/classService';
+import { streamSettingsService } from '@/services/streamSettingsService';
+import { StreamNameSetting } from '@/types/stream-settings';
 
 export const ClassManagementModule = () => {
   const { toast } = useToast();
   const [classes, setClasses] = useState<Class[]>([]);
   const [streams, setStreams] = useState<Stream[]>([]);
+  const [streamNames, setStreamNames] = useState<StreamNameSetting[]>([]);
   const [stats, setStats] = useState<ClassStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<ClassFilters>({});
@@ -49,15 +52,17 @@ export const ClassManagementModule = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [classData, streamData, statsData] = await Promise.all([
+      const [classData, streamData, statsData, streamNamesData] = await Promise.all([
         classService.getClasses(filters),
         classService.getStreams(streamFilters),
-        classService.getClassStats()
+        classService.getClassStats(),
+        streamSettingsService.getStreamNames()
       ]);
       
       setClasses(classData);
       setStreams(streamData);
       setStats(statsData);
+      setStreamNames(streamNamesData);
     } catch (error) {
       toast({
         title: "Error",
@@ -229,12 +234,27 @@ export const ClassManagementModule = () => {
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
                   <Label htmlFor="stream-name">Stream Name</Label>
-                  <Input
-                    id="stream-name"
+                  <Select
                     value={streamForm.name}
-                    onChange={(e) => setStreamForm(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="e.g., A, B, C"
-                  />
+                    onValueChange={(value) => setStreamForm(prev => ({ ...prev, name: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select stream name" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {streamNames.length === 0 ? (
+                        <div className="p-2 text-sm text-muted-foreground">
+                          No stream names configured. Please add stream names in Settings.
+                        </div>
+                      ) : (
+                        streamNames.map((streamName) => (
+                          <SelectItem key={streamName.id} value={streamName.name}>
+                            {streamName.name}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="stream-class">Class</Label>
