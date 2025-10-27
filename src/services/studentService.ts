@@ -133,86 +133,97 @@ export const createStudent = async (
   studentData: Omit<Student, "id" | "admission_number" | "created_at" | "updated_at">
 ): Promise<Student> => {
   try {
+    console.log('Creating student with data:', studentData);
+    
     // Get current user
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
     
-    // Generate admission number
-    const admissionNumber = await generateAdmissionNumber();
+    console.log('User authenticated:', user.id);
+    
+    // Get user's school ID
+    const { data: schoolId } = await supabase.rpc('get_user_school_id');
+    console.log('User school ID:', schoolId);
+    
+    if (!schoolId) {
+      throw new Error('User does not have a school assigned');
+    }
+    
+    // Generate admission number - the database will do this automatically
+    const insertData = {
+      school_id: schoolId,
+      full_name: studentData.full_name,
+      gender: studentData.gender,
+      date_of_birth: studentData.date_of_birth,
+      guardian_name: studentData.guardian_name,
+      guardian_phone: studentData.guardian_phone,
+      guardian_email: studentData.guardian_email || '',
+      guardian_relationship: studentData.guardian_relationship,
+      current_class_id: studentData.current_class ? parseInt(studentData.current_class) : null,
+      current_stream_id: studentData.current_stream ? parseInt(studentData.current_stream) : null,
+      level: studentData.level,
+      admission_year: studentData.academic_year || new Date().getFullYear(),
+      is_on_transport: studentData.is_on_transport || false,
+      is_active: studentData.is_active !== undefined ? studentData.is_active : true,
+      photo: studentData.photo_url || null,
+    };
+    
+    console.log('Inserting data:', insertData);
     
     const { data, error } = await supabase
       .from('students')
-      .insert({
-        user_id: user.id,
-        admission_number: admissionNumber,
-        first_name: studentData.first_name,
-        last_name: studentData.last_name,
-        date_of_birth: studentData.date_of_birth,
-        gender: studentData.gender,
-        guardian_name: studentData.guardian_name,
-        guardian_phone: studentData.guardian_phone,
-        guardian_email: studentData.guardian_email || null,
-        guardian_relationship: studentData.guardian_relationship,
-        class_id: studentData.current_class ? studentData.current_class.toString() : null,
-        level: studentData.level,
-        academic_year: studentData.academic_year,
-        admission_date: studentData.enrollment_date,
-        term: studentData.term,
-        upi_number: studentData.upi_number || null,
-        status: studentData.status,
-        is_on_transport: studentData.is_on_transport,
-        photo_url: studentData.photo_url || null,
-        address: studentData.address || null,
-        phone: studentData.phone || null,
-        email: studentData.email || null,
-        medical_conditions: studentData.medical_conditions || null,
-        emergency_contact: studentData.emergency_contact || null,
-        emergency_phone: studentData.emergency_phone || null,
-        previous_school: studentData.previous_school || null
-      })
+      .insert(insertData)
       .select()
       .single();
     
     if (error) {
-      console.error('Supabase error:', error);
+      console.error('Supabase insert error:', error);
       throw error;
     }
+    
+    console.log('Student created successfully:', data);
+    
+    // Split full_name into first and last name for return data
+    const nameParts = data.full_name.split(' ');
+    const firstName = nameParts[0];
+    const lastName = nameParts.slice(1).join(' ') || nameParts[0];
     
     return {
       id: data.id,
       admission_number: data.admission_number,
       level: data.level,
-      full_name: `${data.first_name} ${data.last_name}`,
-      first_name: data.first_name,
-      last_name: data.last_name,
+      full_name: data.full_name,
+      first_name: firstName,
+      last_name: lastName,
       date_of_birth: data.date_of_birth,
       gender: data.gender,
       guardian_name: data.guardian_name,
       guardian_phone: data.guardian_phone,
       guardian_email: data.guardian_email || '',
       guardian_relationship: data.guardian_relationship,
-      current_class: data.class_id || null,
-      current_stream: data.class_id || null,
+      current_class: data.current_class_id?.toString() || null,
+      current_stream: data.current_stream_id?.toString() || null,
       current_class_name: studentData.current_class_name,
       current_stream_name: studentData.current_stream_name,
       current_class_stream: studentData.current_class_stream || '',
-      academic_year: data.academic_year,
-      enrollment_date: data.admission_date,
-      admission_year: data.academic_year,
-      term: data.term,
-      upi_number: data.upi_number,
-      status: data.status,
-      is_active: data.status === 'Active',
+      academic_year: data.admission_year,
+      enrollment_date: new Date().toISOString().split('T')[0],
+      admission_year: data.admission_year,
+      term: studentData.term || 1,
+      upi_number: undefined,
+      status: data.is_active ? 'active' : 'inactive',
+      is_active: data.is_active,
       is_on_transport: data.is_on_transport,
-      stream: studentData.stream || 'Main', // Add stream value
-      photo_url: data.photo_url,
-      address: data.address,
-      phone: data.phone,
-      email: data.email,
-      medical_conditions: data.medical_conditions,
-      emergency_contact: data.emergency_contact,
-      emergency_phone: data.emergency_phone,
-      previous_school: data.previous_school,
+      stream: studentData.stream || 'Main',
+      photo_url: data.photo || null,
+      photo: data.photo || null,
+      address: undefined,
+      phone: undefined,
+      email: undefined,
+      medical_conditions: undefined,
+      emergency_contact: undefined,
+      emergency_phone: undefined,
+      previous_school: undefined,
       created_at: data.created_at,
       updated_at: data.updated_at
     };
