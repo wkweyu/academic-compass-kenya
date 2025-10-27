@@ -102,23 +102,33 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
 
   // Detect potential siblings when guardian info changes
   const checkForPotentialSiblings = async (name: string, phone: string) => {
-    if (name.length >= 3 && phone.length >= 10) {
-      setIsCheckingForSiblings(true);
-      try {
-        const matches = await findPotentialSiblings(name, phone);
-        if (matches.length > 0) {
-          setPotentialGuardians(matches);
-          setShowSiblingConfirmation(true);
-        } else {
-          setPotentialGuardians([]);
-        }
-      } catch (error) {
-        console.error('Error checking for siblings:', error);
-      } finally {
-        setIsCheckingForSiblings(false);
-      }
-    } else {
+    // Validate inputs before making the call
+    if (!name || name.trim().length < 3 || !phone || phone.trim().length < 10) {
+      setIsCheckingForSiblings(false);
       setPotentialGuardians([]);
+      return;
+    }
+
+    setIsCheckingForSiblings(true);
+    
+    try {
+      console.log('Checking for potential siblings...');
+      const matches = await findPotentialSiblings(name, phone);
+      
+      if (matches.length > 0) {
+        console.log('Found potential sibling matches:', matches);
+        setPotentialGuardians(matches);
+        setShowSiblingConfirmation(true);
+      } else {
+        console.log('No sibling matches found');
+        setPotentialGuardians([]);
+        setSelectedGuardian(null);
+      }
+    } catch (error) {
+      console.error('Error checking for siblings:', error);
+      toast.error('Failed to check for existing guardians. Please try again.');
+    } finally {
+      setIsCheckingForSiblings(false);
     }
   };
 
@@ -127,7 +137,10 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
     const guardianPhone = form.getValues('guardian_phone');
     
     if (guardianName && guardianPhone) {
-      checkForPotentialSiblings(guardianName, guardianPhone);
+      // Add a small delay to avoid rapid-fire queries
+      setTimeout(() => {
+        checkForPotentialSiblings(guardianName, guardianPhone);
+      }, 500);
     }
   };
 

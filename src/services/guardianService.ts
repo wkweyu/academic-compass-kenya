@@ -72,6 +72,19 @@ export const getSiblings = async (studentId: string): Promise<Student[]> => {
 
 export const findPotentialSiblings = async (guardianName: string, guardianPhone: string): Promise<Guardian[]> => {
     try {
+        // Validate inputs
+        if (!guardianName || guardianName.trim().length < 3) {
+            console.log('Guardian name too short, skipping sibling check');
+            return [];
+        }
+        
+        if (!guardianPhone || guardianPhone.trim().length < 10) {
+            console.log('Guardian phone too short, skipping sibling check');
+            return [];
+        }
+
+        console.log('Checking for potential siblings with:', { guardianName, guardianPhone });
+
         // Search for students with matching guardian phone or similar guardian name
         const { data: matchingStudents, error } = await supabase
             .from('students')
@@ -85,24 +98,40 @@ export const findPotentialSiblings = async (guardianName: string, guardianPhone:
             return [];
         }
 
-        // Transform students to guardian format
-        const guardians: Guardian[] = (matchingStudents || []).map(student => ({
-            id: `guardian-${student.id}`,
-            first_name: student.guardian_name.split(' ')[0],
-            last_name: student.guardian_name.split(' ').slice(1).join(' ') || '',
-            phone: student.guardian_phone,
-            email: student.guardian_email || '',
-            relationship: student.guardian_relationship,
-            address: '',
-            occupation: '',
-            created_at: student.created_at,
-            updated_at: student.updated_at,
-        }));
+        if (!matchingStudents || matchingStudents.length === 0) {
+            console.log('No matching students found');
+            return [];
+        }
+
+        console.log('Found matching students:', matchingStudents.length);
+
+        // Transform students to guardian format with proper null checks
+        const guardians: Guardian[] = matchingStudents
+            .filter(student => student.guardian_name && student.guardian_phone) // Filter out students with missing guardian info
+            .map(student => {
+                const nameParts = (student.guardian_name || '').split(' ');
+                return {
+                    id: `guardian-${student.id}`,
+                    first_name: nameParts[0] || '',
+                    last_name: nameParts.slice(1).join(' ') || '',
+                    name: student.guardian_name || '',
+                    phone: student.guardian_phone || '',
+                    email: student.guardian_email || '',
+                    relationship: student.guardian_relationship || 'Parent',
+                    address: '',
+                    occupation: '',
+                    students: [student], // Include the student in the guardian object
+                    created_at: student.created_at,
+                    updated_at: student.updated_at,
+                };
+            });
 
         // Remove duplicates based on phone number
         const uniqueGuardians = guardians.filter((guardian, index, self) =>
             index === self.findIndex((g) => g.phone === guardian.phone)
         );
+
+        console.log('Unique guardians found:', uniqueGuardians.length);
 
         return uniqueGuardians;
     } catch (error) {

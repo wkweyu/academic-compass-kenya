@@ -2,20 +2,23 @@
 
 export interface Guardian {
   id: string;
+  first_name?: string;
+  last_name?: string;
   name: string;
   phone: string;
   email?: string;
   address?: string;
   national_id?: string;
   occupation?: string;
+  relationship?: string;
   
-  // Relationship tracking
-  students: string[]; // Array of student IDs
-  primary_relationship: string; // Most common relationship (Parent, Father, Mother, etc.)
+  // Relationship tracking - can be either student IDs or full student objects
+  students: string[] | any[];
+  primary_relationship?: string; // Most common relationship (Parent, Father, Mother, etc.)
   
   // Contact preferences
-  preferred_contact_method: 'phone' | 'email' | 'sms';
-  emergency_contact: boolean;
+  preferred_contact_method?: 'phone' | 'email' | 'sms';
+  emergency_contact?: boolean;
   
   // Timestamps
   created_at: string;
