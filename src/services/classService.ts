@@ -3,17 +3,11 @@ import { Class, Stream, ClassFilters, StreamFilters, ClassStats } from "@/types/
 
 export const classService = {
   async getClasses(filters?: ClassFilters): Promise<Class[]> {
-    const { data: userData } = await supabase.rpc('get_user_school_id');
-    
     let query = supabase
-      .from('students_class')
+      .from('classes')
       .select('*');
     
-    if (userData) {
-      query = query.eq('school_id', userData);
-    }
-    
-    const { data, error } = await query.order('grade', { ascending: true });
+    const { data, error } = await query.order('grade_level', { ascending: true });
     
     if (error) throw error;
     return (data || []) as Class[];
@@ -21,7 +15,7 @@ export const classService = {
 
   async getClass(id: string): Promise<Class | null> {
     const { data, error } = await supabase
-      .from('students_class')
+      .from('classes')
       .select('*')
       .eq('id', id)
       .single();
@@ -34,9 +28,11 @@ export const classService = {
     const { data: schoolId } = await supabase.rpc('get_user_school_id');
     
     const { data: newClass, error } = await supabase
-      .from('students_class')
+      .from('classes')
       .insert({
-        ...data,
+        name: data.name,
+        grade_level: data.grade_level,
+        description: data.description || '',
         school_id: schoolId
       })
       .select()
@@ -48,7 +44,7 @@ export const classService = {
 
   async updateClass(id: string, data: Partial<Class>): Promise<Class | null> {
     const { data: updated, error } = await supabase
-      .from('students_class')
+      .from('classes')
       .update(data)
       .eq('id', id)
       .select()
@@ -60,7 +56,7 @@ export const classService = {
 
   async deleteClass(id: string): Promise<boolean> {
     const { error } = await supabase
-      .from('students_class')
+      .from('classes')
       .delete()
       .eq('id', id);
     
@@ -69,18 +65,12 @@ export const classService = {
   },
 
   async getStreams(filters?: StreamFilters): Promise<Stream[]> {
-    const { data: userData } = await supabase.rpc('get_user_school_id');
-    
     let query = supabase
-      .from('students_stream')
-      .select('*, students_class(name)');
-    
-    if (userData) {
-      query = query.eq('school_id', userData);
-    }
+      .from('streams')
+      .select('*, classes(name)');
     
     if (filters?.class_id) {
-      query = query.eq('class_id', filters.class_id);
+      query = query.eq('class_assigned_id', filters.class_id);
     }
     
     const { data, error } = await query.order('name', { ascending: true });
@@ -89,14 +79,14 @@ export const classService = {
     
     return (data || []).map(stream => ({
       ...stream,
-      class_name: stream.students_class?.name || ''
+      class_name: stream.classes?.name || ''
     })) as Stream[];
   },
 
   async getStream(id: string): Promise<Stream | null> {
     const { data, error } = await supabase
-      .from('students_stream')
-      .select('*, students_class(name)')
+      .from('streams')
+      .select('*, classes(name)')
       .eq('id', id)
       .single();
     
@@ -104,7 +94,7 @@ export const classService = {
     
     return {
       ...data,
-      class_name: data.students_class?.name || ''
+      class_name: data.classes?.name || ''
     } as Stream;
   },
 
@@ -112,41 +102,44 @@ export const classService = {
     const { data: schoolId } = await supabase.rpc('get_user_school_id');
     
     const { data: newStream, error } = await supabase
-      .from('students_stream')
+      .from('streams')
       .insert({
-        ...data,
+        name: data.name,
+        class_assigned_id: data.class_assigned,
+        year: data.year,
+        capacity: data.capacity,
         school_id: schoolId
       })
-      .select('*, students_class(name)')
+      .select('*, classes(name)')
       .single();
     
     if (error) throw error;
     
     return {
       ...newStream,
-      class_name: newStream.students_class?.name || ''
+      class_name: newStream.classes?.name || ''
     } as Stream;
   },
 
   async updateStream(id: string, data: Partial<Stream>): Promise<Stream | null> {
     const { data: updated, error } = await supabase
-      .from('students_stream')
+      .from('streams')
       .update(data)
       .eq('id', id)
-      .select('*, students_class(name)')
+      .select('*, classes(name)')
       .single();
     
     if (error) throw error;
     
     return {
       ...updated,
-      class_name: updated.students_class?.name || ''
+      class_name: updated.classes?.name || ''
     } as Stream;
   },
 
   async deleteStream(id: string): Promise<boolean> {
     const { error } = await supabase
-      .from('students_stream')
+      .from('streams')
       .delete()
       .eq('id', id);
     

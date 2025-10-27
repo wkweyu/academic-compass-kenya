@@ -218,8 +218,8 @@ export type Database = {
           school_id: number
         }
         Insert: {
-          created_at: string
-          description: string
+          created_at?: string
+          description?: string
           grade_level: number
           id?: number
           name: string
@@ -1448,10 +1448,10 @@ export type Database = {
           website: string | null
         }
         Insert: {
-          active: boolean
+          active?: boolean
           address: string
-          code: string
-          created_at: string
+          code?: string
+          created_at?: string
           email: string
           id?: number
           logo?: string | null
@@ -1735,7 +1735,7 @@ export type Database = {
         Insert: {
           capacity: number
           class_assigned_id: number
-          created_at: string
+          created_at?: string
           id?: number
           name: string
           school_id: number
@@ -2053,28 +2053,28 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          admission_number: string
+          admission_number?: string
           admission_year: number
-          created_at: string
+          created_at?: string
           current_class_id?: number | null
           current_stream_id?: number | null
           date_of_birth: string
           full_name: string
           gender: string
-          guardian_email: string
+          guardian_email?: string
           guardian_name: string
           guardian_phone: string
           guardian_relationship: string
           id?: number
-          is_active: boolean
-          is_on_transport: boolean
-          kcpe_index: string
+          is_active?: boolean
+          is_on_transport?: boolean
+          kcpe_index?: string
           level: string
           photo?: string | null
           school_id: number
           transport_route_id?: number | null
           transport_type?: string | null
-          updated_at: string
+          updated_at?: string
         }
         Update: {
           admission_number?: string
@@ -2531,6 +2531,7 @@ export type Database = {
     Functions: {
       clear_orphaned_school_reference: { Args: never; Returns: undefined }
       generate_admission_number: { Args: never; Returns: string }
+      generate_school_code: { Args: never; Returns: string }
       get_current_user_profile: {
         Args: never
         Returns: {
