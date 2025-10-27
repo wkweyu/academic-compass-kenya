@@ -7,21 +7,25 @@ export const getStudents = async (
   try {
     let query = supabase
       .from('students')
-      .select('*');
+      .select(`
+        *,
+        classes:current_class_id(id, name, grade_level),
+        streams:current_stream_id(id, name)
+      `);
     
     if (params.search) {
-      query = query.or(`first_name.ilike.%${params.search}%,last_name.ilike.%${params.search}%,admission_number.ilike.%${params.search}%`);
+      query = query.or(`full_name.ilike.%${params.search}%,admission_number.ilike.%${params.search}%`);
     }
     
     if (params.class_id) {
-      query = query.eq('class_id', params.class_id);
+      query = query.eq('current_class_id', params.class_id);
     }
     
     if (params.status) {
       query = query.eq('status', params.status);
     }
 
-    const { data, error } = await query;
+    const { data, error } = await query.order('created_at', { ascending: false });
     
     if (error) {
       console.error('Supabase error:', error);
@@ -30,10 +34,10 @@ export const getStudents = async (
     
     // Transform to expected format
     return data?.map((item: any) => ({
-      id: item.id,
+      id: item.id.toString(),
       admission_number: item.admission_number,
       level: item.level || 'Primary',
-      full_name: `${item.first_name} ${item.last_name}`,
+      full_name: item.full_name,
       first_name: item.first_name,
       last_name: item.last_name,
       date_of_birth: item.date_of_birth,
@@ -42,20 +46,23 @@ export const getStudents = async (
       guardian_phone: item.guardian_phone || '',
       guardian_email: item.guardian_email || '',
       guardian_relationship: item.guardian_relationship || 'Parent',
-      current_class: item.class_id || null,
-      current_stream: item.class_id || null,
-      current_class_name: 'Grade 1', // TODO: Join with classes table
-      current_stream_name: 'Main',
-      current_class_stream: 'Grade 1 Main',
+      current_class: item.current_class_id?.toString() || null,
+      current_stream: item.current_stream_id?.toString() || null,
+      current_class_name: item.classes?.name || '',
+      current_stream_name: item.streams?.name || '',
+      current_class_stream: `${item.classes?.name || ''} ${item.streams?.name || ''}`.trim(),
       academic_year: item.academic_year || new Date().getFullYear(),
       enrollment_date: item.admission_date,
-      admission_year: item.academic_year || new Date().getFullYear(),
+      admission_year: item.admission_year || new Date().getFullYear(),
       term: item.term || 1,
       upi_number: item.upi_number,
       status: item.status,
-      is_active: item.status === 'Active',
+      is_active: item.is_active,
       is_on_transport: item.is_on_transport || false,
-      stream: 'Main', // Add default stream value
+      transport_route: item.transport_route,
+      transport_type: item.transport_type,
+      stream: item.streams?.name || '',
+      photo: item.photo,
       photo_url: item.photo_url,
       address: item.address,
       phone: item.phone,
@@ -77,7 +84,11 @@ export const getStudentById = async (id: string): Promise<Student | null> => {
   try {
     const { data, error } = await supabase
       .from('students')
-      .select('*')
+      .select(`
+        *,
+        classes:current_class_id(id, name, grade_level),
+        streams:current_stream_id(id, name)
+      `)
       .eq('id', id)
       .maybeSingle();
     
@@ -86,10 +97,10 @@ export const getStudentById = async (id: string): Promise<Student | null> => {
     if (!data) return null;
     
     return {
-      id: data.id,
+      id: data.id.toString(),
       admission_number: data.admission_number,
       level: data.level || 'Primary',
-      full_name: `${data.first_name} ${data.last_name}`,
+      full_name: data.full_name,
       first_name: data.first_name,
       last_name: data.last_name,
       date_of_birth: data.date_of_birth,
@@ -98,20 +109,23 @@ export const getStudentById = async (id: string): Promise<Student | null> => {
       guardian_phone: data.guardian_phone || '',
       guardian_email: data.guardian_email || '',
       guardian_relationship: data.guardian_relationship || 'Parent',
-      current_class: data.class_id || null,
-      current_stream: data.class_id || null,
-      current_class_name: 'Grade 1',
-      current_stream_name: 'Main',
-      current_class_stream: 'Grade 1 Main',
+      current_class: data.current_class_id?.toString() || null,
+      current_stream: data.current_stream_id?.toString() || null,
+      current_class_name: data.classes?.name || '',
+      current_stream_name: data.streams?.name || '',
+      current_class_stream: `${data.classes?.name || ''} ${data.streams?.name || ''}`.trim(),
       academic_year: data.academic_year || new Date().getFullYear(),
       enrollment_date: data.admission_date,
-      admission_year: data.academic_year || new Date().getFullYear(),
+      admission_year: data.admission_year || new Date().getFullYear(),
       term: data.term || 1,
       upi_number: data.upi_number,
       status: data.status,
-      is_active: data.status === 'Active',
+      is_active: data.is_active,
       is_on_transport: data.is_on_transport || false,
-      stream: 'Main', // Add default stream value
+      transport_route: data.transport_route,
+      transport_type: data.transport_type,
+      stream: data.streams?.name || '',
+      photo: data.photo,
       photo_url: data.photo_url,
       address: data.address,
       phone: data.phone,
@@ -170,7 +184,7 @@ export const createStudent = async (
     const lastName = nameParts.slice(1).join(' ') || nameParts[0];
     
     return {
-      id: createdStudent.id,
+      id: createdStudent.id.toString(),
       admission_number: createdStudent.admission_number,
       level: createdStudent.level,
       full_name: createdStudent.full_name,
@@ -191,20 +205,22 @@ export const createStudent = async (
       enrollment_date: new Date().toISOString().split('T')[0],
       admission_year: createdStudent.admission_year,
       term: studentData.term || 1,
-      upi_number: undefined,
+      upi_number: studentData.upi_number,
       status: createdStudent.is_active ? 'active' : 'inactive',
       is_active: createdStudent.is_active,
       is_on_transport: createdStudent.is_on_transport,
-      stream: studentData.stream || 'Main',
+      transport_route: studentData.transport_route,
+      transport_type: studentData.transport_type,
+      stream: studentData.stream || '',
       photo_url: createdStudent.photo || null,
       photo: createdStudent.photo || null,
-      address: undefined,
-      phone: undefined,
-      email: undefined,
-      medical_conditions: undefined,
-      emergency_contact: undefined,
-      emergency_phone: undefined,
-      previous_school: undefined,
+      address: studentData.address,
+      phone: studentData.phone,
+      email: studentData.email,
+      medical_conditions: studentData.medical_conditions,
+      emergency_contact: studentData.emergency_contact,
+      emergency_phone: studentData.emergency_phone,
+      previous_school: studentData.previous_school,
       created_at: createdStudent.created_at,
       updated_at: createdStudent.updated_at
     };
@@ -230,34 +246,49 @@ async function generateAdmissionNumber(): Promise<string> {
 
 export const updateStudent = async (id: string, studentData: Partial<Student>): Promise<Student | null> => {
   try {
+    const updateData: any = {
+      full_name: studentData.full_name,
+      first_name: studentData.first_name,
+      last_name: studentData.last_name,
+      date_of_birth: studentData.date_of_birth,
+      gender: studentData.gender,
+      guardian_name: studentData.guardian_name,
+      guardian_phone: studentData.guardian_phone,
+      guardian_email: studentData.guardian_email,
+      guardian_relationship: studentData.guardian_relationship,
+      current_class_id: studentData.current_class ? parseInt(studentData.current_class) : null,
+      current_stream_id: studentData.current_stream ? parseInt(studentData.current_stream) : null,
+      level: studentData.level,
+      academic_year: studentData.academic_year,
+      term: studentData.term,
+      upi_number: studentData.upi_number,
+      status: studentData.status,
+      is_on_transport: studentData.is_on_transport,
+      transport_route: studentData.transport_route,
+      transport_type: studentData.transport_type,
+      photo: studentData.photo,
+      photo_url: studentData.photo_url,
+      address: studentData.address,
+      phone: studentData.phone,
+      email: studentData.email,
+      medical_conditions: studentData.medical_conditions,
+      emergency_contact: studentData.emergency_contact,
+      emergency_phone: studentData.emergency_phone,
+      previous_school: studentData.previous_school
+    };
+
+    // Remove undefined values
+    Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
+
     const { data, error } = await supabase
       .from('students')
-      .update({
-        first_name: studentData.first_name,
-        last_name: studentData.last_name,
-        date_of_birth: studentData.date_of_birth,
-        gender: studentData.gender,
-        guardian_name: studentData.guardian_name,
-        guardian_phone: studentData.guardian_phone,
-        guardian_email: studentData.guardian_email,
-        guardian_relationship: studentData.guardian_relationship,
-        class_id: studentData.current_class ? studentData.current_class.toString() : null,
-        level: studentData.level,
-        academic_year: studentData.academic_year,
-        upi_number: studentData.upi_number,
-        status: studentData.status,
-        is_on_transport: studentData.is_on_transport,
-        photo_url: studentData.photo_url,
-        address: studentData.address,
-        phone: studentData.phone,
-        email: studentData.email,
-        medical_conditions: studentData.medical_conditions,
-        emergency_contact: studentData.emergency_contact,
-        emergency_phone: studentData.emergency_phone,
-        previous_school: studentData.previous_school
-      })
+      .update(updateData)
       .eq('id', id)
-      .select()
+      .select(`
+        *,
+        classes:current_class_id(id, name, grade_level),
+        streams:current_stream_id(id, name)
+      `)
       .maybeSingle();
     
     if (error) throw error;
@@ -265,10 +296,10 @@ export const updateStudent = async (id: string, studentData: Partial<Student>): 
     if (!data) return null;
     
     return {
-      id: data.id,
+      id: data.id.toString(),
       admission_number: data.admission_number,
       level: data.level,
-      full_name: `${data.first_name} ${data.last_name}`,
+      full_name: data.full_name,
       first_name: data.first_name,
       last_name: data.last_name,
       date_of_birth: data.date_of_birth,
@@ -277,20 +308,23 @@ export const updateStudent = async (id: string, studentData: Partial<Student>): 
       guardian_phone: data.guardian_phone,
       guardian_email: data.guardian_email || '',
       guardian_relationship: data.guardian_relationship,
-      current_class: data.class_id || null,
-      current_stream: data.class_id || null,
-      current_class_name: 'Grade 1',
-      current_stream_name: 'Main',
-      current_class_stream: 'Grade 1 Main',
+      current_class: data.current_class_id?.toString() || null,
+      current_stream: data.current_stream_id?.toString() || null,
+      current_class_name: data.classes?.name || '',
+      current_stream_name: data.streams?.name || '',
+      current_class_stream: `${data.classes?.name || ''} ${data.streams?.name || ''}`.trim(),
       academic_year: data.academic_year,
       enrollment_date: data.admission_date,
-      admission_year: data.academic_year,
+      admission_year: data.admission_year,
       term: data.term,
       upi_number: data.upi_number,
       status: data.status,
-      is_active: data.status === 'Active',
+      is_active: data.is_active,
       is_on_transport: data.is_on_transport,
-      stream: 'Main',
+      transport_route: data.transport_route,
+      transport_type: data.transport_type,
+      stream: data.streams?.name || '',
+      photo: data.photo,
       photo_url: data.photo_url,
       address: data.address,
       phone: data.phone,
