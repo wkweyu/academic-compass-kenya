@@ -150,7 +150,7 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit((data) => {
+      <form onSubmit={form.handleSubmit(async (data) => {
         // Transform form data to required Student format
          const studentData = {
            full_name: data.full_name!,
@@ -189,12 +189,7 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
          } as Omit<Student, 'id' | 'admission_number' | 'created_at' | 'updated_at'>;
         
         setSubmittedStudent(studentData);
-        onSubmit(studentData);
-        
-        // Call success callback if provided
-        if (onSuccess) {
-          onSuccess();
-        }
+        await onSubmit(studentData);
       })} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <FormField
@@ -520,8 +515,11 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
           <Button 
             type="button" 
             variant="outline" 
-            onClick={() => {
-              if (form.formState.isValid) {
+            onClick={async () => {
+              // Trigger validation first
+              const isValid = await form.trigger();
+              
+              if (isValid) {
                 const formData = form.getValues();
                 const studentData = {
                   full_name: formData.full_name!,
@@ -561,11 +559,10 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
                 setSubmittedStudent(studentData);
                 setShowPrintDialog(true);
               } else {
-                toast.error('Please fill all required fields before printing');
+                toast.error('Please fill all required fields correctly');
               }
             }}
             className="gap-2"
-            disabled={!form.formState.isValid}
           >
             <Printer size={16} />
             Preview Admission Form

@@ -82,12 +82,13 @@ const StudentManagementModule = () => {
       setIsCreateDialogOpen(false);
       toast.success('Student created successfully');
       
-      // Show print dialog after successful creation
+      // Show print dialog immediately after successful creation
       if (createdStudent) {
+        setPrintStudentData(createdStudent);
+        // Use a small timeout to ensure dialog state updates properly
         setTimeout(() => {
-          setPrintStudentData(createdStudent);
           setShowPrintDialog(true);
-        }, 500);
+        }, 100);
       }
     },
     onError: (error) => {
