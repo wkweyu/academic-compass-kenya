@@ -18,6 +18,7 @@ import SubjectsPage from "./pages/SubjectsPage";
 import ScoresPage from "./pages/ScoresPage";
 import ResultsPage from "./pages/ResultsPage";
 import FeesPage from "./pages/FeesPage";
+import PromotionsPage from "./pages/PromotionsPage";
 import ComingSoonPage from "./pages/ComingSoonPage";
 import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
@@ -45,6 +46,7 @@ const App = () => (
                 <Route path="/subjects" element={<SubjectsPage />} />
                 <Route path="/scores" element={<ScoresPage />} />
                 <Route path="/results" element={<ResultsPage />} />
+                <Route path="/promotions" element={<PromotionsPage />} />
                 <Route path="/fees" element={<FeesPage />} />
                 <Route path="/payroll" element={<ComingSoonPage title="Payroll Management" />} />
                 <Route path="/accounting" element={<ComingSoonPage title="Accounting" />} />
