@@ -669,33 +669,50 @@ export const ClassManagementModule = () => {
                 </Select>
               </div>
 
-              {students.length === 0 ? (
-                <div className="text-center py-8">
-                  <Users className="mx-auto h-12 w-12 text-muted-foreground" />
-                  <h3 className="mt-4 text-lg font-semibold">No Students Found</h3>
-                  <p className="text-muted-foreground">
-                    No students have been allocated to classes yet.
-                  </p>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Admission No.</TableHead>
-                      <TableHead>Student Name</TableHead>
-                      <TableHead>Class</TableHead>
-                      <TableHead>Stream</TableHead>
-                      <TableHead>Gender</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {students
-                      .filter(student => {
-                        if (!filters.grade_level) return true;
-                        const studentClass = classes.find(c => String(c.id) === String(student.current_class_id));
-                        return studentClass?.grade_level === filters.grade_level;
-                      })
-                      .map((student) => {
+              {(() => {
+                const filteredStudents = students.filter(student => {
+                  if (!filters.grade_level) return true;
+                  const studentClass = classes.find(c => String(c.id) === String(student.current_class_id));
+                  return studentClass?.grade_level === filters.grade_level;
+                });
+
+                if (students.length === 0) {
+                  return (
+                    <div className="text-center py-8">
+                      <Users className="mx-auto h-12 w-12 text-muted-foreground" />
+                      <h3 className="mt-4 text-lg font-semibold">No Students Found</h3>
+                      <p className="text-muted-foreground">
+                        No students have been allocated to classes yet.
+                      </p>
+                    </div>
+                  );
+                }
+
+                if (filteredStudents.length === 0) {
+                  return (
+                    <div className="text-center py-8">
+                      <Users className="mx-auto h-12 w-12 text-muted-foreground" />
+                      <h3 className="mt-4 text-lg font-semibold">No Students Found</h3>
+                      <p className="text-muted-foreground">
+                        No students found for Grade {filters.grade_level}
+                      </p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Admission No.</TableHead>
+                        <TableHead>Student Name</TableHead>
+                        <TableHead>Class</TableHead>
+                        <TableHead>Stream</TableHead>
+                        <TableHead>Gender</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredStudents.map((student) => {
                         const studentClass = classes.find(c => String(c.id) === String(student.current_class_id));
                         const studentStream = streams.find(s => String(s.id) === String(student.current_stream_id));
                         return (
@@ -710,20 +727,10 @@ export const ClassManagementModule = () => {
                           </TableRow>
                         );
                       })}
-                    {students.filter(student => {
-                      if (!filters.grade_level) return true;
-                      const studentClass = classes.find(c => String(c.id) === String(student.current_class_id));
-                      return studentClass?.grade_level === filters.grade_level;
-                    }).length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                          No students found for this grade level
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              )}
+                    </TableBody>
+                  </Table>
+                );
+              })()}
             </CardContent>
           </Card>
         </TabsContent>

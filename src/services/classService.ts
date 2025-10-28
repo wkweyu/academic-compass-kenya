@@ -132,7 +132,10 @@ export const classService = {
     const studentsList = students || [];
 
     return streamsData.map(stream => {
-      const enrolledStudents = studentsList.filter(s => s.current_stream_id === stream.id);
+      // Use String comparison to handle potential type mismatches
+      const enrolledStudents = studentsList.filter(s => 
+        String(s.current_stream_id) === String(stream.id)
+      );
       
       return {
         ...stream,
