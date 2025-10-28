@@ -41,17 +41,23 @@ export const AttendanceModule = () => {
   const [selectedClass, setSelectedClass] = useState<string>('');
   const [selectedStream, setSelectedStream] = useState<string>('');
   const [bulkStatus, setBulkStatus] = useState<AttendanceStatus>('present');
+  const [error, setError] = useState<string | null>(null);
 
   // Fetch classes
-  const { data: classes } = useQuery({
+  const { data: classes, error: classesError } = useQuery({
     queryKey: ['classes'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('classes')
-        .select('id, name, grade_level')
-        .order('grade_level');
-      if (error) throw error;
-      return data || [];
+      try {
+        const { data, error } = await supabase
+          .from('classes')
+          .select('id, name, grade_level')
+          .order('grade_level');
+        if (error) throw error;
+        return data || [];
+      } catch (err: any) {
+        setError(err.message || 'Failed to load classes');
+        throw err;
+      }
     }
   });
 
@@ -83,9 +89,10 @@ export const AttendanceModule = () => {
   });
 
   // Filter students by stream if selected
-  const filteredStudents = students?.filter(s => 
-    !selectedStream || s.current_stream === selectedStream
-  ) || [];
+  const filteredStudents = students?.filter(s => {
+    if (!selectedStream) return true;
+    return s.current_stream === selectedStream || s.current_stream === parseInt(selectedStream).toString();
+  }) || [];
 
   // Fetch attendance for selected date
   const { data: attendanceRecords } = useQuery({
@@ -157,13 +164,27 @@ export const AttendanceModule = () => {
       return;
     }
 
-    const records = filteredStudents.map(student => ({
-      studentId: parseInt(student.id),
-      date: format(selectedDate, 'yyyy-MM-dd'),
-      status: bulkStatus,
-      classId: selectedClass && !isNaN(parseInt(selectedClass)) ? parseInt(selectedClass) : undefined,
-      streamId: selectedStream && !isNaN(parseInt(selectedStream)) ? parseInt(selectedStream) : undefined
-    }));
+    const records = filteredStudents
+      .map(student => {
+        const studentId = parseInt(student.id);
+        if (isNaN(studentId)) {
+          console.error('Invalid student ID:', student.id);
+          return null;
+        }
+        return {
+          studentId,
+          date: format(selectedDate, 'yyyy-MM-dd'),
+          status: bulkStatus,
+          classId: selectedClass && !isNaN(parseInt(selectedClass)) ? parseInt(selectedClass) : undefined,
+          streamId: selectedStream && !isNaN(parseInt(selectedStream)) ? parseInt(selectedStream) : undefined
+        };
+      })
+      .filter((record): record is NonNullable<typeof record> => record !== null);
+
+    if (records.length === 0) {
+      toast.error('No valid student records to mark');
+      return;
+    }
 
     bulkMutation.mutate(records);
   };
@@ -193,7 +214,10 @@ export const AttendanceModule = () => {
   };
 
   const getStudentAttendance = (studentId: string) => {
-    return attendanceRecords?.find(a => a.student_id === parseInt(studentId));
+    if (!attendanceRecords) return undefined;
+    const id = parseInt(studentId);
+    if (isNaN(id)) return undefined;
+    return attendanceRecords.find(a => a.student_id === id);
   };
 
   const getStatusBadge = (status: AttendanceStatus) => {
@@ -207,6 +231,27 @@ export const AttendanceModule = () => {
       </Badge>
     );
   };
+
+  // Show error if there's a critical issue
+  if (error || classesError) {
+    return (
+      <div className="space-y-6">
+        <Card className="border-red-200 bg-red-50">
+          <CardHeader>
+            <CardTitle className="text-red-900">Error Loading Attendance Module</CardTitle>
+            <CardDescription className="text-red-700">
+              {error || classesError?.message || 'An unexpected error occurred'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => window.location.reload()}>
+              Reload Page
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -403,6 +448,13 @@ export const AttendanceModule = () => {
                   <TableBody>
                     {filteredStudents.map((student) => {
                       const attendance = getStudentAttendance(student.id);
+                      const studentIdNum = parseInt(student.id);
+                      
+                      if (isNaN(studentIdNum)) {
+                        console.error('Invalid student ID:', student.id);
+                        return null;
+                      }
+                      
                       return (
                         <TableRow key={student.id}>
                           <TableCell className="font-medium">{student.admission_number}</TableCell>
@@ -421,7 +473,7 @@ export const AttendanceModule = () => {
                                   key={option.value}
                                   size="sm"
                                   variant={attendance?.status === option.value ? 'default' : 'outline'}
-                                  onClick={() => handleMarkAttendance(parseInt(student.id), option.value)}
+                                  onClick={() => handleMarkAttendance(studentIdNum, option.value)}
                                   title={option.label}
                                 >
                                   {option.icon}

@@ -78,6 +78,96 @@ export type Database = {
           },
         ]
       }
+      attendance: {
+        Row: {
+          academic_year: number
+          class_id: number | null
+          created_at: string
+          date: string
+          id: string
+          marked_by: number | null
+          notes: string | null
+          reason: string | null
+          status: string
+          stream_id: number | null
+          student_id: number
+          term: number
+          time_in: string | null
+          time_out: string | null
+          updated_at: string
+        }
+        Insert: {
+          academic_year?: number
+          class_id?: number | null
+          created_at?: string
+          date: string
+          id?: string
+          marked_by?: number | null
+          notes?: string | null
+          reason?: string | null
+          status: string
+          stream_id?: number | null
+          student_id: number
+          term: number
+          time_in?: string | null
+          time_out?: string | null
+          updated_at?: string
+        }
+        Update: {
+          academic_year?: number
+          class_id?: number | null
+          created_at?: string
+          date?: string
+          id?: string
+          marked_by?: number | null
+          notes?: string | null
+          reason?: string | null
+          status?: string
+          stream_id?: number | null
+          student_id?: number
+          term?: number
+          time_in?: string | null
+          time_out?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_marked_by_fkey"
+            columns: ["marked_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_stream_id_fkey"
+            columns: ["stream_id"]
+            isOneToOne: false
+            referencedRelation: "streams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_summary"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "attendance_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       auth_group: {
         Row: {
           id: number
@@ -739,6 +829,13 @@ export type Database = {
             foreignKeyName: "fees_debittransaction_student_id_05535c8b_fk_students_id"
             columns: ["student_id"]
             isOneToOne: false
+            referencedRelation: "attendance_summary"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "fees_debittransaction_student_id_05535c8b_fk_students_id"
+            columns: ["student_id"]
+            isOneToOne: false
             referencedRelation: "students"
             referencedColumns: ["id"]
           },
@@ -795,6 +892,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "schools_school"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fees_feebalance_student_id_ac2ec66d_fk_students_id"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_summary"
+            referencedColumns: ["student_id"]
           },
           {
             foreignKeyName: "fees_feebalance_student_id_ac2ec66d_fk_students_id"
@@ -895,6 +999,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "schools_school"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fees_paymenttransaction_student_id_87a8fde4_fk_students_id"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_summary"
+            referencedColumns: ["student_id"]
           },
           {
             foreignKeyName: "fees_paymenttransaction_student_id_87a8fde4_fk_students_id"
@@ -1064,6 +1175,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "schools_school"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "procurement_feesinki_student_id_9c08e192_fk_students_"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_summary"
+            referencedColumns: ["student_id"]
           },
           {
             foreignKeyName: "procurement_feesinki_student_id_9c08e192_fk_students_"
@@ -1536,6 +1654,13 @@ export type Database = {
             foreignKeyName: "scores_student_id_dfd8f885_fk_students_id"
             columns: ["student_id"]
             isOneToOne: false
+            referencedRelation: "attendance_summary"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "scores_student_id_dfd8f885_fk_students_id"
+            columns: ["student_id"]
+            isOneToOne: false
             referencedRelation: "students"
             referencedColumns: ["id"]
           },
@@ -1908,6 +2033,13 @@ export type Database = {
             foreignKeyName: "student_promotions_student_id_d95fd7b1_fk_students_id"
             columns: ["student_id"]
             isOneToOne: false
+            referencedRelation: "attendance_summary"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_promotions_student_id_d95fd7b1_fk_students_id"
+            columns: ["student_id"]
+            isOneToOne: false
             referencedRelation: "students"
             referencedColumns: ["id"]
           },
@@ -1984,6 +2116,13 @@ export type Database = {
             foreignKeyName: "student_reports_student_id_952f84ce_fk_students_id"
             columns: ["student_id"]
             isOneToOne: false
+            referencedRelation: "attendance_summary"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_reports_student_id_952f84ce_fk_students_id"
+            columns: ["student_id"]
+            isOneToOne: false
             referencedRelation: "students"
             referencedColumns: ["id"]
           },
@@ -2044,6 +2183,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "streams"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_transfers_student_id_6fb5f7c4_fk_students_id"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_summary"
+            referencedColumns: ["student_id"]
           },
           {
             foreignKeyName: "student_transfers_student_id_6fb5f7c4_fk_students_id"
@@ -2567,7 +2713,36 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      attendance_summary: {
+        Row: {
+          attendance_percentage: number | null
+          current_class_id: number | null
+          current_stream_id: number | null
+          days_absent: number | null
+          days_excused: number | null
+          days_late: number | null
+          days_present: number | null
+          full_name: string | null
+          student_id: number | null
+          total_days: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "students_current_class_id_fk_classes"
+            columns: ["current_class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "students_current_stream_id_fk_streams"
+            columns: ["current_stream_id"]
+            isOneToOne: false
+            referencedRelation: "streams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       clear_orphaned_school_reference: { Args: never; Returns: undefined }
