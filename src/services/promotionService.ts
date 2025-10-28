@@ -30,6 +30,15 @@ export interface PromotionHistory {
 
 export const promoteStudent = async (data: PromotionData): Promise<void> => {
   try {
+    // Get current student info to maintain stream
+    const { data: student, error: fetchError } = await supabase
+      .from('students')
+      .select('current_stream_id')
+      .eq('id', data.student_id)
+      .single();
+
+    if (fetchError) throw fetchError;
+
     // Start a transaction by creating the promotion record
     const { error: promotionError } = await supabase
       .from('student_promotions')
@@ -44,11 +53,12 @@ export const promoteStudent = async (data: PromotionData): Promise<void> => {
 
     if (promotionError) throw promotionError;
 
-    // Update student's current class
+    // Update student's current class while maintaining stream
     const { error: updateError } = await supabase
       .from('students')
       .update({
         current_class_id: data.to_class_id,
+        current_stream_id: student?.current_stream_id, // Maintain current stream
         academic_year: data.academic_year,
         updated_at: new Date().toISOString()
       })
@@ -73,10 +83,10 @@ export const bulkPromoteStudents = async (data: BulkPromotionRequest): Promise<{
   };
 
   try {
-    // Get students to promote
+    // Get students to promote (with stream info to maintain it)
     let query = supabase
       .from('students')
-      .select('id, full_name, current_class_id')
+      .select('id, full_name, current_class_id, current_stream_id')
       .eq('current_class_id', data.from_class_id)
       .eq('is_active', true);
 
@@ -92,7 +102,7 @@ export const bulkPromoteStudents = async (data: BulkPromotionRequest): Promise<{
       throw new Error('No students found to promote');
     }
 
-    // Promote each student
+    // Promote each student (streams are maintained by promoteStudent)
     for (const student of students) {
       try {
         await promoteStudent({
@@ -180,7 +190,7 @@ export const getPromotionHistory = async (
 export const transferStudent = async (
   studentId: number,
   toClassId: number,
-  toStreamId: number | null,
+  toStreamId: number,
   notes?: string
 ): Promise<void> => {
   try {

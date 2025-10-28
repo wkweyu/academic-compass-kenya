@@ -225,7 +225,7 @@ const StudentManagementModule = () => {
     mutationFn: ({ studentId, toClassId, toStreamId, notes }: {
       studentId: number;
       toClassId: number;
-      toStreamId: number | null;
+      toStreamId: number;
       notes?: string;
     }) => transferStudent(studentId, toClassId, toStreamId, notes),
     onSuccess: () => {
@@ -295,15 +295,21 @@ const StudentManagementModule = () => {
       return;
     }
 
+    if (!transferData.toStreamId) {
+      toast.error('Please select a stream for the transfer');
+      return;
+    }
+
     const toClass = classes?.find(c => c.id.toString() === transferData.toClassId);
+    const toStream = streams?.find(s => s.id.toString() === transferData.toStreamId);
     
     if (window.confirm(
-      `Transfer ${transferData.student.full_name} to ${toClass?.name}${transferData.toStreamId ? ` - Stream ${streams?.find(s => s.id.toString() === transferData.toStreamId)?.name}` : ''}?`
+      `Transfer ${transferData.student.full_name} to ${toClass?.name} - Stream ${toStream?.name}?`
     )) {
       transferMutation.mutate({
-        studentId: parseInt(transferData.student.id),
-        toClassId: parseInt(transferData.toClassId),
-        toStreamId: transferData.toStreamId ? parseInt(transferData.toStreamId) : null,
+        studentId: Number(transferData.student.id),
+        toClassId: Number(transferData.toClassId),
+        toStreamId: Number(transferData.toStreamId),
         notes: transferData.notes
       });
     }
@@ -966,9 +972,9 @@ const StudentManagementModule = () => {
               </div>
 
               {/* Stream Selection */}
-              {transferData.toClassId && streams && streams.length > 0 && (
+              {transferData.toClassId && (
                 <div className="space-y-2">
-                  <Label>Select Stream (Optional)</Label>
+                  <Label>Select Stream *</Label>
                   <Select
                     value={transferData.toStreamId}
                     onValueChange={(value) => 
@@ -979,12 +985,17 @@ const StudentManagementModule = () => {
                       <SelectValue placeholder="Select stream" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No Stream</SelectItem>
-                      {streams.map(stream => (
-                        <SelectItem key={stream.id} value={stream.id.toString()}>
-                          {stream.name}
+                      {streams && streams.length > 0 ? (
+                        streams.map(stream => (
+                          <SelectItem key={stream.id} value={stream.id.toString()}>
+                            {stream.name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="" disabled>
+                          No streams available for this class
                         </SelectItem>
-                      ))}
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -1023,7 +1034,7 @@ const StudentManagementModule = () => {
             </Button>
             <Button
               onClick={handleTransferSubmit}
-              disabled={!transferData.toClassId || transferMutation.isPending}
+              disabled={!transferData.toClassId || !transferData.toStreamId || transferMutation.isPending}
             >
               {transferMutation.isPending ? (
                 <>
