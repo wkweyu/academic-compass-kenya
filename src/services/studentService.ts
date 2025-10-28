@@ -499,6 +499,17 @@ export const bulkImportStudents = async (file: File): Promise<ImportResult> => {
       return result;
     };
 
+    // Check if CSV has extra "Admission Number" column (old export format)
+    const headerLine = parseCSVLine(lines[0]);
+    const hasAdmissionNumberColumn = headerLine[0]?.toLowerCase().includes('admission');
+    const columnOffset = hasAdmissionNumberColumn ? 1 : 0;
+    
+    console.log('CSV Format Detection:', {
+      firstColumn: headerLine[0],
+      hasAdmissionNumber: hasAdmissionNumberColumn,
+      totalColumns: headerLine.length
+    });
+
     // Get all classes and streams for lookup
     const { data: classes, error: classError } = await supabase
       .from('classes')
@@ -528,10 +539,14 @@ export const bulkImportStudents = async (file: File): Promise<ImportResult> => {
       const rowNum = i + 2; // +2 because we skip header and arrays are 0-indexed
 
       try {
-        // Validate required fields
-        if (values.length < 14) {
-          throw new Error(`Insufficient columns (expected at least 14, got ${values.length})`);
+        // Validate required fields (accounting for optional admission number column)
+        const expectedColumns = 14 + columnOffset;
+        if (values.length < expectedColumns) {
+          throw new Error(`Insufficient columns (expected at least ${expectedColumns}, got ${values.length})`);
         }
+
+        // Skip admission number column if present
+        const dataValues = columnOffset > 0 ? values.slice(1) : values;
 
         const [
           full_name, date_of_birth, gender, upi_number,
@@ -539,7 +554,7 @@ export const bulkImportStudents = async (file: File): Promise<ImportResult> => {
           level, current_class_name, current_stream_name,
           enrollment_date, status, academic_year, admission_year, term,
           is_on_transport, transport_route, transport_type
-        ] = values;
+        ] = dataValues;
 
         // Basic validation
         if (!full_name || full_name.length < 3) {
