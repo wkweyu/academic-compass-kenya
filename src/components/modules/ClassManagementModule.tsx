@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Users, BookOpen, Settings, TrendingUp, Filter, Trash2 } from 'lucide-react';
+import { Plus, Search, Users, BookOpen, Settings, TrendingUp, Filter, Trash2, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +15,7 @@ import { Class, Stream, ClassStats, ClassFilters, StreamFilters, CLASS_GROUPS } 
 import { classService } from '@/services/classService';
 import { streamSettingsService } from '@/services/streamSettingsService';
 import { StreamNameSetting } from '@/types/stream-settings';
+import { api } from '@/api/api';
 
 export const ClassManagementModule = () => {
   const { toast } = useToast();
@@ -28,6 +29,11 @@ export const ClassManagementModule = () => {
   const [isCreateClassOpen, setIsCreateClassOpen] = useState(false);
   const [isCreateStreamOpen, setIsCreateStreamOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
+  const [isAssignTeacherOpen, setIsAssignTeacherOpen] = useState(false);
+  const [selectedStream, setSelectedStream] = useState<Stream | null>(null);
+  const [teachers, setTeachers] = useState<any[]>([]);
+  const [students, setStudents] = useState<any[]>([]);
+  const [allocations, setAllocations] = useState<any[]>([]);
 
   // Form states
   const [classForm, setClassForm] = useState({
@@ -52,17 +58,21 @@ export const ClassManagementModule = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [classData, streamData, statsData, streamNamesData] = await Promise.all([
+      const [classData, streamData, statsData, streamNamesData, teachersData, studentsData] = await Promise.all([
         classService.getClasses(filters),
         classService.getStreams(streamFilters),
         classService.getClassStats(),
-        streamSettingsService.getStreamNames()
+        streamSettingsService.getStreamNames(),
+        api.get('/teachers/').then((res: any) => res.data.results || []).catch(() => []),
+        api.get('/students/').then((res: any) => res.data.results || []).catch(() => [])
       ]);
       
       setClasses(classData);
       setStreams(streamData);
       setStats(statsData);
       setStreamNames(streamNamesData);
+      setTeachers(teachersData);
+      setStudents(studentsData);
     } catch (error) {
       toast({
         title: "Error",
@@ -188,6 +198,31 @@ export const ClassManagementModule = () => {
       toast({
         title: "Error",
         description: error.message || "Failed to delete stream. It may have students assigned to it.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAssignTeacher = async (teacherId: string) => {
+    if (!selectedStream) return;
+
+    try {
+      await api.patch(`/students/streams/${selectedStream.id}/`, {
+        class_teacher: teacherId
+      });
+      
+      toast({
+        title: "Success",
+        description: "Class teacher assigned successfully",
+      });
+      
+      setIsAssignTeacherOpen(false);
+      setSelectedStream(null);
+      loadData();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to assign teacher",
         variant: "destructive",
       });
     }
@@ -577,8 +612,15 @@ export const ClassManagementModule = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          <Button variant="ghost" size="sm">
-                            <Settings className="h-4 w-4" />
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => {
+                              setSelectedStream(stream);
+                              setIsAssignTeacherOpen(true);
+                            }}
+                          >
+                            <UserPlus className="h-4 w-4" />
                           </Button>
                           <Button 
                             variant="ghost" 
@@ -602,20 +644,106 @@ export const ClassManagementModule = () => {
           <Card>
             <CardHeader>
               <CardTitle>Student Allocations</CardTitle>
-              <CardDescription>Manage student class and stream assignments</CardDescription>
+              <CardDescription>View students allocated to each class and stream</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8">
-                <Users className="mx-auto h-12 w-12 text-muted-foreground" />
-                <h3 className="mt-4 text-lg font-semibold">Class Allocations</h3>
-                <p className="text-muted-foreground">
-                  Student allocation management will be implemented here
-                </p>
+              <div className="flex gap-4 mb-4">
+                <Select
+                  value={filters.grade_level?.toString() || 'all'}
+                  onValueChange={(value) => setFilters(prev => ({ 
+                    ...prev, 
+                    grade_level: value === 'all' ? undefined : parseInt(value) 
+                  }))}
+                >
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="All Grade Levels" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Grade Levels</SelectItem>
+                    {Array.from({ length: 12 }, (_, i) => (
+                      <SelectItem key={i + 1} value={(i + 1).toString()}>
+                        Grade {i + 1}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Admission No.</TableHead>
+                    <TableHead>Student Name</TableHead>
+                    <TableHead>Class</TableHead>
+                    <TableHead>Stream</TableHead>
+                    <TableHead>Gender</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {students
+                    .filter(student => {
+                      if (!filters.grade_level) return true;
+                      const studentClass = classes.find(c => c.id === student.current_class_id);
+                      return studentClass?.grade_level === filters.grade_level;
+                    })
+                    .map((student) => {
+                      const studentClass = classes.find(c => c.id === student.current_class_id);
+                      const studentStream = streams.find(s => s.id === student.current_stream_id);
+                      return (
+                        <TableRow key={student.id}>
+                          <TableCell className="font-medium">{student.admission_number}</TableCell>
+                          <TableCell>{student.full_name}</TableCell>
+                          <TableCell>{studentClass?.name || 'N/A'}</TableCell>
+                          <TableCell>{studentStream?.name || 'N/A'}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{student.gender}</Badge>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Assign Teacher Dialog */}
+      <Dialog open={isAssignTeacherOpen} onOpenChange={setIsAssignTeacherOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Assign Class Teacher</DialogTitle>
+            <DialogDescription>
+              Select a teacher to assign to {selectedStream?.name} - {selectedStream?.class_name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Select Teacher</Label>
+              <Select
+                onValueChange={(value) => handleAssignTeacher(value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a teacher" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teachers.length === 0 ? (
+                    <div className="p-2 text-sm text-muted-foreground">
+                      No teachers available. Please add teachers first.
+                    </div>
+                  ) : (
+                    teachers.map((teacher) => (
+                      <SelectItem key={teacher.id} value={teacher.id.toString()}>
+                        {teacher.first_name} {teacher.last_name} - TSC: {teacher.tsc_number}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

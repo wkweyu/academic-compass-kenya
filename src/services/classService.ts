@@ -103,23 +103,44 @@ export const classService = {
   },
 
   async getStreams(filters?: StreamFilters): Promise<Stream[]> {
+    const { data: schoolId } = await supabase.rpc('get_user_school_id');
+    
+    if (!schoolId) return [];
+
     let query = supabase
       .from('streams')
-      .select('*, classes(name)');
+      .select('*, classes(name)')
+      .eq('school_id', schoolId);
     
     if (filters?.class_id) {
       query = query.eq('class_assigned_id', filters.class_id);
     }
     
-    const { data, error } = await query.order('name', { ascending: true });
+    const { data: streamsData, error } = await query.order('name', { ascending: true });
     
     if (error) throw error;
     
-    return (data || []).map(stream => ({
-      ...stream,
-      class_assigned: stream.class_assigned_id, // Map database field to frontend field
-      class_name: stream.classes?.name || ''
-    })) as Stream[];
+    if (!streamsData || streamsData.length === 0) return [];
+
+    // Fetch students for enrollment counts
+    const { data: students } = await supabase
+      .from('students')
+      .select('id, current_stream_id')
+      .eq('school_id', schoolId)
+      .eq('is_active', true);
+
+    const studentsList = students || [];
+
+    return streamsData.map(stream => {
+      const enrolledStudents = studentsList.filter(s => s.current_stream_id === stream.id);
+      
+      return {
+        ...stream,
+        class_assigned: stream.class_assigned_id,
+        class_name: stream.classes?.name || '',
+        current_enrollment: enrolledStudents.length
+      } as Stream;
+    });
   },
 
   async getStream(id: string): Promise<Stream | null> {
