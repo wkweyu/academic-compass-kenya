@@ -22,7 +22,12 @@ export const getStudents = async (
     }
     
     if (params.status) {
-      query = query.eq('status', params.status);
+      // Map status to is_active
+      if (params.status === 'active') {
+        query = query.eq('is_active', true);
+      } else {
+        query = query.eq('is_active', false);
+      }
     }
 
     const { data, error } = await query.order('created_at', { ascending: false });
@@ -58,7 +63,7 @@ export const getStudents = async (
       admission_year: item.admission_year || new Date().getFullYear(),
       term: item.term || 1,
       upi_number: item.upi_number,
-      status: item.status,
+      status: item.is_active ? 'active' : 'inactive',
       is_active: item.is_active,
       is_on_transport: item.is_on_transport || false,
       transport_route: item.transport_route,
@@ -123,7 +128,7 @@ export const getStudentById = async (id: string): Promise<Student | null> => {
       admission_year: data.admission_year || new Date().getFullYear(),
       term: data.term || 1,
       upi_number: data.upi_number,
-      status: data.status,
+      status: data.is_active ? 'active' : 'inactive',
       is_active: data.is_active,
       is_on_transport: data.is_on_transport || false,
       transport_route: data.transport_route,
@@ -326,7 +331,7 @@ export const updateStudent = async (id: string, studentData: Partial<Student>): 
       admission_year: data.admission_year,
       term: data.term,
       upi_number: data.upi_number,
-      status: data.status,
+      status: data.is_active ? 'active' : 'inactive',
       is_active: data.is_active,
       is_on_transport: data.is_on_transport,
       transport_route: data.transport_route,
