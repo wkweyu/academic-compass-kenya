@@ -12,7 +12,8 @@ import {
   DollarSign,
   CreditCard,
   Receipt,
-  TrendingUp
+  TrendingUp,
+  CalendarCheck
 } from 'lucide-react';
 import {
   Sidebar,
@@ -34,6 +35,7 @@ const mainNavigation = [
 const studentNavigation = [
   { id: 'students', title: 'Students', url: '/students', icon: Users },
   { id: 'classes', title: 'Classes', url: '/classes', icon: School },
+  { id: 'attendance', title: 'Attendance', url: '/attendance', icon: CalendarCheck },
   { id: 'promotions', title: 'Promotions', url: '/promotions', icon: TrendingUp },
 ];
 
