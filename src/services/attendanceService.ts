@@ -22,6 +22,18 @@ export const markAttendance = async (
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
+    // Get user's ID from users table
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('auth_user_id', user.id)
+      .single();
+
+    if (userError || !userData) {
+      console.error('Error fetching user ID:', userError);
+      // Continue without marked_by if user lookup fails
+    }
+
     // Get current term and year from settings or use defaults
     const currentYear = new Date().getFullYear();
     const currentTerm = getCurrentTerm();
@@ -36,7 +48,7 @@ export const markAttendance = async (
       time_out: options?.timeOut || null,
       reason: options?.reason || null,
       notes: options?.notes || null,
-      marked_by: user.id,
+      marked_by: userData?.id || null,
       academic_year: currentYear,
       term: currentTerm,
     };
@@ -85,6 +97,13 @@ export const bulkMarkAttendance = async (
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
+    // Get user's ID from users table
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('auth_user_id', user.id)
+      .single();
+
     const currentYear = new Date().getFullYear();
     const currentTerm = getCurrentTerm();
 
@@ -96,7 +115,7 @@ export const bulkMarkAttendance = async (
       stream_id: record.streamId || null,
       reason: record.reason || null,
       notes: record.notes || null,
-      marked_by: user.id,
+      marked_by: userData?.id || null,
       academic_year: currentYear,
       term: currentTerm,
     }));

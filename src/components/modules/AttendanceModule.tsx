@@ -440,19 +440,289 @@ export const AttendanceModule = () => {
         </TabsContent>
 
         <TabsContent value="reports">
-          <Card>
-            <CardHeader>
-              <CardTitle>Attendance Reports</CardTitle>
-              <CardDescription>View attendance analytics and generate reports</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-12 text-muted-foreground">
-                <FileText className="mx-auto h-12 w-12 mb-4" />
-                <p>Attendance reports coming soon...</p>
-                <p className="text-sm mt-2">Will include daily, weekly, and monthly reports</p>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="space-y-4">
+            {/* Reports Header */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Attendance Analytics & Reports</CardTitle>
+                <CardDescription>Generate detailed attendance reports and analyze trends</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Date Range Selector */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>Report Period</Label>
+                    <Select defaultValue="this_week">
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="today">Today</SelectItem>
+                        <SelectItem value="this_week">This Week</SelectItem>
+                        <SelectItem value="this_month">This Month</SelectItem>
+                        <SelectItem value="this_term">This Term</SelectItem>
+                        <SelectItem value="this_year">This Year</SelectItem>
+                        <SelectItem value="custom">Custom Range</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Class Filter</Label>
+                    <Select value={selectedClass} onValueChange={setSelectedClass}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="All classes" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">All Classes</SelectItem>
+                        {classes?.map((cls) => (
+                          <SelectItem key={cls.id} value={cls.id.toString()}>
+                            {cls.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Stream Filter</Label>
+                    <Select value={selectedStream} onValueChange={setSelectedStream}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="All streams" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">All Streams</SelectItem>
+                        {streams?.map((stream) => (
+                          <SelectItem key={stream.id} value={stream.id.toString()}>
+                            {stream.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Quick Stats Grid */}
+                {stats && (
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    <Card className="bg-green-50 border-green-200">
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Present Today</CardTitle>
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold text-green-700">{stats.present}</div>
+                        <p className="text-xs text-green-600 mt-1">
+                          {stats.attendance_rate}% attendance rate
+                        </p>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="bg-red-50 border-red-200">
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Absent Today</CardTitle>
+                        <XCircle className="h-4 w-4 text-red-600" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold text-red-700">{stats.absent}</div>
+                        <p className="text-xs text-red-600 mt-1">
+                          Requires follow-up
+                        </p>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="bg-yellow-50 border-yellow-200">
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Late Arrivals</CardTitle>
+                        <Clock className="h-4 w-4 text-yellow-600" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold text-yellow-700">{stats.late}</div>
+                        <p className="text-xs text-yellow-600 mt-1">
+                          Tardiness tracking
+                        </p>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="bg-blue-50 border-blue-200">
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Excused</CardTitle>
+                        <FileText className="h-4 w-4 text-blue-600" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold text-blue-700">{stats.excused + stats.sick}</div>
+                        <p className="text-xs text-blue-600 mt-1">
+                          With documentation
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+                {/* Report Actions */}
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" onClick={handleExport}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Export Daily Report
+                  </Button>
+                  <Button variant="outline">
+                    <FileText className="h-4 w-4 mr-2" />
+                    Weekly Summary
+                  </Button>
+                  <Button variant="outline">
+                    <TrendingUp className="h-4 w-4 mr-2" />
+                    Monthly Trends
+                  </Button>
+                  <Button variant="outline">
+                    <AlertCircle className="h-4 w-4 mr-2" />
+                    Absentee Report
+                  </Button>
+                </div>
+
+                {/* Late Arrivals Tracking */}
+                <Card className="border-yellow-200">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Clock className="h-5 w-5 text-yellow-600" />
+                      Late Arrival Tracking
+                    </CardTitle>
+                    <CardDescription>Students who arrived late today</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {attendanceRecords?.filter(a => a.status === 'late').length === 0 ? (
+                      <div className="text-center py-6 text-muted-foreground">
+                        <CheckCircle className="mx-auto h-8 w-8 text-green-600 mb-2" />
+                        <p>No late arrivals today - excellent punctuality!</p>
+                      </div>
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Student</TableHead>
+                            <TableHead>Class</TableHead>
+                            <TableHead>Time In</TableHead>
+                            <TableHead>Reason</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {attendanceRecords
+                            ?.filter(a => a.status === 'late')
+                            .map((record) => (
+                              <TableRow key={record.id}>
+                                <TableCell className="font-medium">
+                                  Student #{record.student_id}
+                                </TableCell>
+                                <TableCell>Class info</TableCell>
+                                <TableCell>
+                                  {record.time_in || 'Not recorded'}
+                                </TableCell>
+                                <TableCell className="text-sm text-muted-foreground">
+                                  {record.reason || 'No reason provided'}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Absence Alerts */}
+                <Card className="border-red-200">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <AlertCircle className="h-5 w-5 text-red-600" />
+                      Absence Notifications
+                    </CardTitle>
+                    <CardDescription>Students absent today - requires parent notification</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {attendanceRecords?.filter(a => a.status === 'absent').length === 0 ? (
+                      <div className="text-center py-6 text-muted-foreground">
+                        <CheckCircle className="mx-auto h-8 w-8 text-green-600 mb-2" />
+                        <p>Perfect attendance today - no absences!</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                          <div className="flex items-start gap-3">
+                            <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-red-900">Action Required</h4>
+                              <p className="text-sm text-red-700 mt-1">
+                                {attendanceRecords?.filter(a => a.status === 'absent').length} student(s) marked absent. 
+                                Parents/guardians should be notified via SMS or phone call.
+                              </p>
+                            </div>
+                            <Button size="sm" variant="destructive">
+                              Send Notifications
+                            </Button>
+                          </div>
+                        </div>
+
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Student</TableHead>
+                              <TableHead>Class/Stream</TableHead>
+                              <TableHead>Guardian Contact</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead>Action</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {attendanceRecords
+                              ?.filter(a => a.status === 'absent')
+                              .map((record) => (
+                                <TableRow key={record.id}>
+                                  <TableCell className="font-medium">
+                                    Student #{record.student_id}
+                                  </TableCell>
+                                  <TableCell>Class info</TableCell>
+                                  <TableCell className="text-sm">
+                                    <div>Phone: +254 XXX XXX XXX</div>
+                                    <div className="text-muted-foreground">Email available</div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge variant="destructive">Not Notified</Badge>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Button size="sm" variant="outline">
+                                      Notify
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Attendance Trends */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <TrendingUp className="h-5 w-5 text-primary" />
+                      Attendance Trends & Patterns
+                    </CardTitle>
+                    <CardDescription>Historical attendance analysis</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="text-center py-12 text-muted-foreground">
+                      <TrendingUp className="mx-auto h-12 w-12 mb-4" />
+                      <p className="font-medium">Trend Analysis Coming Soon</p>
+                      <p className="text-sm mt-2">
+                        Will include: Weekly trends, Monthly patterns, Class comparisons, 
+                        Individual student attendance history, Predictive insights
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
