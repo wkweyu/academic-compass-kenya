@@ -109,14 +109,14 @@ export const classService = {
 
     let query = supabase
       .from('streams')
-      .select('*, classes(name)')
+      .select('*, classes(name, grade_level)')
       .eq('school_id', schoolId);
     
     if (filters?.class_id) {
       query = query.eq('class_assigned_id', filters.class_id);
     }
     
-    const { data: streamsData, error } = await query.order('name', { ascending: true });
+    const { data: streamsData, error } = await query;
     
     if (error) throw error;
     
@@ -131,7 +131,7 @@ export const classService = {
 
     const studentsList = students || [];
 
-    return streamsData.map(stream => {
+    const streamsWithEnrollment = streamsData.map(stream => {
       // Use String comparison to handle potential type mismatches
       const enrolledStudents = studentsList.filter(s => 
         String(s.current_stream_id) === String(stream.id)
@@ -141,8 +141,17 @@ export const classService = {
         ...stream,
         class_assigned: stream.class_assigned_id,
         class_name: stream.classes?.name || '',
-        current_enrollment: enrolledStudents.length
-      } as Stream;
+        current_enrollment: enrolledStudents.length,
+        grade_level: stream.classes?.grade_level || 0
+      } as Stream & { grade_level: number };
+    });
+
+    // Sort by grade level first, then by stream name
+    return streamsWithEnrollment.sort((a, b) => {
+      if (a.grade_level !== b.grade_level) {
+        return a.grade_level - b.grade_level;
+      }
+      return a.name.localeCompare(b.name);
     });
   },
 

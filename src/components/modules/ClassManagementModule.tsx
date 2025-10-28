@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Users, BookOpen, Settings, TrendingUp, Filter, Trash2, UserPlus } from 'lucide-react';
+import { Plus, Search, Users, BookOpen, Settings, TrendingUp, Filter, Trash2, UserPlus, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -64,7 +64,15 @@ export const ClassManagementModule = () => {
         classService.getClassStats(),
         streamSettingsService.getStreamNames(),
         api.get('/teachers/').then((res: any) => res.data.results || []).catch(() => []),
-        api.get('/students/').then((res: any) => res.data.results || []).catch(() => [])
+        api.get('/students/').then((res: any) => {
+          // Handle both paginated and non-paginated responses
+          const data = res.data.results || res.data || [];
+          console.log('Students loaded:', data.length);
+          return data;
+        }).catch((err) => {
+          console.error('Error loading students:', err);
+          return [];
+        })
       ]);
       
       setClasses(classData);
@@ -73,6 +81,7 @@ export const ClassManagementModule = () => {
       setStreamNames(streamNamesData);
       setTeachers(teachersData);
       setStudents(studentsData);
+      console.log('Final students state:', studentsData.length);
     } catch (error) {
       toast({
         title: "Error",
@@ -670,6 +679,22 @@ export const ClassManagementModule = () => {
               </div>
 
               {(() => {
+                // Debug: Check for mismatched student-stream-class relationships
+                const mismatchedStudents = students.filter(student => {
+                  const studentClass = classes.find(c => String(c.id) === String(student.current_class_id));
+                  const studentStream = streams.find(s => String(s.id) === String(student.current_stream_id));
+                  
+                  if (studentClass && studentStream) {
+                    // Check if stream's class matches student's class
+                    return String(studentStream.class_assigned) !== String(studentClass.id);
+                  }
+                  return false;
+                });
+
+                if (mismatchedStudents.length > 0) {
+                  console.warn('⚠️ Data Mismatch:', mismatchedStudents.length, 'students assigned to streams from different classes');
+                }
+                
                 const filteredStudents = students.filter(student => {
                   if (!filters.grade_level) return true;
                   const studentClass = classes.find(c => String(c.id) === String(student.current_class_id));
@@ -684,6 +709,56 @@ export const ClassManagementModule = () => {
                       <p className="text-muted-foreground">
                         No students have been allocated to classes yet.
                       </p>
+                    </div>
+                  );
+                }
+
+                if (mismatchedStudents.length > 0) {
+                  return (
+                    <div className="space-y-4">
+                      <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                        <div className="flex items-start gap-3">
+                          <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-500 mt-0.5" />
+                          <div>
+                            <h4 className="font-semibold text-yellow-900 dark:text-yellow-100">Data Mismatch Detected</h4>
+                            <p className="text-sm text-yellow-800 dark:text-yellow-200 mt-1">
+                              {mismatchedStudents.length} student(s) are assigned to streams that belong to different classes. 
+                              Please reassign these students to correct streams via the Students page.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Admission No.</TableHead>
+                            <TableHead>Student Name</TableHead>
+                            <TableHead>Assigned Class</TableHead>
+                            <TableHead>Assigned Stream</TableHead>
+                            <TableHead>Stream's Class</TableHead>
+                            <TableHead>Issue</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {mismatchedStudents.map((student) => {
+                            const studentClass = classes.find(c => String(c.id) === String(student.current_class_id));
+                            const studentStream = streams.find(s => String(s.id) === String(student.current_stream_id));
+                            return (
+                              <TableRow key={student.id}>
+                                <TableCell className="font-medium">{student.admission_number}</TableCell>
+                                <TableCell>{student.full_name}</TableCell>
+                                <TableCell>{studentClass?.name || 'N/A'}</TableCell>
+                                <TableCell>{studentStream?.name || 'N/A'}</TableCell>
+                                <TableCell>{studentStream?.class_name || 'N/A'}</TableCell>
+                                <TableCell>
+                                  <Badge variant="destructive">Mismatch</Badge>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
                     </div>
                   );
                 }
