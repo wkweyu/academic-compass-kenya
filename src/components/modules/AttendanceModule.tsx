@@ -91,7 +91,8 @@ export const AttendanceModule = () => {
   // Filter students by stream if selected
   const filteredStudents = students?.filter(s => {
     if (!selectedStream) return true;
-    return s.current_stream === selectedStream || s.current_stream === parseInt(selectedStream).toString();
+    const streamId = s.current_stream_id?.toString() || s.current_stream;
+    return streamId === selectedStream;
   }) || [];
 
   // Fetch attendance for selected date

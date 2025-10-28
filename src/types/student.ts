@@ -44,6 +44,8 @@ export interface Student {
   // Academic Information
   current_class: string | null;
   current_stream: string | null;
+  current_class_id: number | null; // Add database field
+  current_stream_id: number | null; // Add database field
   current_class_name: string;
   current_stream_name: string;
   current_class_stream: string;
