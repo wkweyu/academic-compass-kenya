@@ -103,3 +103,58 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* Print Styles */
+@media print {
+  /* Hide UI elements that shouldn't be printed */
+  .print\\:hidden {
+    display: none !important;
+  }
+
+  /* Show print-only elements */
+  .print\\:block {
+    display: block !important;
+  }
+
+  /* Page break controls */
+  .page-break-inside-avoid {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .page-break-before {
+    page-break-before: always;
+    break-before: always;
+  }
+
+  .page-break-after {
+    page-break-after: always;
+    break-after: always;
+  }
+
+  /* Optimize for printing */
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Remove box shadows and backgrounds for cleaner printing */
+  .bg-card, .bg-muted {
+    background: transparent !important;
+  }
+
+  /* Ensure borders are visible */
+  table, th, td {
+    border-color: #000 !important;
+  }
+
+  /* Make sure text is black */
+  * {
+    color: black !important;
+  }
+
+  /* Headers and titles should be bold */
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: bold !important;
+  }
+}

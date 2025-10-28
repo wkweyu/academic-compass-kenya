@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Users, BookOpen, Settings, TrendingUp, Filter, Trash2, UserPlus, AlertCircle } from 'lucide-react';
+import { Plus, Search, Users, BookOpen, Settings, TrendingUp, Filter, Trash2, UserPlus, AlertCircle, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,6 +35,7 @@ export const ClassManagementModule = () => {
   const [teachers, setTeachers] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
   const [allocations, setAllocations] = useState<any[]>([]);
+  const [allocationStreamFilter, setAllocationStreamFilter] = useState<string>('all');
 
   // Form states
   const [classForm, setClassForm] = useState({
@@ -650,12 +651,24 @@ export const ClassManagementModule = () => {
 
         <TabsContent value="allocations" className="space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle>Student Allocations</CardTitle>
-              <CardDescription>View students allocated to each class and stream</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Student Allocations</CardTitle>
+                <CardDescription>View students allocated to each class and stream</CardDescription>
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => window.print()}
+                >
+                  <Printer className="mr-2 h-4 w-4" />
+                  Print List
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="flex gap-4 mb-4">
+              <div className="flex gap-4 mb-4 print:hidden">
                 <Select
                   value={filters.grade_level?.toString() || 'all'}
                   onValueChange={(value) => setFilters(prev => ({ 
@@ -675,30 +688,52 @@ export const ClassManagementModule = () => {
                     ))}
                   </SelectContent>
                 </Select>
+
+                <Select
+                  value={allocationStreamFilter}
+                  onValueChange={setAllocationStreamFilter}
+                >
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="All Streams" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Streams</SelectItem>
+                    {streams
+                      .filter(s => !filters.grade_level || classes.find(c => String(c.id) === String(s.class_assigned) && c.grade_level === filters.grade_level))
+                      .map((stream) => (
+                        <SelectItem key={stream.id} value={stream.id}>
+                          {stream.class_name} - {stream.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {(() => {
-                // Debug: Check for mismatched student-stream-class relationships
+                // Check for mismatched student-stream-class relationships
                 const mismatchedStudents = students.filter(student => {
                   const studentClass = classes.find(c => String(c.id) === String(student.current_class_id));
                   const studentStream = streams.find(s => String(s.id) === String(student.current_stream_id));
                   
                   if (studentClass && studentStream) {
-                    // Check if stream's class matches student's class
                     return String(studentStream.class_assigned) !== String(studentClass.id);
                   }
                   return false;
                 });
-
-                if (mismatchedStudents.length > 0) {
-                  console.warn('⚠️ Data Mismatch:', mismatchedStudents.length, 'students assigned to streams from different classes');
-                }
                 
-                const filteredStudents = students.filter(student => {
+                // Apply filters
+                let filteredStudents = students.filter(student => {
                   if (!filters.grade_level) return true;
                   const studentClass = classes.find(c => String(c.id) === String(student.current_class_id));
                   return studentClass?.grade_level === filters.grade_level;
                 });
+
+                // Apply stream filter
+                if (allocationStreamFilter !== 'all') {
+                  filteredStudents = filteredStudents.filter(student => 
+                    String(student.current_stream_id) === String(allocationStreamFilter)
+                  );
+                }
 
                 if (students.length === 0) {
                   return (
@@ -715,7 +750,7 @@ export const ClassManagementModule = () => {
                 if (mismatchedStudents.length > 0) {
                   return (
                     <div className="space-y-4">
-                      <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                      <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 print:hidden">
                         <div className="flex items-start gap-3">
                           <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-500 mt-0.5" />
                           <div>
@@ -736,7 +771,7 @@ export const ClassManagementModule = () => {
                             <TableHead>Assigned Class</TableHead>
                             <TableHead>Assigned Stream</TableHead>
                             <TableHead>Stream's Class</TableHead>
-                            <TableHead>Issue</TableHead>
+                            <TableHead className="print:hidden">Issue</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -750,7 +785,7 @@ export const ClassManagementModule = () => {
                                 <TableCell>{studentClass?.name || 'N/A'}</TableCell>
                                 <TableCell>{studentStream?.name || 'N/A'}</TableCell>
                                 <TableCell>{studentStream?.class_name || 'N/A'}</TableCell>
-                                <TableCell>
+                                <TableCell className="print:hidden">
                                   <Badge variant="destructive">Mismatch</Badge>
                                 </TableCell>
                               </TableRow>
@@ -768,41 +803,89 @@ export const ClassManagementModule = () => {
                       <Users className="mx-auto h-12 w-12 text-muted-foreground" />
                       <h3 className="mt-4 text-lg font-semibold">No Students Found</h3>
                       <p className="text-muted-foreground">
-                        No students found for Grade {filters.grade_level}
+                        {allocationStreamFilter !== 'all' 
+                          ? 'No students found for the selected stream'
+                          : filters.grade_level 
+                            ? `No students found for Grade ${filters.grade_level}`
+                            : 'No students found'
+                        }
                       </p>
                     </div>
                   );
                 }
 
+                // Group students by class and stream
+                const groupedStudents = filteredStudents.reduce((acc, student) => {
+                  const studentClass = classes.find(c => String(c.id) === String(student.current_class_id));
+                  const studentStream = streams.find(s => String(s.id) === String(student.current_stream_id));
+                  
+                  if (!studentClass || !studentStream) return acc;
+                  
+                  const classKey = studentClass.name;
+                  const streamKey = studentStream.name;
+                  
+                  if (!acc[classKey]) acc[classKey] = {};
+                  if (!acc[classKey][streamKey]) acc[classKey][streamKey] = [];
+                  
+                  acc[classKey][streamKey].push(student);
+                  return acc;
+                }, {} as Record<string, Record<string, any[]>>);
+
                 return (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Admission No.</TableHead>
-                        <TableHead>Student Name</TableHead>
-                        <TableHead>Class</TableHead>
-                        <TableHead>Stream</TableHead>
-                        <TableHead>Gender</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredStudents.map((student) => {
-                        const studentClass = classes.find(c => String(c.id) === String(student.current_class_id));
-                        const studentStream = streams.find(s => String(s.id) === String(student.current_stream_id));
-                        return (
-                          <TableRow key={student.id}>
-                            <TableCell className="font-medium">{student.admission_number}</TableCell>
-                            <TableCell>{student.full_name}</TableCell>
-                            <TableCell>{studentClass?.name || 'N/A'}</TableCell>
-                            <TableCell>{studentStream?.name || 'N/A'}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline">{student.gender}</Badge>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
+                  <div className="space-y-6">
+                    {/* Print Header */}
+                    <div className="hidden print:block mb-6">
+                      <h2 className="text-2xl font-bold text-center">Student Allocation List</h2>
+                      <p className="text-center text-muted-foreground">
+                        {filters.grade_level ? `Grade ${filters.grade_level}` : 'All Grades'}
+                        {allocationStreamFilter !== 'all' && ` - ${streams.find(s => s.id === allocationStreamFilter)?.name}`}
+                      </p>
+                      <p className="text-center text-sm text-muted-foreground mt-2">
+                        Generated: {new Date().toLocaleDateString()}
+                      </p>
+                    </div>
+
+                    {Object.entries(groupedStudents).map(([className, streamGroups]) => (
+                      <div key={className} className="space-y-4">
+                        <h3 className="text-xl font-semibold border-b pb-2">{className}</h3>
+                        
+                        {Object.entries(streamGroups).map(([streamName, streamStudents]) => (
+                          <div key={streamName} className="mb-6 page-break-inside-avoid">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="text-lg font-medium text-muted-foreground">
+                                {streamName} ({streamStudents.length} student{streamStudents.length !== 1 ? 's' : ''})
+                              </h4>
+                            </div>
+                            
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="w-12">#</TableHead>
+                                  <TableHead>Admission No.</TableHead>
+                                  <TableHead>Student Name</TableHead>
+                                  <TableHead>Gender</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {streamStudents
+                                  .sort((a, b) => a.admission_number.localeCompare(b.admission_number))
+                                  .map((student, index) => (
+                                    <TableRow key={student.id}>
+                                      <TableCell className="font-medium">{index + 1}</TableCell>
+                                      <TableCell>{student.admission_number}</TableCell>
+                                      <TableCell>{student.full_name}</TableCell>
+                                      <TableCell>
+                                        <Badge variant="outline">{student.gender}</Badge>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
                 );
               })()}
             </CardContent>
