@@ -22,12 +22,7 @@ export const getStudents = async (
     }
     
     if (params.status) {
-      // Map status to is_active
-      if (params.status === 'active') {
-        query = query.eq('is_active', true);
-      } else {
-        query = query.eq('is_active', false);
-      }
+      query = query.eq('status', params.status);
     }
 
     const { data, error } = await query.order('created_at', { ascending: false });
@@ -53,8 +48,6 @@ export const getStudents = async (
       guardian_relationship: item.guardian_relationship || 'Parent',
       current_class: item.current_class_id?.toString() || null,
       current_stream: item.current_stream_id?.toString() || null,
-      current_class_id: item.current_class_id || null,
-      current_stream_id: item.current_stream_id || null,
       current_class_name: item.classes?.name || '',
       current_stream_name: item.streams?.name || '',
       current_class_stream: `${item.classes?.name || ''} ${item.streams?.name || ''}`.trim(),
@@ -63,7 +56,7 @@ export const getStudents = async (
       admission_year: item.admission_year || new Date().getFullYear(),
       term: item.term || 1,
       upi_number: item.upi_number,
-      status: item.is_active ? 'active' : 'inactive',
+      status: item.status,
       is_active: item.is_active,
       is_on_transport: item.is_on_transport || false,
       transport_route: item.transport_route,
@@ -118,8 +111,6 @@ export const getStudentById = async (id: string): Promise<Student | null> => {
       guardian_relationship: data.guardian_relationship || 'Parent',
       current_class: data.current_class_id?.toString() || null,
       current_stream: data.current_stream_id?.toString() || null,
-      current_class_id: data.current_class_id || null,
-      current_stream_id: data.current_stream_id || null,
       current_class_name: data.classes?.name || '',
       current_stream_name: data.streams?.name || '',
       current_class_stream: `${data.classes?.name || ''} ${data.streams?.name || ''}`.trim(),
@@ -128,7 +119,7 @@ export const getStudentById = async (id: string): Promise<Student | null> => {
       admission_year: data.admission_year || new Date().getFullYear(),
       term: data.term || 1,
       upi_number: data.upi_number,
-      status: data.is_active ? 'active' : 'inactive',
+      status: data.status,
       is_active: data.is_active,
       is_on_transport: data.is_on_transport || false,
       transport_route: data.transport_route,
@@ -207,8 +198,6 @@ export const createStudent = async (
       guardian_relationship: createdStudent.guardian_relationship,
       current_class: createdStudent.current_class_id?.toString() || null,
       current_stream: createdStudent.current_stream_id?.toString() || null,
-      current_class_id: createdStudent.current_class_id || null,
-      current_stream_id: createdStudent.current_stream_id || null,
       current_class_name: studentData.current_class_name,
       current_stream_name: studentData.current_stream_name,
       current_class_stream: studentData.current_class_stream || '',
@@ -321,8 +310,6 @@ export const updateStudent = async (id: string, studentData: Partial<Student>): 
       guardian_relationship: data.guardian_relationship,
       current_class: data.current_class_id?.toString() || null,
       current_stream: data.current_stream_id?.toString() || null,
-      current_class_id: data.current_class_id || null,
-      current_stream_id: data.current_stream_id || null,
       current_class_name: data.classes?.name || '',
       current_stream_name: data.streams?.name || '',
       current_class_stream: `${data.classes?.name || ''} ${data.streams?.name || ''}`.trim(),
@@ -331,7 +318,7 @@ export const updateStudent = async (id: string, studentData: Partial<Student>): 
       admission_year: data.admission_year,
       term: data.term,
       upi_number: data.upi_number,
-      status: data.is_active ? 'active' : 'inactive',
+      status: data.status,
       is_active: data.is_active,
       is_on_transport: data.is_on_transport,
       transport_route: data.transport_route,
@@ -624,8 +611,6 @@ export const bulkImportStudents = async (file: File): Promise<ImportResult> => {
           level: level || 'Primary',
           current_class: classId?.toString() || null,
           current_stream: streamId?.toString() || null,
-          current_class_id: classId || null,
-          current_stream_id: streamId || null,
           current_class_name: current_class_name || '',
           current_stream_name: current_stream_name || '',
           current_class_stream: `${current_class_name || ''} ${current_stream_name || ''}`.trim(),
