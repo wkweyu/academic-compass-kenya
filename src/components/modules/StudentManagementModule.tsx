@@ -102,6 +102,7 @@ const StudentManagementModule = () => {
     }
   });
 
+  // Fetch streams for selected class in transfer dialog
   const { data: streams } = useQuery({
     queryKey: ['streams', transferData.toClassId],
     queryFn: async () => {
@@ -117,6 +118,20 @@ const StudentManagementModule = () => {
       return data || [];
     },
     enabled: !!transferData.toClassId
+  });
+
+  // Fetch all streams (for same-class stream transfers)
+  const { data: allStreams } = useQuery({
+    queryKey: ['all-streams'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('streams')
+        .select('id, name, class_assigned_id')
+        .order('name');
+      
+      if (error) throw error;
+      return data || [];
+    }
   });
   
   // Create student mutation
@@ -290,26 +305,43 @@ const StudentManagementModule = () => {
   };
 
   const handleTransferSubmit = () => {
-    if (!transferData.student || !transferData.toClassId) {
-      toast.error('Please select a class to transfer to');
+    if (!transferData.student) {
+      toast.error('Student is required');
       return;
     }
 
-    if (!transferData.toStreamId) {
-      toast.error('Please select a stream for the transfer');
+    // Must select at least a new class or a new stream
+    if (!transferData.toClassId && !transferData.toStreamId) {
+      toast.error('Please select a new class and/or stream');
       return;
     }
 
-    const toClass = classes?.find(c => c.id.toString() === transferData.toClassId);
-    const toStream = streams?.find(s => s.id.toString() === transferData.toStreamId);
+    const student = transferData.student;
     
-    if (window.confirm(
-      `Transfer ${transferData.student.full_name} to ${toClass?.name} - Stream ${toStream?.name}?`
-    )) {
+    // If class is changing, stream is required
+    const isClassChanging = transferData.toClassId && transferData.toClassId !== student.current_class;
+    if (isClassChanging && !transferData.toStreamId) {
+      toast.error('Stream is required when changing class');
+      return;
+    }
+
+    // If only stream is changing (same class), use current class
+    const finalClassId = transferData.toClassId ? Number(transferData.toClassId) : Number(student.current_class);
+    const finalStreamId = transferData.toStreamId ? Number(transferData.toStreamId) : Number(student.current_stream);
+
+    const toClass = classes?.find(c => c.id === finalClassId);
+    const allAvailableStreams = transferData.toClassId ? streams : allStreams;
+    const toStream = allAvailableStreams?.find(s => s.id.toString() === transferData.toStreamId);
+    
+    const confirmMessage = isClassChanging 
+      ? `Transfer ${student.full_name} to ${toClass?.name} - ${toStream?.name}?`
+      : `Move ${student.full_name} to stream ${toStream?.name} within the same class?`;
+    
+    if (window.confirm(confirmMessage)) {
       transferMutation.mutate({
-        studentId: Number(transferData.student.id),
-        toClassId: Number(transferData.toClassId),
-        toStreamId: Number(transferData.toStreamId),
+        studentId: Number(student.id),
+        toClassId: finalClassId,
+        toStreamId: finalStreamId,
         notes: transferData.notes
       });
     }
@@ -928,10 +960,10 @@ const StudentManagementModule = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ArrowRightLeft className="h-5 w-5" />
-              Transfer Student to Another Class
+              Transfer Student
             </DialogTitle>
             <DialogDescription>
-              Move {transferData.student?.full_name} to a different class/stream
+              Move {transferData.student?.full_name} to a different class or stream
             </DialogDescription>
           </DialogHeader>
           
@@ -947,7 +979,7 @@ const StudentManagementModule = () => {
 
               {/* New Class Selection */}
               <div className="space-y-2">
-                <Label>Transfer To Class *</Label>
+                <Label>New Class (Optional - leave empty to keep current)</Label>
                 <Select
                   value={transferData.toClassId}
                   onValueChange={(value) => {
@@ -959,7 +991,7 @@ const StudentManagementModule = () => {
                   }}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select class" />
+                    <SelectValue placeholder="Keep current class" />
                   </SelectTrigger>
                   <SelectContent>
                     {classes?.map(cls => (
@@ -972,34 +1004,26 @@ const StudentManagementModule = () => {
               </div>
 
               {/* Stream Selection */}
-              {transferData.toClassId && (
-                <div className="space-y-2">
-                  <Label>Select Stream *</Label>
-                  <Select
-                    value={transferData.toStreamId}
-                    onValueChange={(value) => 
-                      setTransferData(prev => ({ ...prev, toStreamId: value }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select stream" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {streams && streams.length > 0 ? (
-                        streams.map(stream => (
-                          <SelectItem key={stream.id} value={stream.id.toString()}>
-                            {stream.name}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <SelectItem value="" disabled>
-                          No streams available for this class
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+              <div className="space-y-2">
+                <Label>New Stream (Optional - leave empty to keep current)</Label>
+                <Select
+                  value={transferData.toStreamId}
+                  onValueChange={(value) => 
+                    setTransferData(prev => ({ ...prev, toStreamId: value }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Keep current stream" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(transferData.toClassId ? streams : allStreams)?.map(stream => (
+                      <SelectItem key={stream.id} value={stream.id.toString()}>
+                        {stream.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
               {/* Notes */}
               <div className="space-y-2">
@@ -1034,7 +1058,7 @@ const StudentManagementModule = () => {
             </Button>
             <Button
               onClick={handleTransferSubmit}
-              disabled={!transferData.toClassId || !transferData.toStreamId || transferMutation.isPending}
+              disabled={(!transferData.toClassId && !transferData.toStreamId) || transferMutation.isPending}
             >
               {transferMutation.isPending ? (
                 <>
