@@ -641,21 +641,20 @@ export const exportStudents = async (filters: StudentFilters = {}): Promise<Blob
   try {
     const students = await getStudents(filters);
     
-    // CSV headers
+    // CSV headers - Match import template format
     const headers = [
-      'Admission Number', 'Full Name', 'Date of Birth', 'Gender', 'UPI Number',
-      'Guardian Name', 'Guardian Phone', 'Guardian Email', 'Guardian Relationship',
-      'Level', 'Class', 'Stream', 'Enrollment Date', 'Status',
-      'Academic Year', 'Admission Year', 'Term',
-      'Transport', 'Transport Route', 'Transport Type'
+      'full_name', 'date_of_birth', 'gender', 'upi_number',
+      'guardian_name', 'guardian_phone', 'guardian_email', 'guardian_relationship',
+      'level', 'current_class_name', 'current_stream_name',
+      'enrollment_date', 'status', 'academic_year', 'admission_year', 'term',
+      'is_on_transport', 'transport_route', 'transport_type'
     ];
 
-    // Build CSV rows
+    // Build CSV rows - Use same format as import template
     const rows = students.map(student => [
-      student.admission_number || '',
       student.full_name,
       student.date_of_birth,
-      student.gender === 'M' ? 'Male' : 'Female',
+      student.gender, // Keep as M/F for import compatibility
       student.upi_number || '',
       student.guardian_name,
       student.guardian_phone,
@@ -669,7 +668,7 @@ export const exportStudents = async (filters: StudentFilters = {}): Promise<Blob
       student.academic_year,
       student.admission_year,
       student.term,
-      student.is_on_transport ? 'Yes' : 'No',
+      student.is_on_transport ? 'true' : 'false',
       student.transport_route || '',
       student.transport_type || ''
     ]);
