@@ -30,6 +30,7 @@ import {
   UserCheck,
   FileText,
   Printer,
+  ArrowRightLeft,
 } from 'lucide-react';
 import { 
   getStudents, 
@@ -42,10 +43,12 @@ import {
   exportStudents,
   getImportTemplate
 } from '@/services/studentService';
+import { transferStudent } from '@/services/promotionService';
 import { findExistingGuardian } from '@/services/guardianService';
 import { StudentForm } from '@/components/forms/StudentForm';
 import AdmissionFormPrint from '@/components/AdmissionFormPrint';
 import { Student, StudentFilters, STUDENT_STATUS_OPTIONS, GENDER_OPTIONS } from '@/types/student';
+import { supabase } from '@/integrations/supabase/client';
 
 
 const StudentManagementModule = () => {
@@ -56,6 +59,18 @@ const StudentManagementModule = () => {
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
+  const [transferData, setTransferData] = useState<{
+    student: Student | null;
+    toClassId: string;
+    toStreamId: string;
+    notes: string;
+  }>({
+    student: null,
+    toClassId: '',
+    toStreamId: '',
+    notes: ''
+  });
   const [showPrintDialog, setShowPrintDialog] = useState(false);
   const [printStudentData, setPrintStudentData] = useState<Omit<Student, 'id' | 'admission_number' | 'created_at' | 'updated_at'> | null>(null);
   
@@ -71,6 +86,37 @@ const StudentManagementModule = () => {
   const { data: stats } = useQuery({
     queryKey: ['student-stats'],
     queryFn: getStudentStats,
+  });
+
+  // Fetch classes and streams for transfer
+  const { data: classes } = useQuery({
+    queryKey: ['classes'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('classes')
+        .select('id, name, grade_level')
+        .order('grade_level', { ascending: true });
+      
+      if (error) throw error;
+      return data || [];
+    }
+  });
+
+  const { data: streams } = useQuery({
+    queryKey: ['streams', transferData.toClassId],
+    queryFn: async () => {
+      if (!transferData.toClassId) return [];
+      
+      const { data, error } = await supabase
+        .from('streams')
+        .select('id, name')
+        .eq('class_assigned_id', parseInt(transferData.toClassId))
+        .order('name');
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!transferData.toClassId
   });
   
   // Create student mutation
@@ -174,6 +220,32 @@ const StudentManagementModule = () => {
     },
   });
 
+  // Transfer student mutation
+  const transferMutation = useMutation({
+    mutationFn: ({ studentId, toClassId, toStreamId, notes }: {
+      studentId: number;
+      toClassId: number;
+      toStreamId: number | null;
+      notes?: string;
+    }) => transferStudent(studentId, toClassId, toStreamId, notes),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+      queryClient.invalidateQueries({ queryKey: ['student-stats'] });
+      setIsTransferDialogOpen(false);
+      setTransferData({
+        student: null,
+        toClassId: '',
+        toStreamId: '',
+        notes: ''
+      });
+      toast.success('Student transferred successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to transfer student');
+      console.error('Transfer error:', error);
+    }
+  });
+
   const handleSearch = (searchTerm: string) => {
     setFilters(prev => ({ ...prev, search: searchTerm }));
   };
@@ -204,6 +276,36 @@ const StudentManagementModule = () => {
   const handleDeleteStudent = (studentId: string) => {
     if (window.confirm('Are you sure you want to delete this student?')) {
       deleteMutation.mutate(studentId);
+    }
+  };
+
+  const handleTransferStudent = (student: Student) => {
+    setTransferData({
+      student,
+      toClassId: '',
+      toStreamId: '',
+      notes: `Transferred from ${student.current_class_stream}`
+    });
+    setIsTransferDialogOpen(true);
+  };
+
+  const handleTransferSubmit = () => {
+    if (!transferData.student || !transferData.toClassId) {
+      toast.error('Please select a class to transfer to');
+      return;
+    }
+
+    const toClass = classes?.find(c => c.id.toString() === transferData.toClassId);
+    
+    if (window.confirm(
+      `Transfer ${transferData.student.full_name} to ${toClass?.name}${transferData.toStreamId ? ` - Stream ${streams?.find(s => s.id.toString() === transferData.toStreamId)?.name}` : ''}?`
+    )) {
+      transferMutation.mutate({
+        studentId: parseInt(transferData.student.id),
+        toClassId: parseInt(transferData.toClassId),
+        toStreamId: transferData.toStreamId ? parseInt(transferData.toStreamId) : null,
+        notes: transferData.notes
+      });
     }
   };
 
@@ -489,13 +591,23 @@ const StudentManagementModule = () => {
                       variant="ghost"
                       size="sm"
                       onClick={() => handleViewStudent(student.id)}
+                      title="View Details"
                     >
                       <Eye className="h-3 w-3" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
+                      onClick={() => handleTransferStudent(student)}
+                      title="Transfer to Another Class"
+                    >
+                      <ArrowRightLeft className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => handleEditStudent(student.id)}
+                      title="Edit Student"
                     >
                       <Edit className="h-3 w-3" />
                     </Button>
@@ -504,6 +616,7 @@ const StudentManagementModule = () => {
                       size="sm"
                       onClick={() => handleDeleteStudent(student.id)}
                       className="text-destructive hover:text-destructive"
+                      title="Delete Student"
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>
@@ -798,6 +911,131 @@ const StudentManagementModule = () => {
             >
               <Download className="h-4 w-4 mr-2" />
               Download Template
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Transfer Student Dialog */}
+      <Dialog open={isTransferDialogOpen} onOpenChange={setIsTransferDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ArrowRightLeft className="h-5 w-5" />
+              Transfer Student to Another Class
+            </DialogTitle>
+            <DialogDescription>
+              Move {transferData.student?.full_name} to a different class/stream
+            </DialogDescription>
+          </DialogHeader>
+          
+          {transferData.student && (
+            <div className="space-y-4">
+              {/* Current Placement */}
+              <div className="p-3 bg-muted rounded-lg">
+                <Label className="text-sm font-medium">Current Placement</Label>
+                <p className="text-sm mt-1">
+                  {transferData.student.current_class_stream || 'Unassigned'}
+                </p>
+              </div>
+
+              {/* New Class Selection */}
+              <div className="space-y-2">
+                <Label>Transfer To Class *</Label>
+                <Select
+                  value={transferData.toClassId}
+                  onValueChange={(value) => {
+                    setTransferData(prev => ({
+                      ...prev,
+                      toClassId: value,
+                      toStreamId: '' // Reset stream when class changes
+                    }));
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select class" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {classes?.map(cls => (
+                      <SelectItem key={cls.id} value={cls.id.toString()}>
+                        {cls.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Stream Selection */}
+              {transferData.toClassId && streams && streams.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Select Stream (Optional)</Label>
+                  <Select
+                    value={transferData.toStreamId}
+                    onValueChange={(value) => 
+                      setTransferData(prev => ({ ...prev, toStreamId: value }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select stream" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">No Stream</SelectItem>
+                      {streams.map(stream => (
+                        <SelectItem key={stream.id} value={stream.id.toString()}>
+                          {stream.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Notes */}
+              <div className="space-y-2">
+                <Label>Transfer Notes (Optional)</Label>
+                <Textarea
+                  placeholder="Add reason for transfer..."
+                  value={transferData.notes}
+                  onChange={(e) => 
+                    setTransferData(prev => ({ ...prev, notes: e.target.value }))
+                  }
+                  rows={3}
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsTransferDialogOpen(false);
+                setTransferData({
+                  student: null,
+                  toClassId: '',
+                  toStreamId: '',
+                  notes: ''
+                });
+              }}
+              disabled={transferMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleTransferSubmit}
+              disabled={!transferData.toClassId || transferMutation.isPending}
+            >
+              {transferMutation.isPending ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                  Transferring...
+                </>
+              ) : (
+                <>
+                  <ArrowRightLeft className="h-4 w-4 mr-2" />
+                  Transfer Student
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
