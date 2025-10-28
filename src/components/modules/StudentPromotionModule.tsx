@@ -15,16 +15,21 @@ import {
   TrendingUp,
   History,
   AlertCircle,
-  CheckCircle2
+  CheckCircle2,
+  Calendar
 } from 'lucide-react';
 import { bulkPromoteStudents, getPromotionHistory } from '@/services/promotionService';
 import { supabase } from '@/integrations/supabase/client';
 import { showError, showSuccess } from '@/utils/errorHandler';
+import { format } from 'date-fns';
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const StudentPromotionModule = () => {
   const [fromClassId, setFromClassId] = useState<string>('');
   const [toClassId, setToClassId] = useState<string>('');
   const [academicYear, setAcademicYear] = useState<string>(new Date().getFullYear().toString());
+  const [promotionDate, setPromotionDate] = useState<Date>(new Date());
   const [notes, setNotes] = useState('');
   const [historyFilters, setHistoryFilters] = useState<{
     academic_year?: number;
@@ -101,6 +106,7 @@ const StudentPromotionModule = () => {
       // Reset form
       setFromClassId('');
       setToClassId('');
+      setPromotionDate(new Date());
       setNotes('');
     },
     onError: (error: any) => {
@@ -123,12 +129,13 @@ const StudentPromotionModule = () => {
     const toClass = classes?.find(c => c.id.toString() === toClassId);
 
     if (window.confirm(
-      `Promote all ${studentsToPromote?.length || 0} students from ${fromClass?.name} to ${toClass?.name}?`
+      `Promote all ${studentsToPromote?.length || 0} students from ${fromClass?.name} to ${toClass?.name} on ${format(promotionDate, "PP")}?`
     )) {
       promotionMutation.mutate({
         from_class_id: parseInt(fromClassId),
         to_class_id: parseInt(toClassId),
         academic_year: parseInt(academicYear),
+        promotion_date: promotionDate.toISOString(),
         notes
       });
     }
@@ -161,19 +168,19 @@ const StudentPromotionModule = () => {
             <CardHeader>
               <CardTitle>Bulk Student Promotion</CardTitle>
               <CardDescription>
-                Promote all students from one class to another
+                Promote students between classes at any time during the academic year
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  This will promote all active students from the selected source class to the destination class.
-                  This action will update student records and create promotion history entries.
+                  Promote all active students from the selected source class to the destination class.
+                  Students will maintain their current stream assignments.
                 </AlertDescription>
               </Alert>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2">
                   <Label>Academic Year</Label>
                   <Select value={academicYear} onValueChange={setAcademicYear}>
@@ -188,6 +195,29 @@ const StudentPromotionModule = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Promotion Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
+                      >
+                        <Calendar className="mr-2 h-4 w-4" />
+                        {format(promotionDate, "PPP")}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={promotionDate}
+                        onSelect={(date) => date && setPromotionDate(date)}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
 
                 <div className="space-y-2">
@@ -276,6 +306,7 @@ const StudentPromotionModule = () => {
                   onClick={() => {
                     setFromClassId('');
                     setToClassId('');
+                    setPromotionDate(new Date());
                     setNotes('');
                   }}
                   disabled={promotionMutation.isPending}

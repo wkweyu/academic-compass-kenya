@@ -13,6 +13,7 @@ export interface BulkPromotionRequest {
   from_class_id: number;
   to_class_id: number;
   academic_year: number;
+  promotion_date?: string;
   student_ids?: number[];
   notes?: string;
 }
@@ -30,6 +31,8 @@ export interface PromotionHistory {
 
 export const promoteStudent = async (data: PromotionData): Promise<void> => {
   try {
+    console.log('Promoting student:', data);
+    
     // Get current student info to maintain stream
     const { data: student, error: fetchError } = await supabase
       .from('students')
@@ -37,7 +40,12 @@ export const promoteStudent = async (data: PromotionData): Promise<void> => {
       .eq('id', data.student_id)
       .single();
 
-    if (fetchError) throw fetchError;
+    if (fetchError) {
+      console.error('Error fetching student:', fetchError);
+      throw fetchError;
+    }
+
+    console.log('Student data:', student);
 
     // Start a transaction by creating the promotion record
     const { error: promotionError } = await supabase
@@ -51,7 +59,10 @@ export const promoteStudent = async (data: PromotionData): Promise<void> => {
         notes: data.notes || ''
       });
 
-    if (promotionError) throw promotionError;
+    if (promotionError) {
+      console.error('Error creating promotion record:', promotionError);
+      throw promotionError;
+    }
 
     // Update student's current class while maintaining stream
     const { error: updateError } = await supabase
@@ -59,12 +70,16 @@ export const promoteStudent = async (data: PromotionData): Promise<void> => {
       .update({
         current_class_id: data.to_class_id,
         current_stream_id: student?.current_stream_id, // Maintain current stream
-        academic_year: data.academic_year,
         updated_at: new Date().toISOString()
       })
       .eq('id', data.student_id);
 
-    if (updateError) throw updateError;
+    if (updateError) {
+      console.error('Error updating student:', updateError);
+      throw updateError;
+    }
+    
+    console.log('Student promoted successfully');
   } catch (error) {
     console.error('Error promoting student:', error);
     throw error;
@@ -110,6 +125,7 @@ export const bulkPromoteStudents = async (data: BulkPromotionRequest): Promise<{
           from_class_id: student.current_class_id,
           to_class_id: data.to_class_id,
           academic_year: data.academic_year,
+          promotion_date: data.promotion_date,
           notes: data.notes
         });
         result.success++;
