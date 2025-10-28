@@ -402,7 +402,7 @@ export const ClassManagementModule = () => {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{Math.round(stats.capacity_utilization * 100)}%</div>
+              <div className="text-2xl font-bold">{stats.capacity_utilization}%</div>
               <p className="text-xs text-muted-foreground">
                 Average utilization
               </p>

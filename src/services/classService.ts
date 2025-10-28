@@ -3,14 +3,52 @@ import { Class, Stream, ClassFilters, StreamFilters, ClassStats } from "@/types/
 
 export const classService = {
   async getClasses(filters?: ClassFilters): Promise<Class[]> {
+    const { data: schoolId } = await supabase.rpc('get_user_school_id');
+    
+    if (!schoolId) return [];
+
+    // Get classes with basic info
     let query = supabase
       .from('classes')
-      .select('*');
+      .select('*')
+      .eq('school_id', schoolId)
+      .order('grade_level', { ascending: true });
     
-    const { data, error } = await query.order('grade_level', { ascending: true });
+    const { data: classesData, error } = await query;
     
     if (error) throw error;
-    return (data || []) as Class[];
+    
+    if (!classesData || classesData.length === 0) return [];
+
+    // Fetch streams and students for all classes
+    const [streamsResult, studentsResult] = await Promise.all([
+      supabase
+        .from('streams')
+        .select('id, class_assigned_id, capacity')
+        .eq('school_id', schoolId),
+      supabase
+        .from('students')
+        .select('id, current_class_id')
+        .eq('school_id', schoolId)
+        .eq('is_active', true)
+    ]);
+
+    const streams = streamsResult.data || [];
+    const students = studentsResult.data || [];
+
+    // Calculate stats for each class
+    return classesData.map(cls => {
+      const classStreams = streams.filter(s => s.class_assigned_id === cls.id);
+      const classStudents = students.filter(s => s.current_class_id === cls.id);
+      const totalCapacity = classStreams.reduce((sum, s) => sum + (s.capacity || 0), 0);
+
+      return {
+        ...cls,
+        total_streams: classStreams.length,
+        total_students: classStudents.length,
+        capacity: totalCapacity,
+      } as Class;
+    });
   },
 
   async getClass(id: string): Promise<Class | null> {

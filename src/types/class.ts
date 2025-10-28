@@ -104,10 +104,9 @@ export interface ClassTransferRequest {
 }
 
 export const CLASS_GROUPS = [
-  { value: 'pre-primary', label: 'Pre-Primary', levels: [1, 2] },
-  { value: 'lower-primary', label: 'Lower Primary', levels: [1, 2, 3] },
-  { value: 'upper-primary', label: 'Upper Primary', levels: [4, 5, 6, 7, 8] },
-  { value: 'secondary', label: 'Secondary', levels: [9, 10, 11, 12] },
+  { value: 'primary', label: 'Primary', levels: [1, 2, 3, 4, 5, 6] },
+  { value: 'junior-secondary', label: 'Junior Secondary', levels: [7, 8, 9] },
+  { value: 'senior-secondary', label: 'Senior Secondary', levels: [10, 11, 12] },
 ];
 
 export const STREAM_STATUS_OPTIONS = [
