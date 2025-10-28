@@ -452,25 +452,197 @@ export const getStudentStats = async (): Promise<StudentStats> => {
 };
 
 export const bulkImportStudents = async (file: File): Promise<ImportResult> => {
-  // TODO: Implement this function
-  console.log(file);
-  return {
+  const result: ImportResult = {
     success: 0,
     errors: 0,
     warnings: 0,
     details: [],
   };
+
+  try {
+    const text = await file.text();
+    const lines = text.split('\n').filter(line => line.trim());
+    
+    if (lines.length < 2) {
+      throw new Error('CSV file is empty or has no data rows');
+    }
+
+    // Skip header row
+    const dataLines = lines.slice(1);
+
+    for (let i = 0; i < dataLines.length; i++) {
+      const line = dataLines[i].trim();
+      if (!line) continue;
+
+      const values = line.split(',').map(v => v.trim());
+      const rowNum = i + 2; // +2 because we skip header and arrays are 0-indexed
+
+      try {
+        // Validate required fields
+        if (values.length < 14) {
+          throw new Error(`Insufficient columns (expected at least 14, got ${values.length})`);
+        }
+
+        const [
+          full_name, date_of_birth, gender, upi_number,
+          guardian_name, guardian_phone, guardian_email, guardian_relationship,
+          level, current_class_name, current_stream_name,
+          enrollment_date, status, academic_year, admission_year, term,
+          is_on_transport, transport_route, transport_type
+        ] = values;
+
+        // Basic validation
+        if (!full_name || full_name.length < 3) {
+          throw new Error('Full name is required (min 3 characters)');
+        }
+        if (!['M', 'F', 'Male', 'Female'].includes(gender)) {
+          throw new Error('Gender must be M, F, Male, or Female');
+        }
+        if (!guardian_name || !guardian_phone) {
+          throw new Error('Guardian name and phone are required');
+        }
+
+        // Prepare student data
+        const studentData: Omit<Student, 'id' | 'admission_number' | 'created_at' | 'updated_at'> = {
+          full_name,
+          first_name: full_name.split(' ')[0],
+          last_name: full_name.split(' ').slice(1).join(' ') || full_name.split(' ')[0],
+          date_of_birth: date_of_birth || new Date().toISOString().split('T')[0],
+          gender: gender.toUpperCase().startsWith('M') ? 'M' : 'F',
+          upi_number: upi_number || undefined,
+          guardian_name,
+          guardian_phone,
+          guardian_email: guardian_email || undefined,
+          guardian_relationship: guardian_relationship || 'Parent',
+          level: level || 'Primary',
+          current_class: null,
+          current_stream: null,
+          current_class_name: current_class_name || '',
+          current_stream_name: current_stream_name || '',
+          current_class_stream: `${current_class_name || ''} ${current_stream_name || ''}`.trim(),
+          enrollment_date: enrollment_date || new Date().toISOString().split('T')[0],
+          status: (status as any) || 'active',
+          academic_year: parseInt(academic_year) || new Date().getFullYear(),
+          admission_year: parseInt(admission_year) || new Date().getFullYear(),
+          term: (parseInt(term) || 1) as 1 | 2 | 3,
+          is_on_transport: is_on_transport?.toLowerCase() === 'true' || is_on_transport === '1',
+          transport_route: transport_route ? parseInt(transport_route) : undefined,
+          transport_type: transport_type && ['one_way', 'two_way'].includes(transport_type) ? transport_type as 'one_way' | 'two_way' : undefined,
+          is_active: true,
+          stream: current_stream_name || 'Main',
+          photo: null,
+          photo_url: null,
+        };
+
+        // Create student
+        await createStudent(studentData);
+        result.success++;
+      } catch (error: any) {
+        result.errors++;
+        result.details.push({
+          row: rowNum,
+          message: `Error: ${error.message || 'Unknown error'}`,
+          type: 'error',
+        });
+      }
+    }
+  } catch (error: any) {
+    result.errors++;
+    result.details.push({
+      row: 0,
+      message: `File processing error: ${error.message || 'Unknown error'}`,
+      type: 'error',
+    });
+  }
+
+  return result;
 };
 
 export const exportStudents = async (filters: StudentFilters = {}): Promise<Blob> => {
-  // TODO: Implement this function
-  console.log(filters);
-  const csvContent = "id,name\n1,John Doe";
-  return new Blob([csvContent], { type: 'text/csv' });
+  try {
+    const students = await getStudents(filters);
+    
+    // CSV headers
+    const headers = [
+      'Admission Number', 'Full Name', 'Date of Birth', 'Gender', 'UPI Number',
+      'Guardian Name', 'Guardian Phone', 'Guardian Email', 'Guardian Relationship',
+      'Level', 'Class', 'Stream', 'Enrollment Date', 'Status',
+      'Academic Year', 'Admission Year', 'Term',
+      'Transport', 'Transport Route', 'Transport Type'
+    ];
+
+    // Build CSV rows
+    const rows = students.map(student => [
+      student.admission_number || '',
+      student.full_name,
+      student.date_of_birth,
+      student.gender === 'M' ? 'Male' : 'Female',
+      student.upi_number || '',
+      student.guardian_name,
+      student.guardian_phone,
+      student.guardian_email || '',
+      student.guardian_relationship || '',
+      student.level || '',
+      student.current_class_name || '',
+      student.current_stream_name || '',
+      student.enrollment_date,
+      student.status,
+      student.academic_year,
+      student.admission_year,
+      student.term,
+      student.is_on_transport ? 'Yes' : 'No',
+      student.transport_route || '',
+      student.transport_type || ''
+    ]);
+
+    // Combine headers and rows
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    return new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  } catch (error) {
+    console.error('Error exporting students:', error);
+    throw error;
+  }
 };
 
 export const getImportTemplate = (): Blob => {
-  // TODO: Implement this function
-  const csvContent = "id,name\n1,John Doe";
-  return new Blob([csvContent], { type: 'text/csv' });
+  const headers = [
+    'full_name', 'date_of_birth', 'gender', 'upi_number',
+    'guardian_name', 'guardian_phone', 'guardian_email', 'guardian_relationship',
+    'level', 'current_class_name', 'current_stream_name',
+    'enrollment_date', 'status', 'academic_year', 'admission_year', 'term',
+    'is_on_transport', 'transport_route', 'transport_type'
+  ];
+
+  const exampleRow = [
+    'John Doe',
+    '2010-01-15',
+    'M',
+    '',
+    'Jane Doe',
+    '+254712345678',
+    'jane@example.com',
+    'Parent',
+    'Primary',
+    'Grade 1',
+    'East',
+    new Date().toISOString().split('T')[0],
+    'active',
+    new Date().getFullYear().toString(),
+    new Date().getFullYear().toString(),
+    '1',
+    'false',
+    '',
+    ''
+  ];
+
+  const csvContent = [
+    headers.join(','),
+    exampleRow.map(cell => `"${cell}"`).join(',')
+  ].join('\n');
+
+  return new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
 };
