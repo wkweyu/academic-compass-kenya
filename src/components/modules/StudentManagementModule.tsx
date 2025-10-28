@@ -136,10 +136,40 @@ const StudentManagementModule = () => {
       queryClient.invalidateQueries({ queryKey: ['students'] });
       queryClient.invalidateQueries({ queryKey: ['student-stats'] });
       setIsImportDialogOpen(false);
-      toast.success(`Import completed: ${result.success} successful, ${result.errors} errors`);
+      
+      // Show detailed results
+      if (result.success > 0 && result.errors === 0 && result.warnings === 0) {
+        toast.success(`Successfully imported ${result.success} student${result.success !== 1 ? 's' : ''}`);
+      } else if (result.success > 0 && (result.errors > 0 || result.warnings > 0)) {
+        toast.warning(
+          `Import completed with issues: ${result.success} successful, ${result.errors} failed, ${result.warnings} warnings`,
+          { duration: 5000 }
+        );
+        
+        // Show first few errors/warnings
+        const issues = result.details.slice(0, 3);
+        issues.forEach(detail => {
+          if (detail.type === 'error') {
+            toast.error(`Row ${detail.row}: ${detail.message}`, { duration: 5000 });
+          } else if (detail.type === 'warning') {
+            toast.warning(`Row ${detail.row}: ${detail.message}`, { duration: 4000 });
+          }
+        });
+        
+        if (result.details.length > 3) {
+          toast.info(`...and ${result.details.length - 3} more issues. Check console for full details.`);
+          console.table(result.details);
+        }
+      } else {
+        toast.error(`Import failed: ${result.errors} errors. Check the file format and try again.`);
+        result.details.slice(0, 5).forEach(detail => {
+          toast.error(`Row ${detail.row}: ${detail.message}`, { duration: 5000 });
+        });
+        console.table(result.details);
+      }
     },
-    onError: (error) => {
-      toast.error('Failed to import students');
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to import students. Please check the file format.');
       console.error('Import error:', error);
     },
   });
@@ -671,7 +701,7 @@ const StudentManagementModule = () => {
 
       {/* Import Dialog */}
       <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Import Students</DialogTitle>
             <DialogDescription>
@@ -679,11 +709,23 @@ const StudentManagementModule = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div>
-              <Label>CSV File</Label>
+            <div className="border-2 border-dashed rounded-lg p-6">
+              <Label htmlFor="csv-upload" className="cursor-pointer">
+                <div className="flex flex-col items-center gap-2 text-center">
+                  <Upload className="h-8 w-8 text-muted-foreground" />
+                  <div className="text-sm">
+                    <span className="text-primary font-medium">Click to upload</span>
+                    {' or drag and drop'}
+                  </div>
+                  <p className="text-xs text-muted-foreground">CSV file only (max 5MB)</p>
+                </div>
+              </Label>
               <Input 
+                id="csv-upload"
                 type="file" 
                 accept=".csv"
+                className="hidden"
+                disabled={importMutation.isPending}
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) {
@@ -692,21 +734,68 @@ const StudentManagementModule = () => {
                 }}
               />
             </div>
-            <div className="text-sm text-muted-foreground">
-              <p>Make sure your CSV file includes the following columns:</p>
-              <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>full_name</li>
-                <li>gender (M/F)</li>
-                <li>date_of_birth (YYYY-MM-DD)</li>
-                <li>guardian_name</li>
-                <li>guardian_phone</li>
-                <li>current_class_name</li>
-                <li>current_stream_name</li>
-              </ul>
+            
+            {importMutation.isPending && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                Processing import... This may take a moment.
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium">Required Columns:</h4>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="flex items-start gap-1">
+                  <span className="text-destructive">*</span>
+                  <span>full_name</span>
+                </div>
+                <div className="flex items-start gap-1">
+                  <span className="text-destructive">*</span>
+                  <span>gender (M/F or Male/Female)</span>
+                </div>
+                <div className="flex items-start gap-1">
+                  <span className="text-destructive">*</span>
+                  <span>guardian_name</span>
+                </div>
+                <div className="flex items-start gap-1">
+                  <span className="text-destructive">*</span>
+                  <span>guardian_phone</span>
+                </div>
+                <div className="flex items-start gap-1">
+                  <span className="text-muted-foreground">○</span>
+                  <span className="text-muted-foreground">date_of_birth</span>
+                </div>
+                <div className="flex items-start gap-1">
+                  <span className="text-muted-foreground">○</span>
+                  <span className="text-muted-foreground">guardian_email</span>
+                </div>
+                <div className="flex items-start gap-1">
+                  <span className="text-muted-foreground">○</span>
+                  <span className="text-muted-foreground">current_class_name</span>
+                </div>
+                <div className="flex items-start gap-1">
+                  <span className="text-muted-foreground">○</span>
+                  <span className="text-muted-foreground">current_stream_name</span>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground italic mt-2">
+                * Required fields | ○ Optional fields
+              </p>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={handleDownloadTemplate}>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsImportDialogOpen(false)}
+              disabled={importMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={handleDownloadTemplate}
+              disabled={importMutation.isPending}
+            >
               <Download className="h-4 w-4 mr-2" />
               Download Template
             </Button>

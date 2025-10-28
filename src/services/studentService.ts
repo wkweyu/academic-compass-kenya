@@ -460,12 +460,62 @@ export const bulkImportStudents = async (file: File): Promise<ImportResult> => {
   };
 
   try {
+    // Validate file type
+    if (!file.name.endsWith('.csv')) {
+      throw new Error('Invalid file type. Please upload a CSV file.');
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      throw new Error('File size exceeds 5MB limit.');
+    }
+
     const text = await file.text();
     const lines = text.split('\n').filter(line => line.trim());
     
     if (lines.length < 2) {
       throw new Error('CSV file is empty or has no data rows');
     }
+
+    // Parse CSV properly (handle quoted fields)
+    const parseCSVLine = (line: string): string[] => {
+      const result: string[] = [];
+      let current = '';
+      let inQuotes = false;
+      
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          result.push(current.trim().replace(/^"|"$/g, ''));
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      result.push(current.trim().replace(/^"|"$/g, ''));
+      return result;
+    };
+
+    // Get all classes and streams for lookup
+    const { data: classes, error: classError } = await supabase
+      .from('classes')
+      .select('id, name, streams(id, name)');
+    
+    if (classError) {
+      console.error('Error fetching classes:', classError);
+    }
+
+    const classLookup = new Map<string, { id: number; streams: Map<string, number> }>();
+    classes?.forEach(cls => {
+      const streamMap = new Map<string, number>();
+      (cls.streams as any[])?.forEach((stream: any) => {
+        streamMap.set(stream.name.toLowerCase(), stream.id);
+      });
+      classLookup.set(cls.name.toLowerCase(), { id: cls.id, streams: streamMap });
+    });
 
     // Skip header row
     const dataLines = lines.slice(1);
@@ -474,7 +524,7 @@ export const bulkImportStudents = async (file: File): Promise<ImportResult> => {
       const line = dataLines[i].trim();
       if (!line) continue;
 
-      const values = line.split(',').map(v => v.trim());
+      const values = parseCSVLine(line);
       const rowNum = i + 2; // +2 because we skip header and arrays are 0-indexed
 
       try {
@@ -502,6 +552,35 @@ export const bulkImportStudents = async (file: File): Promise<ImportResult> => {
           throw new Error('Guardian name and phone are required');
         }
 
+        // Lookup class and stream IDs
+        let classId: number | null = null;
+        let streamId: number | null = null;
+        
+        if (current_class_name) {
+          const classData = classLookup.get(current_class_name.toLowerCase());
+          if (classData) {
+            classId = classData.id;
+            if (current_stream_name) {
+              streamId = classData.streams.get(current_stream_name.toLowerCase()) || null;
+              if (!streamId) {
+                result.warnings++;
+                result.details.push({
+                  row: rowNum,
+                  message: `Warning: Stream "${current_stream_name}" not found for class "${current_class_name}". Student will be created without stream.`,
+                  type: 'warning',
+                });
+              }
+            }
+          } else {
+            result.warnings++;
+            result.details.push({
+              row: rowNum,
+              message: `Warning: Class "${current_class_name}" not found. Student will be created without class assignment.`,
+              type: 'warning',
+            });
+          }
+        }
+
         // Prepare student data
         const studentData: Omit<Student, 'id' | 'admission_number' | 'created_at' | 'updated_at'> = {
           full_name,
@@ -515,8 +594,8 @@ export const bulkImportStudents = async (file: File): Promise<ImportResult> => {
           guardian_email: guardian_email || undefined,
           guardian_relationship: guardian_relationship || 'Parent',
           level: level || 'Primary',
-          current_class: null,
-          current_stream: null,
+          current_class: classId?.toString() || null,
+          current_stream: streamId?.toString() || null,
           current_class_name: current_class_name || '',
           current_stream_name: current_stream_name || '',
           current_class_stream: `${current_class_name || ''} ${current_stream_name || ''}`.trim(),
@@ -529,7 +608,7 @@ export const bulkImportStudents = async (file: File): Promise<ImportResult> => {
           transport_route: transport_route ? parseInt(transport_route) : undefined,
           transport_type: transport_type && ['one_way', 'two_way'].includes(transport_type) ? transport_type as 'one_way' | 'two_way' : undefined,
           is_active: true,
-          stream: current_stream_name || 'Main',
+          stream: current_stream_name || '',
           photo: null,
           photo_url: null,
         };
@@ -541,7 +620,7 @@ export const bulkImportStudents = async (file: File): Promise<ImportResult> => {
         result.errors++;
         result.details.push({
           row: rowNum,
-          message: `Error: ${error.message || 'Unknown error'}`,
+          message: error.message || 'Unknown error',
           type: 'error',
         });
       }
