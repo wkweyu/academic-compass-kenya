@@ -16,6 +16,7 @@ import { classService } from '@/services/classService';
 import { streamSettingsService } from '@/services/streamSettingsService';
 import { StreamNameSetting } from '@/types/stream-settings';
 import { api } from '@/api/api';
+import { supabase } from '@/integrations/supabase/client';
 
 export const ClassManagementModule = () => {
   const { toast } = useToast();
@@ -58,31 +59,29 @@ export const ClassManagementModule = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [classData, streamData, statsData, streamNamesData, teachersData, studentsData] = await Promise.all([
+      const [classData, streamData, statsData, streamNamesData, teachersData] = await Promise.all([
         classService.getClasses(filters),
         classService.getStreams(streamFilters),
         classService.getClassStats(),
         streamSettingsService.getStreamNames(),
-        api.get('/teachers/').then((res: any) => res.data.results || []).catch(() => []),
-        api.get('/students/').then((res: any) => {
-          // Handle both paginated and non-paginated responses
-          const data = res.data.results || res.data || [];
-          console.log('Students loaded:', data.length);
-          return data;
-        }).catch((err) => {
-          console.error('Error loading students:', err);
-          return [];
-        })
+        api.get('/teachers/').then((res: any) => res.data.results || []).catch(() => [])
       ]);
+      
+      // Load students directly from Supabase
+      const { data: studentsData } = await supabase
+        .from('students')
+        .select('*')
+        .eq('is_active', true)
+        .order('admission_number');
       
       setClasses(classData);
       setStreams(streamData);
       setStats(statsData);
       setStreamNames(streamNamesData);
       setTeachers(teachersData);
-      setStudents(studentsData);
-      console.log('Final students state:', studentsData.length);
+      setStudents(studentsData || []);
     } catch (error) {
+      console.error('Load data error:', error);
       toast({
         title: "Error",
         description: "Failed to load class data",
