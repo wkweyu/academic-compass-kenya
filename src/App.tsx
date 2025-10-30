@@ -16,6 +16,7 @@ import ClassesPage from "./pages/ClassesPage";
 import TeachersPage from "./pages/TeachersPage";
 import SubjectsPage from "./pages/SubjectsPage";
 import ScoresPage from "./pages/ScoresPage";
+import AttendancePage from "./pages/AttendancePage";
 import ResultsPage from "./pages/ResultsPage";
 import FeesPage from "./pages/FeesPage";
 import PromotionsPage from "./pages/PromotionsPage";
@@ -48,6 +49,7 @@ const App = () => (
                 <Route path="/results" element={<ResultsPage />} />
                 <Route path="/promotions" element={<PromotionsPage />} />
                 <Route path="/fees" element={<FeesPage />} />
+                <Route path="/attendance" element={<AttendancePage />} />
                 <Route path="/payroll" element={<ComingSoonPage title="Payroll Management" />} />
                 <Route path="/accounting" element={<ComingSoonPage title="Accounting" />} />
                 <Route path="/settings" element={<SettingsPage />} />
