@@ -18,6 +18,7 @@ import SubjectsPage from "./pages/SubjectsPage";
 import ScoresPage from "./pages/ScoresPage";
 import AttendancePage from "./pages/AttendancePage";
 import AttendanceReportsPage from "./pages/AttendanceReportsPage";
+import { AttendanceDatasheet } from "./pages/Attendance/AttendanceDatasheet";
 import ResultsPage from "./pages/ResultsPage";
 import FeesPage from "./pages/FeesPage";
 import PromotionsPage from "./pages/PromotionsPage";
@@ -52,6 +53,7 @@ const App = () => (
                 <Route path="/fees" element={<FeesPage />} />
                 <Route path="/attendance" element={<AttendancePage />} />
                 <Route path="/attendance/reports" element={<AttendanceReportsPage />} />
+                <Route path="/attendance/datasheet" element={<AttendanceDatasheet />} />
                 <Route path="/grading" element={<ComingSoonPage title="Grading" />} />
                 <Route path="/transport" element={<ComingSoonPage title="Transport" />} />
                 <Route path="/procurement" element={<ComingSoonPage title="Procurement" />} />
