@@ -190,7 +190,7 @@ export function AttendanceModule() {
         class_id: parseInt(selectedClass),
         stream_id: selectedStream && selectedStream !== 'all' ? parseInt(selectedStream) : null,
         date: dateStr,
-        status: record.status,
+        status: record.status.toLowerCase(),
         time_in: record.time_in || null,
         notes: record.notes || null,
         reason: record.reason || null,
