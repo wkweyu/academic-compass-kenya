@@ -13,7 +13,10 @@ import {
   CreditCard,
   Receipt,
   TrendingUp,
-  CalendarCheck
+  CalendarCheck,
+  Truck,
+  ShoppingCart,
+  FileCheck
 } from 'lucide-react';
 import {
   Sidebar,
@@ -47,11 +50,14 @@ const academicNavigation = [
   { id: 'exams', title: 'Exam Management', url: '/exams', icon: ClipboardList },
   { id: 'subjects', title: 'Subject Management', url: '/subjects', icon: BookOpen },
   { id: 'scores', title: 'Score Entry', url: '/scores', icon: FileText },
+  { id: 'grading', title: 'Grading', url: '/grading', icon: FileCheck },
   { id: 'results', title: 'Student Results', url: '/results', icon: GraduationCap },
 ];
 
 const financeNavigation = [
   { id: 'fees', title: 'Fees Management', url: '/fees', icon: Receipt },
+  { id: 'transport', title: 'Transport', url: '/transport', icon: Truck },
+  { id: 'procurement', title: 'Procurement', url: '/procurement', icon: ShoppingCart },
   { id: 'payroll', title: 'Payroll', url: '/payroll', icon: DollarSign },
   { id: 'accounting', title: 'Accounting', url: '/accounting', icon: CreditCard },
 ];

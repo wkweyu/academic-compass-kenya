@@ -167,18 +167,13 @@ export function AttendanceModule() {
     try {
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
       
-      // First, delete existing attendance records for this date/class/stream
-      let deleteQuery = supabase
+      // First, delete existing attendance records for the affected students on this date
+      const studentIds = Object.keys(attendanceRecords).map(id => parseInt(id));
+      const { error: deleteError } = await supabase
         .from('attendance')
         .delete()
-        .eq('date', dateStr)
-        .eq('class_id', parseInt(selectedClass));
-      
-      if (selectedStream && selectedStream !== 'all') {
-        deleteQuery = deleteQuery.eq('stream_id', parseInt(selectedStream));
-      }
-      
-      const { error: deleteError } = await deleteQuery;
+        .in('student_id', studentIds)
+        .eq('date', dateStr);
       if (deleteError) {
         console.error('Delete error:', deleteError);
         throw deleteError;
