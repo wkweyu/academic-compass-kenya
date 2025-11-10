@@ -165,11 +165,31 @@ export function AttendanceModule() {
 
     setIsSaving(true);
     try {
+      const dateStr = format(selectedDate, 'yyyy-MM-dd');
+      
+      // First, delete existing attendance records for this date/class/stream
+      let deleteQuery = supabase
+        .from('attendance')
+        .delete()
+        .eq('date', dateStr)
+        .eq('class_id', parseInt(selectedClass));
+      
+      if (selectedStream && selectedStream !== 'all') {
+        deleteQuery = deleteQuery.eq('stream_id', parseInt(selectedStream));
+      }
+      
+      const { error: deleteError } = await deleteQuery;
+      if (deleteError) {
+        console.error('Delete error:', deleteError);
+        throw deleteError;
+      }
+
+      // Then insert new records
       const records = Object.values(attendanceRecords).map(record => ({
         student_id: record.student_id,
         class_id: parseInt(selectedClass),
         stream_id: selectedStream && selectedStream !== 'all' ? parseInt(selectedStream) : null,
-        date: format(selectedDate, 'yyyy-MM-dd'),
+        date: dateStr,
         status: record.status,
         time_in: record.time_in || null,
         notes: record.notes || null,
@@ -178,20 +198,20 @@ export function AttendanceModule() {
         academic_year: new Date().getFullYear()
       }));
 
-      const { error } = await supabase
+      const { error: insertError } = await supabase
         .from('attendance')
-        .upsert(records, { 
-          onConflict: 'student_id,date',
-          ignoreDuplicates: false 
-        });
+        .insert(records);
 
-      if (error) throw error;
+      if (insertError) {
+        console.error('Insert error:', insertError);
+        throw insertError;
+      }
 
       toast.success('Attendance saved successfully');
       queryClient.invalidateQueries({ queryKey: ['attendance'] });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving attendance:', error);
-      toast.error('Failed to save attendance');
+      toast.error(error?.message || 'Failed to save attendance');
     } finally {
       setIsSaving(false);
     }
