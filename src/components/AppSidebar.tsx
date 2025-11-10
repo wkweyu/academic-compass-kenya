@@ -40,8 +40,15 @@ const studentNavigation = [
   { id: 'students', title: 'Students', url: '/students', icon: Users },
   { id: 'classes', title: 'Classes', url: '/classes', icon: School },
   { id: 'promotions', title: 'Promotions', url: '/promotions', icon: TrendingUp },
-  { id: 'attendance', title: 'Attendance', url: '/attendance', icon: CalendarCheck },
-  { id: 'attendance-reports', title: 'Attendance Reports', url: '/attendance/reports', icon: FileClock },
+  {
+    id: 'attendance',
+    title: 'Attendance',
+    icon: CalendarCheck,
+    subItems: [
+      { id: 'attendance-datasheet', title: 'Weekly Datasheet', url: '/attendance/datasheet' },
+      { id: 'attendance-reports', title: 'Reports', url: '/attendance/reports' },
+    ]
+  },
 ];
 
 const staffNavigation = [
@@ -78,25 +85,47 @@ export function AppSidebar() {
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
     `flex items-center w-full ${isActive ? "bg-muted text-primary font-medium" : "hover:bg-muted/50"}`;
 
-  const renderNavGroup = (items: typeof mainNavigation, label: string) => (
+  const renderNavGroup = (items: typeof studentNavigation, label: string) => (
     <SidebarGroup>
       <SidebarGroupLabel>{label}</SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
-          {items.map((item) => (
-            <SidebarMenuItem key={item.id}>
-              <SidebarMenuButton asChild>
-                <NavLink 
-                  to={item.url} 
-                  className={getNavCls}
-                  end
-                >
+          {items.map((item) =>
+            item.subItems ? (
+              <SidebarGroup key={item.id} collapsible>
+                <SidebarTrigger>
                   <item.icon className="h-4 w-4 mr-2" />
                   {!collapsed && <span>{item.title}</span>}
-                </NavLink>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
+                </SidebarTrigger>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {item.subItems.map((subItem) => (
+                      <SidebarMenuItem key={subItem.id}>
+                        <SidebarMenuButton asChild>
+                          <NavLink
+                            to={subItem.url}
+                            className={getNavCls}
+                            end
+                          >
+                            {!collapsed && <span>{subItem.title}</span>}
+                          </NavLink>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            ) : (
+              <SidebarMenuItem key={item.id}>
+                <SidebarMenuButton asChild>
+                  <NavLink to={item.url} className={getNavCls} end>
+                    <item.icon className="h-4 w-4 mr-2" />
+                    {!collapsed && <span>{item.title}</span>}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )
+          )}
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>

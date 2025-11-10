@@ -51,6 +51,7 @@ LOCAL_APPS = [
     'apps.transport.apps.TransportConfig',
     'apps.procurement.apps.ProcurementConfig',
     'apps.core.apps.CoreConfig',
+    'apps.attendance.apps.AttendanceConfig',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -91,22 +92,33 @@ WSGI_APPLICATION = 'skooltrack_pro.wsgi.application'
 
 # Database (Postgres/Supabase)
 import dj_database_url
-SUPABASE_URL = config('SUPABASE_DB_URL', default=None)
-if SUPABASE_URL:
-    DATABASES = {
-        'default': dj_database_url.config(default=SUPABASE_URL, conn_max_age=600)
-    }
-else:
+import sys
+
+# Use SQLite for testing
+if 'test' in sys.argv:
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': config('DB_NAME', default='skooltrack_pro'),
-            'USER': config('DB_USER', default='postgres'),
-            'PASSWORD': config('DB_PASSWORD', default='123'),
-            'HOST': config('DB_HOST', default='localhost'),
-            'PORT': config('DB_PORT', default='5432'),
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
+else:
+    SUPABASE_URL = config('SUPABASE_DB_URL', default=None)
+    if SUPABASE_URL:
+        DATABASES = {
+            'default': dj_database_url.config(default=SUPABASE_URL, conn_max_age=600)
+        }
+    else:
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': config('DB_NAME', default='skooltrack_pro'),
+                'USER': config('DB_USER', default='postgres'),
+                'PASSWORD': config('DB_PASSWORD', default='123'),
+                'HOST': config('DB_HOST', default='localhost'),
+                'PORT': config('DB_PORT', default='5432'),
+            }
+        }
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -191,3 +203,8 @@ CORS_ALLOW_CREDENTIALS = True
 
 # Import Export
 IMPORT_EXPORT_USE_TRANSACTIONS = True
+
+# Twilio Configuration
+TWILIO_ACCOUNT_SID = config('TWILIO_ACCOUNT_SID', default='your_twilio_account_sid')
+TWILIO_AUTH_TOKEN = config('TWILIO_AUTH_TOKEN', default='your_twilio_auth_token')
+TWILIO_PHONE_NUMBER = config('TWILIO_PHONE_NUMBER', default='your_twilio_phone_number')
