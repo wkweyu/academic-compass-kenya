@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 export function AttendanceModule() {
   const [selectedDate] = useState<Date>(new Date());
   const [selectedClass, setSelectedClass] = useState<string>('');
+  const [selectedStream, setSelectedStream] = useState<string>('');
 
   // Fetch classes
   const { data: classes = [], isLoading } = useQuery({
@@ -23,6 +24,22 @@ export function AttendanceModule() {
       if (error) throw error;
       return data;
     }
+  });
+
+  // Fetch streams for selected class
+  const { data: streams = [] } = useQuery({
+    queryKey: ['streams', selectedClass],
+    queryFn: async () => {
+      if (!selectedClass) return [];
+      const { data, error } = await supabase
+        .from('streams')
+        .select('*')
+        .eq('class_id', selectedClass)
+        .order('name');
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedClass
   });
 
   return (
@@ -50,7 +67,10 @@ export function AttendanceModule() {
 
               <div>
                 <Label>Class</Label>
-                <Select value={selectedClass} onValueChange={setSelectedClass}>
+                <Select value={selectedClass} onValueChange={(value) => {
+                  setSelectedClass(value);
+                  setSelectedStream('');
+                }}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select class" />
                   </SelectTrigger>
@@ -63,19 +83,38 @@ export function AttendanceModule() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {selectedClass && streams.length > 0 && (
+                <div>
+                  <Label>Stream (Optional)</Label>
+                  <Select value={selectedStream} onValueChange={setSelectedStream}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All streams" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Streams</SelectItem>
+                      {streams.map((stream: any) => (
+                        <SelectItem key={stream.id} value={stream.id.toString()}>
+                          {stream.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
           )}
 
           {selectedClass && (
-            <div className="mt-6 p-6 bg-muted rounded-lg text-center">
-              <p className="text-lg">
-                Attendance marking for <strong>{classes.find((c: any) => c.id.toString() === selectedClass)?.name}</strong>
+            <div className="mt-6 p-4 bg-muted rounded-lg">
+              <p className="text-sm text-muted-foreground">
+                Selected: <strong>{classes.find((c: any) => c.id.toString() === selectedClass)?.name}</strong>
+                {selectedStream && selectedStream !== 'all' && streams.length > 0 && (
+                  <> - <strong>{streams.find((s: any) => s.id.toString() === selectedStream)?.name}</strong></>
+                )}
               </p>
-              <p className="text-sm text-muted-foreground mt-2">
-                on {format(selectedDate, 'MMMM d, yyyy')}
-              </p>
-              <p className="text-sm text-muted-foreground mt-4">
-                Full attendance functionality will be added next.
+              <p className="text-sm text-muted-foreground mt-1">
+                Date: {format(selectedDate, 'MMMM d, yyyy')}
               </p>
             </div>
           )}
