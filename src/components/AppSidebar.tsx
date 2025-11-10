@@ -16,7 +16,8 @@ import {
   CalendarCheck,
   Truck,
   ShoppingCart,
-  FileCheck
+  FileCheck,
+  FileClock
 } from 'lucide-react';
 import {
   Sidebar,
@@ -40,6 +41,7 @@ const studentNavigation = [
   { id: 'classes', title: 'Classes', url: '/classes', icon: School },
   { id: 'promotions', title: 'Promotions', url: '/promotions', icon: TrendingUp },
   { id: 'attendance', title: 'Attendance', url: '/attendance', icon: CalendarCheck },
+  { id: 'attendance-reports', title: 'Attendance Reports', url: '/attendance/reports', icon: FileClock },
 ];
 
 const staffNavigation = [
