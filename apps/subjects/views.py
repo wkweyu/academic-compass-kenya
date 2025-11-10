@@ -4,13 +4,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.core.paginator import Paginator
-from .models import Subject
-
-from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib import messages
-from django.contrib.auth.decorators import login_required
-from django.db.models import Q
-from django.core.paginator import Paginator
+from django.core.exceptions import PermissionDenied
 from .models import Subject
 from .forms import SubjectForm 
 
@@ -54,6 +48,8 @@ def subject_detail(request, pk):
 @login_required
 def subject_add(request):
     """Add new subject"""
+    if not request.user.is_staff:
+        raise PermissionDenied
     if request.method == 'POST':
         form = SubjectForm(request.POST)
         if form.is_valid():
@@ -71,6 +67,8 @@ def subject_add(request):
 @login_required
 def subject_edit(request, pk):
     """Edit subject"""
+    if not request.user.is_staff:
+        raise PermissionDenied
     subject = get_object_or_404(Subject, pk=pk)
     
     if request.method == 'POST':
@@ -91,6 +89,8 @@ def subject_edit(request, pk):
 @login_required
 def subject_delete(request, pk):
     """Delete subject"""
+    if not request.user.is_staff:
+        raise PermissionDenied
     subject = get_object_or_404(Subject, pk=pk)
     
     if request.method == 'POST':
