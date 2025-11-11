@@ -1,4 +1,4 @@
-import { PageHeader } from "@/components/layout/PageHeader.tsx";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
