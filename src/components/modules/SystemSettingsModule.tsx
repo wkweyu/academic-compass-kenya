@@ -8,6 +8,8 @@ import { GeneralSettingsTab } from './GeneralSettingsTab';
 import { GradingSystemTab } from './GradingSystemTab';
 import { StreamNamingTab } from './StreamNamingTab';
 import { PredefinedClassesTab } from './PredefinedClassesTab';
+import { BiometricIntegration } from '@/pages/Attendance/BiometricIntegration';
+import { SmsIntegration } from '@/pages/Attendance/SmsIntegration';
 
 export function SystemSettingsModule() {
   const [activeTab, setActiveTab] = useState('school-profile');
@@ -20,13 +22,15 @@ export function SystemSettingsModule() {
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-7">
+            <TabsList className="grid w-full grid-cols-9">
               <TabsTrigger value="school-profile">School Profile</TabsTrigger>
               <TabsTrigger value="academic-year">Academic Years</TabsTrigger>
               <TabsTrigger value="terms">Term Settings</TabsTrigger>
               <TabsTrigger value="predefined-classes">Predefined Classes</TabsTrigger>
               <TabsTrigger value="stream-naming">Stream Naming</TabsTrigger>
               <TabsTrigger value="grading">Grading System</TabsTrigger>
+              <TabsTrigger value="biometric">Biometric</TabsTrigger>
+              <TabsTrigger value="sms">SMS Gateway</TabsTrigger>
               <TabsTrigger value="general">General</TabsTrigger>
             </TabsList>
 
@@ -52,6 +56,14 @@ export function SystemSettingsModule() {
 
             <TabsContent value="grading" className="mt-6">
               <GradingSystemTab />
+            </TabsContent>
+
+            <TabsContent value="biometric" className="mt-6">
+              <BiometricIntegration />
+            </TabsContent>
+
+            <TabsContent value="sms" className="mt-6">
+              <SmsIntegration />
             </TabsContent>
 
             <TabsContent value="general" className="mt-6">

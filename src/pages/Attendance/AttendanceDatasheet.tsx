@@ -56,28 +56,38 @@ export function AttendanceDatasheet() {
   const fetchDatasheet = async () => {
     if (!selectedClass || !startDate || !endDate) return;
     
-    // Fetch attendance data
-    let query = supabase
-      .from('attendance')
-      .select('*, students!inner(id, full_name)')
-      .eq('class_id', selectedClass)
-      .gte('date', startDate)
-      .lte('date', endDate);
+    try {
+      // Fetch attendance data with student details
+      let query = supabase
+        .from('attendance')
+        .select(`
+          *,
+          students (
+            id,
+            full_name
+          )
+        `)
+        .eq('class_id', selectedClass)
+        .gte('date', startDate)
+        .lte('date', endDate);
 
-    if (selectedStream) {
-      query = query.eq('stream_id', selectedStream);
+      if (selectedStream) {
+        query = query.eq('stream_id', selectedStream);
+      }
+
+      const { data: attendanceData, error } = await query;
+      
+      if (error) {
+        console.error('Attendance fetch error:', error);
+        toast.error(`Failed to load attendance data: ${error.message}`);
+        return;
+      }
+
+      setData(attendanceData || []);
+    } catch (err) {
+      console.error('Unexpected error:', err);
+      toast.error('An unexpected error occurred');
     }
-
-    const { data: attendanceData, error } = await query;
-    
-    if (error) {
-      toast.error('Failed to load attendance data');
-      return;
-    }
-
-    // Process data into datasheet format
-    // This is a placeholder - you'll need to format it properly
-    setData(attendanceData);
   };
 
   useEffect(() => {

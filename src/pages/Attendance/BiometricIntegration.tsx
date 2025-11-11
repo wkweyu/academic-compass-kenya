@@ -8,8 +8,7 @@ import { Fingerprint, Settings } from "lucide-react";
 
 export function BiometricIntegration() {
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <PageHeader title="Biometric Integration" />
+    <div className="space-y-6">
       
       <Card>
         <CardHeader>

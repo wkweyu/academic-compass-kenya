@@ -48,8 +48,6 @@ const studentNavigation = [
       { id: 'attendance-marking', title: 'Mark Attendance', url: '/attendance' },
       { id: 'attendance-datasheet', title: 'Weekly Datasheet', url: '/attendance/datasheet' },
       { id: 'attendance-reports', title: 'Reports', url: '/attendance/reports' },
-      { id: 'attendance-biometric', title: 'Biometric Integration', url: '/attendance/biometric' },
-      { id: 'attendance-sms', title: 'SMS Integration', url: '/attendance/sms' },
     ]
   },
 ];
