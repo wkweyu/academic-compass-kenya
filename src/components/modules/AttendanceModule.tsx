@@ -223,23 +223,27 @@ export function AttendanceModule() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Attendance Management</h1>
-        <div className="flex gap-2">
-          {selectedClass && students.length > 0 && (
-            <Button onClick={saveAttendance} disabled={isSaving}>
-              <Save className="mr-2 h-4 w-4" />
-              {isSaving ? 'Saving...' : 'Save Attendance'}
-            </Button>
-          )}
-          <Link to="/attendance/reports">
-            <Button variant="outline">
-              <FileClock className="mr-2 h-4 w-4" />
-              View Reports
-            </Button>
-          </Link>
-        </div>
-      </div>
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle className="text-3xl">Attendance Management</CardTitle>
+            <div className="flex gap-2">
+              {selectedClass && students.length > 0 && (
+                <Button onClick={saveAttendance} disabled={isSaving}>
+                  <Save className="mr-2 h-4 w-4" />
+                  {isSaving ? 'Saving...' : 'Save Attendance'}
+                </Button>
+              )}
+              <Link to="/attendance/reports">
+                <Button variant="outline">
+                  <FileClock className="mr-2 h-4 w-4" />
+                  View Reports
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
 
       <Card>
         <CardHeader>

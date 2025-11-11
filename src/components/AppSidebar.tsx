@@ -45,8 +45,11 @@ const studentNavigation = [
     title: 'Attendance',
     icon: CalendarCheck,
     subItems: [
+      { id: 'attendance-marking', title: 'Mark Attendance', url: '/attendance' },
       { id: 'attendance-datasheet', title: 'Weekly Datasheet', url: '/attendance/datasheet' },
       { id: 'attendance-reports', title: 'Reports', url: '/attendance/reports' },
+      { id: 'attendance-biometric', title: 'Biometric Integration', url: '/attendance/biometric' },
+      { id: 'attendance-sms', title: 'SMS Integration', url: '/attendance/sms' },
     ]
   },
 ];
@@ -92,29 +95,29 @@ export function AppSidebar() {
         <SidebarMenu>
           {items.map((item) =>
             item.subItems ? (
-              <SidebarGroup key={item.id} collapsible>
-                <SidebarTrigger>
-                  <item.icon className="h-4 w-4 mr-2" />
-                  {!collapsed && <span>{item.title}</span>}
-                </SidebarTrigger>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {item.subItems.map((subItem) => (
-                      <SidebarMenuItem key={subItem.id}>
-                        <SidebarMenuButton asChild>
-                          <NavLink
-                            to={subItem.url}
-                            className={getNavCls}
-                            end
-                          >
-                            {!collapsed && <span>{subItem.title}</span>}
-                          </NavLink>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    ))}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
+              <div key={item.id}>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <div className="flex items-center w-full font-medium">
+                      <item.icon className="h-4 w-4 mr-2" />
+                      {!collapsed && <span>{item.title}</span>}
+                    </div>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                {item.subItems.map((subItem) => (
+                  <SidebarMenuItem key={subItem.id} className="pl-6">
+                    <SidebarMenuButton asChild>
+                      <NavLink
+                        to={subItem.url}
+                        className={getNavCls}
+                        end
+                      >
+                        {!collapsed && <span>{subItem.title}</span>}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </div>
             ) : (
               <SidebarMenuItem key={item.id}>
                 <SidebarMenuButton asChild>

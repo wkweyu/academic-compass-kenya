@@ -1,7 +1,7 @@
 import { PageHeader } from "@/components/layout/PageHeader.tsx";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useState, useEffect } from "react";
-import { api } from "@/api/api";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Table,
   TableBody,
@@ -18,37 +18,72 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
 export function AttendanceDatasheet() {
-  const [data, setData] = useState(null);
-  const [classes, setClasses] = useState([]);
-  const [streams, setStreams] = useState([]);
+  const [data, setData] = useState<any>(null);
+  const [classes, setClasses] = useState<any[]>([]);
+  const [streams, setStreams] = useState<any[]>([]);
   const [selectedClass, setSelectedClass] = useState("");
   const [selectedStream, setSelectedStream] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
   useEffect(() => {
-    // Fetch classes and streams for the filters
-    api.get("/api/classes/").then((res) => setClasses(res.data));
-    api.get("/api/streams/").then((res) => setStreams(res.data));
+    fetchClasses();
+    fetchStreams();
   }, []);
 
-  const fetchDatasheet = () => {
-    api
-      .get("/api/attendance/datasheet/", {
-        params: {
-          class_id: selectedClass,
-          stream_id: selectedStream,
-          start_date: startDate,
-          end_date: endDate,
-        },
-      })
-      .then((res) => setData(res.data));
+  const fetchClasses = async () => {
+    const { data, error } = await supabase.from('classes').select('*').order('grade_level');
+    if (error) {
+      toast.error('Failed to load classes');
+      return;
+    }
+    setClasses(data || []);
+  };
+
+  const fetchStreams = async () => {
+    const { data, error } = await supabase.from('streams').select('*').order('name');
+    if (error) {
+      toast.error('Failed to load streams');
+      return;
+    }
+    setStreams(data || []);
+  };
+
+  const fetchDatasheet = async () => {
+    if (!selectedClass || !startDate || !endDate) return;
+    
+    // Fetch attendance data
+    let query = supabase
+      .from('attendance')
+      .select('*, students!inner(id, full_name)')
+      .eq('class_id', selectedClass)
+      .gte('date', startDate)
+      .lte('date', endDate);
+
+    if (selectedStream) {
+      query = query.eq('stream_id', selectedStream);
+    }
+
+    const { data: attendanceData, error } = await query;
+    
+    if (error) {
+      toast.error('Failed to load attendance data');
+      return;
+    }
+
+    // Process data into datasheet format
+    // This is a placeholder - you'll need to format it properly
+    setData(attendanceData);
   };
 
   useEffect(() => {
-    fetchDatasheet();
+    if (selectedClass && startDate && endDate) {
+      fetchDatasheet();
+    }
   }, [selectedClass, selectedStream, startDate, endDate]);
 
   return (
@@ -60,65 +95,87 @@ export function AttendanceDatasheet() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex space-x-4">
-            <Select onValueChange={setSelectedClass}>
-              <SelectTrigger>
+            <Select value={selectedClass} onValueChange={setSelectedClass}>
+              <SelectTrigger className="w-[200px]">
                 <SelectValue placeholder="Select Class" />
               </SelectTrigger>
               <SelectContent>
-                {classes.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
+                {classes.map((c: any) => (
+                  <SelectItem key={c.id} value={c.id.toString()}>
                     {c.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <Select onValueChange={setSelectedStream}>
-              <SelectTrigger>
+            <Select value={selectedStream} onValueChange={setSelectedStream}>
+              <SelectTrigger className="w-[200px]">
                 <SelectValue placeholder="Select Stream" />
               </SelectTrigger>
               <SelectContent>
-                {streams.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
+                <SelectItem value="">All Streams</SelectItem>
+                {streams.map((s: any) => (
+                  <SelectItem key={s.id} value={s.id.toString()}>
                     {s.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <input
+            <Input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="border p-2 rounded"
+              className="w-[180px]"
             />
-            <input
+            <Input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="border p-2 rounded"
+              className="w-[180px]"
             />
             <Button onClick={fetchDatasheet}>Filter</Button>
           </div>
-          {data && (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Student</TableHead>
-                  {data.dates.map((date) => (
-                    <TableHead key={date}>{date}</TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.students.map((student) => (
-                  <TableRow key={student.id}>
-                    <TableCell>{student.full_name}</TableCell>
-                    {student.attendance.map((status, index) => (
-                      <TableCell key={index}>{status}</TableCell>
-                    ))}
+          {data && data.length > 0 ? (
+            <div className="rounded-md border overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="sticky left-0 bg-background">Student Name</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Time In</TableHead>
+                    <TableHead>Notes</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {data.map((record: any) => (
+                    <TableRow key={record.id}>
+                      <TableCell className="sticky left-0 bg-background font-medium">
+                        {record.students?.full_name || 'N/A'}
+                      </TableCell>
+                      <TableCell>
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          record.status === 'present' ? 'bg-green-100 text-green-800' :
+                          record.status === 'absent' ? 'bg-red-100 text-red-800' :
+                          record.status === 'late' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-blue-100 text-blue-800'
+                        }`}>
+                          {record.status.toUpperCase()}
+                        </span>
+                      </TableCell>
+                      <TableCell>{new Date(record.date).toLocaleDateString()}</TableCell>
+                      <TableCell>{record.time_in || '-'}</TableCell>
+                      <TableCell>{record.notes || '-'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              {selectedClass && startDate && endDate 
+                ? 'No attendance records found for the selected criteria'
+                : 'Please select class and date range to view attendance data'}
+            </div>
           )}
         </CardContent>
       </Card>
