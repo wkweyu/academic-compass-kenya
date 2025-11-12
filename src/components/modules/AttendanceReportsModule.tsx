@@ -145,10 +145,17 @@ export function AttendanceReportsModule() {
       if (studentsError) throw studentsError;
 
       // Fetch attendance for the week
+      if (!students || students.length === 0) {
+        setWeeklyData([]);
+        toast.info("No students found for this class and stream.");
+        setIsGenerating(false);
+        return;
+      }
+      const studentIds = students.map(s => s.id);
       const { data: attendance, error: attendanceError } = await supabase
         .from('attendance')
         .select('student_id, date, status')
-        .eq('class_id', selectedClass)
+        .in('student_id', studentIds)
         .gte('date', format(selectedWeekStart, 'yyyy-MM-dd'))
         .lte('date', format(weekEnd, 'yyyy-MM-dd'));
 
