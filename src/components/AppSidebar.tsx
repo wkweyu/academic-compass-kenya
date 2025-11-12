@@ -46,8 +46,7 @@ const studentNavigation = [
     icon: CalendarCheck,
     subItems: [
       { id: 'attendance-marking', title: 'Mark Attendance', url: '/attendance' },
-      { id: 'attendance-datasheet', title: 'Weekly Datasheet', url: '/attendance/datasheet' },
-      { id: 'attendance-reports', title: 'Reports', url: '/attendance/reports' },
+      { id: 'attendance-reports', title: 'View Reports', url: '/attendance/reports' },
     ]
   },
 ];
