@@ -23,11 +23,11 @@ class BiometricAttendanceView(APIView):
             )
 
         try:
-            all_students = list(Student.objects.all().values_list('id', flat=True))
-            logger.info(f"All student IDs in DB: {all_students}")
+            # The .get() method on a manager with a school filter will
+            # automatically apply the school of the logged-in user.
             student = Student.objects.get(id=student_id)
         except Student.DoesNotExist:
-            logger.error(f"Student with id {student_id} not found.")
+            logger.error(f"Student with id {student_id} not found in the user's school.")
             return Response(
                 {'error': 'Student not found'},
                 status=status.HTTP_404_NOT_FOUND
@@ -45,6 +45,7 @@ class BiometricAttendanceView(APIView):
         attendance, created = Attendance.objects.get_or_create(
             student=student,
             date=attendance_time.date(),
+            school=student.school,
             defaults={
                 'time_in': attendance_time.time(),
                 'status': 'present'
@@ -62,9 +63,9 @@ class BiometricAttendanceView(APIView):
             # client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
 
             if attendance.time_out:
-                message_body = f"Dear Parent, your child {student.first_name} {student.last_name} has checked out of school at {attendance.time_out.strftime('%H:%M:%S')}."
+                message_body = f"Dear Parent, your child {student.full_name} has checked out of school at {attendance.time_out.strftime('%H:%M:%S')}."
             else:
-                message_body = f"Dear Parent, your child {student.first_name} {student.last_name} has checked into school at {attendance.time_in.strftime('%H:%M:%S')}."
+                message_body = f"Dear Parent, your child {student.full_name} has checked into school at {attendance.time_in.strftime('%H:%M:%S')}."
 
             # Log the message instead of sending it
             logger.info("Simulating SMS to guardian:")

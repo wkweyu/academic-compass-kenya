@@ -1,6 +1,6 @@
 from django.urls import reverse
 from rest_framework import status
-from django.test import TransactionTestCase
+from rest_framework.test import APITransactionTestCase
 from rest_framework.test import APIClient
 from django.urls import reverse
 from rest_framework import status
@@ -9,13 +9,15 @@ from apps.users.models import User
 from apps.schools.models import School
 from datetime import datetime
 import logging
+from apps.core.middleware import _request_local
 
-class BiometricAttendanceAPITest(TransactionTestCase):
+class BiometricAttendanceAPITest(APITransactionTestCase):
     reset_sequences = True
 
     def setUp(self):
         self.client = APIClient()
         self.school = School.objects.create(name='Test School')
+        _request_local.school = self.school
         self.user = User.objects.create_user(username='test@example.com', email='test@example.com', password='password', school=self.school)
         self.client.force_authenticate(user=self.user)
         self.student = Student.objects.create(
@@ -31,6 +33,10 @@ class BiometricAttendanceAPITest(TransactionTestCase):
         logger = logging.getLogger(__name__)
         logger.info(f"Created student with id: {self.student.id}")
         self.url = reverse('biometric_attendance')
+
+    def tearDown(self):
+        # Clean up the thread-local school variable
+        del _request_local.school
 
     def test_check_in(self):
         """
