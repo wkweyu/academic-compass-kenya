@@ -1,9 +1,8 @@
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { classService } from "@/services/classService";
-import { showError } from "@/utils/errorHandler";
+import { useQuery } from "@tanstack/react-query";
 import {
   Table,
   TableBody,
@@ -22,98 +21,115 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
+
+interface AttendanceRecord {
+  id: string;
+  date: string;
+  status: string;
+  time_in?: string;
+  notes?: string;
+  students: {
+    full_name: string;
+  } | null;
+}
 
 export function AttendanceDatasheet() {
-  const [data, setData] = useState<any>(null);
-  const [classes, setClasses] = useState<any[]>([]);
-  const [streams, setStreams] = useState<any[]>([]);
   const [selectedClass, setSelectedClass] = useState("");
   const [selectedStream, setSelectedStream] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [attendanceData, setAttendanceData] = useState<AttendanceRecord[]>([]);
+  const [isLoadingAttendance, setIsLoadingAttendance] = useState(false);
 
-  useEffect(() => {
-    fetchClasses();
-    fetchStreams();
-  }, []);
-
-  const fetchClasses = async () => {
-    try {
-      const data = await classService.getClasses();
-      setClasses(data);
-    } catch (error) {
-      showError(error, 'Failed to load classes');
+  // Fetch classes
+  const { data: classes = [] } = useQuery({
+    queryKey: ['classes'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('classes')
+        .select('*')
+        .order('grade_level');
+      if (error) throw error;
+      return data;
     }
-  };
+  });
 
-  const fetchStreams = async () => {
-    try {
-      const data = await classService.getStreams();
-      setStreams(data);
-    } catch (error) {
-      showError(error, 'Failed to load streams');
+  // Fetch streams
+  const { data: streams = [] } = useQuery({
+    queryKey: ['streams'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('streams')
+        .select('*')
+        .order('name');
+      if (error) throw error;
+      return data;
     }
-  };
+  });
 
-  const fetchDatasheet = async () => {
-    if (!selectedClass || !startDate || !endDate) return;
+  const fetchAttendance = async () => {
+    if (!selectedClass || !startDate || !endDate) {
+      toast.error('Please select class and date range');
+      return;
+    }
     
+    setIsLoadingAttendance(true);
     try {
-      const { data: schoolId } = await supabase.rpc('get_user_school_id');
-      
-      if (!schoolId) {
-        showError('No school found for user', 'Fetch attendance');
-        return;
-      }
-
       let query = supabase
         .from('attendance')
         .select(`
-          *,
+          id,
+          date,
+          status,
+          time_in,
+          notes,
           students!inner (
-            id,
             full_name
           )
         `)
-        .eq('school_id', schoolId)
         .eq('class_id', selectedClass)
         .gte('date', startDate)
         .lte('date', endDate)
-        .order('date', { ascending: false })
-        .order('students(full_name)', { ascending: true });
+        .order('date', { ascending: false });
 
       if (selectedStream) {
         query = query.eq('stream_id', selectedStream);
       }
 
-      const { data: attendanceData, error } = await query;
+      const { data, error } = await query;
       
       if (error) {
-        showError(error, 'Failed to load attendance data');
+        console.error('Attendance fetch error:', error);
+        toast.error(`Failed to load attendance: ${error.message}`);
         return;
       }
 
-      setData(attendanceData || []);
+      // Transform data to match our interface
+      const transformedData = (data || []).map((item: any) => ({
+        ...item,
+        students: Array.isArray(item.students) ? item.students[0] : item.students
+      }));
+
+      setAttendanceData(transformedData);
+      toast.success(`Loaded ${data?.length || 0} attendance records`);
     } catch (err) {
-      showError(err, 'Fetch attendance datasheet');
+      console.error('Unexpected error:', err);
+      toast.error('Failed to load attendance data');
+    } finally {
+      setIsLoadingAttendance(false);
     }
   };
 
-  useEffect(() => {
-    if (selectedClass && startDate && endDate) {
-      fetchDatasheet();
-    }
-  }, [selectedClass, selectedStream, startDate, endDate]);
-
   return (
-    <div>
+    <div className="p-6">
       <PageHeader title="Weekly Attendance Datasheet" />
       <Card>
         <CardHeader>
           <CardTitle>Filters</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex space-x-4">
+          <div className="flex flex-wrap gap-4">
             <Select value={selectedClass} onValueChange={setSelectedClass}>
               <SelectTrigger className="w-[200px]">
                 <SelectValue placeholder="Select Class" />
@@ -126,9 +142,10 @@ export function AttendanceDatasheet() {
                 ))}
               </SelectContent>
             </Select>
+
             <Select value={selectedStream} onValueChange={setSelectedStream}>
               <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Select Stream" />
+                <SelectValue placeholder="All Streams" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="">All Streams</SelectItem>
@@ -139,49 +156,69 @@ export function AttendanceDatasheet() {
                 ))}
               </SelectContent>
             </Select>
+
             <Input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
               className="w-[180px]"
+              placeholder="Start Date"
             />
+
             <Input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
               className="w-[180px]"
+              placeholder="End Date"
             />
-            <Button onClick={fetchDatasheet}>Filter</Button>
+
+            <Button 
+              onClick={fetchAttendance}
+              disabled={isLoadingAttendance}
+            >
+              {isLoadingAttendance ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                'Load Attendance'
+              )}
+            </Button>
           </div>
-          {data && data.length > 0 ? (
+
+          {attendanceData.length > 0 ? (
             <div className="rounded-md border overflow-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="sticky left-0 bg-background">Student Name</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>Student Name</TableHead>
                     <TableHead>Date</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>Time In</TableHead>
                     <TableHead>Notes</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.map((record: any) => (
+                  {attendanceData.map((record) => (
                     <TableRow key={record.id}>
-                      <TableCell className="sticky left-0 bg-background font-medium">
+                      <TableCell className="font-medium">
                         {record.students?.full_name || 'N/A'}
                       </TableCell>
                       <TableCell>
+                        {new Date(record.date).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
                         <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          record.status === 'present' ? 'bg-green-100 text-green-800' :
-                          record.status === 'absent' ? 'bg-red-100 text-red-800' :
-                          record.status === 'late' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-blue-100 text-blue-800'
+                          record.status.toLowerCase() === 'present' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100' :
+                          record.status.toLowerCase() === 'absent' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100' :
+                          record.status.toLowerCase() === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100' :
+                          'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100'
                         }`}>
                           {record.status.toUpperCase()}
                         </span>
                       </TableCell>
-                      <TableCell>{new Date(record.date).toLocaleDateString()}</TableCell>
                       <TableCell>{record.time_in || '-'}</TableCell>
                       <TableCell>{record.notes || '-'}</TableCell>
                     </TableRow>
@@ -192,8 +229,8 @@ export function AttendanceDatasheet() {
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               {selectedClass && startDate && endDate 
-                ? 'No attendance records found for the selected criteria'
-                : 'Please select class and date range to view attendance data'}
+                ? 'Click "Load Attendance" to view records'
+                : 'Select class and date range, then click "Load Attendance"'}
             </div>
           )}
         </CardContent>
