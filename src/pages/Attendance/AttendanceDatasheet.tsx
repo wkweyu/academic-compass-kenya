@@ -2,6 +2,8 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { classService } from "@/services/classService";
+import { showError } from "@/utils/errorHandler";
 import {
   Table,
   TableBody,
@@ -36,40 +38,49 @@ export function AttendanceDatasheet() {
   }, []);
 
   const fetchClasses = async () => {
-    const { data, error } = await supabase.from('classes').select('*').order('grade_level');
-    if (error) {
-      toast.error('Failed to load classes');
-      return;
+    try {
+      const data = await classService.getClasses();
+      setClasses(data);
+    } catch (error) {
+      showError(error, 'Failed to load classes');
     }
-    setClasses(data || []);
   };
 
   const fetchStreams = async () => {
-    const { data, error } = await supabase.from('streams').select('*').order('name');
-    if (error) {
-      toast.error('Failed to load streams');
-      return;
+    try {
+      const data = await classService.getStreams();
+      setStreams(data);
+    } catch (error) {
+      showError(error, 'Failed to load streams');
     }
-    setStreams(data || []);
   };
 
   const fetchDatasheet = async () => {
     if (!selectedClass || !startDate || !endDate) return;
     
     try {
-      // Fetch attendance data with student details
+      const { data: schoolId } = await supabase.rpc('get_user_school_id');
+      
+      if (!schoolId) {
+        showError('No school found for user', 'Fetch attendance');
+        return;
+      }
+
       let query = supabase
         .from('attendance')
         .select(`
           *,
-          students (
+          students!inner (
             id,
             full_name
           )
         `)
+        .eq('school_id', schoolId)
         .eq('class_id', selectedClass)
         .gte('date', startDate)
-        .lte('date', endDate);
+        .lte('date', endDate)
+        .order('date', { ascending: false })
+        .order('students(full_name)', { ascending: true });
 
       if (selectedStream) {
         query = query.eq('stream_id', selectedStream);
@@ -78,15 +89,13 @@ export function AttendanceDatasheet() {
       const { data: attendanceData, error } = await query;
       
       if (error) {
-        console.error('Attendance fetch error:', error);
-        toast.error(`Failed to load attendance data: ${error.message}`);
+        showError(error, 'Failed to load attendance data');
         return;
       }
 
       setData(attendanceData || []);
     } catch (err) {
-      console.error('Unexpected error:', err);
-      toast.error('An unexpected error occurred');
+      showError(err, 'Fetch attendance datasheet');
     }
   };
 
