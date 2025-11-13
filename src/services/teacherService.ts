@@ -15,14 +15,14 @@ import {
 export const staffService = {
   // Staff CRUD operations
   async getStaff(filters?: StaffFilters): Promise<Staff[]> {
-    const response = await api.get('/staff/', filters);
+    const response = await api.get('/teachers/', filters);
     const data = response.data;
-    return data.results;
+    return data.results || data;
   },
 
   async getStaffMember(id: number): Promise<Staff | null> {
     try {
-      const response = await api.get(`/staff/${id}/`);
+      const response = await api.get(`/teachers/${id}/`);
       return response.data;
     } catch (error) {
       console.error('Error fetching staff member:', error);
@@ -32,7 +32,7 @@ export const staffService = {
 
   async createStaff(data: Omit<Staff, 'id' | 'created_at' | 'updated_at' | 'full_name' | 'years_of_service' | 'gross_salary'>): Promise<Staff> {
     try {
-      const response = await api.post('/staff/', data);
+      const response = await api.post('/teachers/', data);
       return response.data;
     } catch (error) {
       console.error('Error creating staff:', error);
@@ -42,7 +42,7 @@ export const staffService = {
 
   async updateStaff(id: number, data: Partial<Staff>): Promise<Staff | null> {
     try {
-      const response = await api.patch(`/staff/${id}/`, data);
+      const response = await api.patch(`/teachers/${id}/`, data);
       return response.data;
     } catch (error) {
       console.error('Error updating staff:', error);
@@ -52,7 +52,7 @@ export const staffService = {
 
   async deleteStaff(id: number): Promise<boolean> {
     try {
-      await api.delete(`/staff/${id}/`);
+      await api.delete(`/teachers/${id}/`);
       return true;
     } catch (error) {
       console.error('Error deleting staff:', error);
@@ -93,18 +93,33 @@ export const staffService = {
 
   // Statistics
   async getStaffStats(): Promise<StaffStats> {
-    // TODO: Implement this function
-    return {
-      total_staff: 0,
-      active_staff: 0,
-      staff_by_department: {},
-      staff_by_category: {},
-      staff_by_employment_type: {},
-      average_years_service: 0,
-      total_payroll_cost: 0,
-      staff_on_leave: 0,
-      new_hires_this_month: 0,
-    };
+    try {
+      const response = await api.get('/teachers/stats/');
+      return {
+        total_staff: response.data.total_teachers || 0,
+        active_staff: response.data.active_teachers || 0,
+        staff_by_department: {},
+        staff_by_category: {},
+        staff_by_employment_type: {},
+        average_years_service: 0,
+        total_payroll_cost: 0,
+        staff_on_leave: 0,
+        new_hires_this_month: 0,
+      };
+    } catch (error) {
+      console.error('Error fetching staff stats:', error);
+      return {
+        total_staff: 0,
+        active_staff: 0,
+        staff_by_department: {},
+        staff_by_category: {},
+        staff_by_employment_type: {},
+        average_years_service: 0,
+        total_payroll_cost: 0,
+        staff_on_leave: 0,
+        new_hires_this_month: 0,
+      };
+    }
   }
 };
 
