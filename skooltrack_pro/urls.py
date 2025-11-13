@@ -54,6 +54,7 @@ urlpatterns = [
     path('api/procurement/', include('apps.procurement.urls')),
     path('api/attendance/', include('apps.attendance.urls')),
     path('api/students/', include('apps.students.api_urls')),
+    path('api/teachers/', include('apps.teachers.api_urls')),
 
     # Dashboard API
     path('api/dashboard/', include('apps.dashboard.urls')),
