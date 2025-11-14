@@ -3,6 +3,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import ValidationError
 from django.db.models import Q
 from .models import Teacher, TeacherSubjectAssignment
 from .serializers import TeacherSerializer, TeacherSubjectAssignmentSerializer
@@ -55,10 +56,7 @@ class TeacherViewSet(viewsets.ModelViewSet):
         """
         user_school = getattr(self.request.user, 'school', None)
         if not user_school:
-            return Response(
-                {'error': 'User does not have a school assigned'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            raise ValidationError('User does not have a school assigned.')
         serializer.save(school=user_school)
     
     @action(detail=True, methods=['get'])
