@@ -135,7 +135,7 @@ export const TeacherManagementModule = () => {
           
           <Dialog open={isCreateStaffOpen} onOpenChange={setIsCreateStaffOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button onClick={() => setIsCreateStaffOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Staff Member
               </Button>
