@@ -15,14 +15,14 @@ import {
 export const staffService = {
   // Staff CRUD operations
   async getStaff(filters?: StaffFilters): Promise<Staff[]> {
-    const response = await api.get('/teachers/', filters);
+    const response = await api.get('/api/teachers/', filters);
     const data = response.data;
     return data.results || data;
   },
 
   async getStaffMember(id: number): Promise<Staff | null> {
     try {
-      const response = await api.get(`/teachers/${id}/`);
+      const response = await api.get(`/api/teachers/${id}/`);
       return response.data;
     } catch (error) {
       console.error('Error fetching staff member:', error);
@@ -32,7 +32,7 @@ export const staffService = {
 
   async createStaff(data: Omit<Staff, 'id' | 'created_at' | 'updated_at' | 'full_name' | 'years_of_service' | 'gross_salary'>): Promise<Staff> {
     try {
-      const response = await api.post('/teachers/', data);
+      const response = await api.post('/api/teachers/', data);
       return response.data;
     } catch (error) {
       console.error('Error creating staff:', error);
@@ -42,7 +42,7 @@ export const staffService = {
 
   async updateStaff(id: number, data: Partial<Staff>): Promise<Staff | null> {
     try {
-      const response = await api.patch(`/teachers/${id}/`, data);
+      const response = await api.patch(`/api/teachers/${id}/`, data);
       return response.data;
     } catch (error) {
       console.error('Error updating staff:', error);
@@ -52,7 +52,7 @@ export const staffService = {
 
   async deleteStaff(id: number): Promise<boolean> {
     try {
-      await api.delete(`/teachers/${id}/`);
+      await api.delete(`/api/teachers/${id}/`);
       return true;
     } catch (error) {
       console.error('Error deleting staff:', error);
@@ -62,13 +62,13 @@ export const staffService = {
 
   // Subject assignments (mainly for teaching staff)
   async getStaffSubjects(staffId: number): Promise<StaffSubjectAssignment[]> {
-    const response = await api.get(`/staff/${staffId}/subjects/`);
+    const response = await api.get(`/api/teachers/${staffId}/subjects/`);
     const data = response.data;
     return data;
   },
 
   async assignStaffToSubject(staffId: number, subjectId: number, classId: number, streamId?: number, isClassTeacher: boolean = false): Promise<StaffSubjectAssignment> {
-    const response = await api.post(`/staff/${staffId}/subjects/`, {
+    const response = await api.post(`/api/teachers/${staffId}/subjects/`, {
       subject_id: subjectId,
       class_id: classId,
       stream_id: streamId,
@@ -94,7 +94,7 @@ export const staffService = {
   // Statistics
   async getStaffStats(): Promise<StaffStats> {
     try {
-      const response = await api.get('/teachers/stats/');
+      const response = await api.get('/api/teachers/stats/');
       return {
         total_staff: response.data.total_teachers || 0,
         active_staff: response.data.active_teachers || 0,
@@ -127,42 +127,42 @@ export const staffService = {
 export const teacherService = {
   async getTeachers(filters?: TeacherFilters): Promise<Teacher[]> {
     const staffFilters: StaffFilters = { ...filters, staff_category: 'Teaching Staff' };
-    const response = await api.get('/teachers/', staffFilters);
+    const response = await api.get('/api/teachers/', staffFilters);
     const data = response.data;
     return data.results;
   },
 
   async getTeacher(id: number): Promise<Teacher | null> {
-    const response = await api.get(`/teachers/${id}/`);
+    const response = await api.get(`/api/teachers/${id}/`);
     const data = response.data;
     return data;
   },
 
   async createTeacher(data: Omit<Teacher, 'id' | 'created_at' | 'updated_at' | 'full_name' | 'years_of_service' | 'gross_salary'>): Promise<Teacher> {
-    const response = await api.post('/teachers/', data);
+    const response = await api.post('/api/teachers/', data);
     const newTeacher = response.data;
     return newTeacher;
   },
 
   async updateTeacher(id: number, data: Partial<Teacher>): Promise<Teacher | null> {
-    const response = await api.patch(`/teachers/${id}/`, data);
+    const response = await api.patch(`/api/teachers/${id}/`, data);
     const updatedTeacher = response.data;
     return updatedTeacher;
   },
 
   async deleteTeacher(id: number): Promise<boolean> {
-    await api.delete(`/teachers/${id}/`);
+    await api.delete(`/api/teachers/${id}/`);
     return true;
   },
 
   async getTeacherSubjects(teacherId: number): Promise<TeacherSubjectAssignment[]> {
-    const response = await api.get(`/teachers/${teacherId}/subjects/`);
+    const response = await api.get(`/api/teachers/${teacherId}/subjects/`);
     const data = response.data;
     return data;
   },
 
   async assignTeacherToSubject(teacherId: number, subjectId: number, classId: number, streamId?: number, isClassTeacher: boolean = false): Promise<TeacherSubjectAssignment> {
-    const response = await api.post(`/teachers/${teacherId}/subjects/`, {
+    const response = await api.post(`/api/teachers/${teacherId}/subjects/`, {
       subject_id: subjectId,
       class_id: classId,
       stream_id: streamId,
