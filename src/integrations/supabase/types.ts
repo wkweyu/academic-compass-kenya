@@ -2484,45 +2484,137 @@ export type Database = {
       }
       teachers: {
         Row: {
+          account_number: string | null
+          address: string | null
+          bank_branch: string | null
+          bank_name: string | null
+          basic_salary: number | null
           created_at: string
           date_joined: string
           date_of_birth: string
+          department: string | null
+          designation: string | null
           email: string
-          full_name: string
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          employee_no: string | null
+          employment_type: string | null
+          first_name: string | null
+          full_name: string | null
           gender: string
+          hire_date: string | null
+          house_allowance: number | null
           id: number
           is_active: boolean
+          job_title: string | null
+          kra_pin: string | null
+          last_name: string | null
+          national_id: string | null
+          nhif_number: string | null
+          nssf_number: string | null
+          other_allowances: number | null
+          passport_no: string | null
           phone: string
+          responsibility_allowance: number | null
+          salary_scale: string | null
+          school_id: number | null
+          staff_category: string | null
+          status: string | null
+          transport_allowance: number | null
           tsc_number: string
           updated_at: string
         }
         Insert: {
+          account_number?: string | null
+          address?: string | null
+          bank_branch?: string | null
+          bank_name?: string | null
+          basic_salary?: number | null
           created_at: string
           date_joined: string
           date_of_birth: string
+          department?: string | null
+          designation?: string | null
           email: string
-          full_name: string
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          employee_no?: string | null
+          employment_type?: string | null
+          first_name?: string | null
+          full_name?: string | null
           gender: string
+          hire_date?: string | null
+          house_allowance?: number | null
           id?: number
           is_active: boolean
+          job_title?: string | null
+          kra_pin?: string | null
+          last_name?: string | null
+          national_id?: string | null
+          nhif_number?: string | null
+          nssf_number?: string | null
+          other_allowances?: number | null
+          passport_no?: string | null
           phone: string
+          responsibility_allowance?: number | null
+          salary_scale?: string | null
+          school_id?: number | null
+          staff_category?: string | null
+          status?: string | null
+          transport_allowance?: number | null
           tsc_number: string
           updated_at: string
         }
         Update: {
+          account_number?: string | null
+          address?: string | null
+          bank_branch?: string | null
+          bank_name?: string | null
+          basic_salary?: number | null
           created_at?: string
           date_joined?: string
           date_of_birth?: string
+          department?: string | null
+          designation?: string | null
           email?: string
-          full_name?: string
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          employee_no?: string | null
+          employment_type?: string | null
+          first_name?: string | null
+          full_name?: string | null
           gender?: string
+          hire_date?: string | null
+          house_allowance?: number | null
           id?: number
           is_active?: boolean
+          job_title?: string | null
+          kra_pin?: string | null
+          last_name?: string | null
+          national_id?: string | null
+          nhif_number?: string | null
+          nssf_number?: string | null
+          other_allowances?: number | null
+          passport_no?: string | null
           phone?: string
+          responsibility_allowance?: number | null
+          salary_scale?: string | null
+          school_id?: number | null
+          staff_category?: string | null
+          status?: string | null
+          transport_allowance?: number | null
           tsc_number?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_teachers_school"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       transport_transportroute: {
         Row: {

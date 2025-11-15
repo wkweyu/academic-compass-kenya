@@ -94,12 +94,38 @@ export function StaffForm({ onSubmit, onCancel, initialData, isLoading = false }
   });
 
   const handleSubmit = (values: StaffFormValues) => {
+    console.log('Form submitted with values:', values);
     onSubmit(values as any);
+  };
+
+  const handleInvalidSubmit = (errors: any) => {
+    console.error('Form validation errors:', errors);
+    
+    // Check which tab has errors
+    const personalErrors = ['first_name', 'last_name', 'gender', 'date_of_birth', 'phone', 'email', 'address'];
+    const employmentErrors = ['employee_no', 'staff_category', 'department', 'job_title', 'designation', 'employment_type', 'hire_date', 'tsc_number'];
+    const financialErrors = ['national_id', 'kra_pin', 'nhif_number', 'nssf_number', 'bank_name', 'bank_branch', 'account_number'];
+    const salaryErrors = ['basic_salary', 'house_allowance', 'transport_allowance', 'responsibility_allowance', 'other_allowances', 'salary_scale', 'status'];
+    
+    const errorFields = Object.keys(errors);
+    let errorTab = 'Unknown';
+    
+    if (errorFields.some(field => personalErrors.includes(field))) {
+      errorTab = 'Personal';
+    } else if (errorFields.some(field => employmentErrors.includes(field))) {
+      errorTab = 'Employment';
+    } else if (errorFields.some(field => financialErrors.includes(field))) {
+      errorTab = 'Financial';
+    } else if (errorFields.some(field => salaryErrors.includes(field))) {
+      errorTab = 'Salary';
+    }
+    
+    alert(`Please fill in all required fields in the ${errorTab} tab. Missing: ${errorFields.join(', ')}`);
   };
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(handleSubmit, handleInvalidSubmit)} className="space-y-6">
         <Tabs defaultValue="personal" className="w-full">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="personal">Personal</TabsTrigger>

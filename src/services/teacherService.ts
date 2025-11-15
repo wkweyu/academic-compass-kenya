@@ -15,9 +15,16 @@ import {
 export const staffService = {
   // Staff CRUD operations
   async getStaff(filters?: StaffFilters): Promise<Staff[]> {
-    const response = await api.get('/api/teachers/', filters);
-    const data = response.data;
-    return data.results || data;
+    console.log('staffService.getStaff called with filters:', filters);
+    try {
+      const response = await api.get('/api/teachers/', filters);
+      console.log('staffService.getStaff response:', response);
+      const data = response.data;
+      return data.results || data;
+    } catch (error) {
+      console.error('staffService.getStaff error:', error);
+      throw error;
+    }
   },
 
   async getStaffMember(id: number): Promise<Staff | null> {
@@ -31,11 +38,18 @@ export const staffService = {
   },
 
   async createStaff(data: Omit<Staff, 'id' | 'created_at' | 'updated_at' | 'full_name' | 'years_of_service' | 'gross_salary'>): Promise<Staff> {
+    console.log('staffService.createStaff called with data:', data);
     try {
       const response = await api.post('/api/teachers/', data);
+      console.log('staffService.createStaff response:', response);
       return response.data;
-    } catch (error) {
-      console.error('Error creating staff:', error);
+    } catch (error: any) {
+      console.error('staffService.createStaff error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        fullError: error
+      });
       throw error;
     }
   },
