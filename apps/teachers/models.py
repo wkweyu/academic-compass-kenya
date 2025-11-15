@@ -4,14 +4,46 @@ from django.core.validators import RegexValidator
 from django.utils import timezone
 
 class Teacher(models.Model):
-    """Model for teachers"""
+    """Model for teachers/staff with comprehensive HR fields"""
     GENDER_CHOICES = [
         ('M', 'Male'),
         ('F', 'Female'),
     ]
     
+    STAFF_CATEGORY_CHOICES = [
+        ('Teaching Staff', 'Teaching Staff'),
+        ('Administrative Staff', 'Administrative Staff'),
+        ('Support Staff', 'Support Staff'),
+    ]
+    
+    EMPLOYMENT_TYPE_CHOICES = [
+        ('Permanent', 'Permanent'),
+        ('Contract', 'Contract'),
+        ('Part-Time', 'Part-Time'),
+        ('Temporary', 'Temporary'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('Active', 'Active'),
+        ('On Leave', 'On Leave'),
+        ('Suspended', 'Suspended'),
+        ('Terminated', 'Terminated'),
+    ]
+    
+    # School relationship
+    school = models.ForeignKey(
+        'schools.School',
+        on_delete=models.CASCADE,
+        related_name='teachers',
+        null=True,
+        blank=True
+    )
+    
     # Personal Information
-    full_name = models.CharField(max_length=200)
+    first_name = models.CharField(max_length=100, blank=True)
+    last_name = models.CharField(max_length=100, blank=True)
+    full_name = models.CharField(max_length=200, blank=True)  # Auto-generated
+    employee_no = models.CharField(max_length=50, blank=True, unique=True, null=True)
     tsc_number = models.CharField(
         max_length=20, 
         unique=True, 
@@ -19,6 +51,8 @@ class Teacher(models.Model):
     )
     gender = models.CharField(max_length=1, choices=GENDER_CHOICES)
     date_of_birth = models.DateField()
+    national_id = models.CharField(max_length=50, blank=True)
+    passport_no = models.CharField(max_length=50, blank=True)
     
     # Contact Information
     phone = models.CharField(
@@ -29,10 +63,38 @@ class Teacher(models.Model):
         )]
     )
     email = models.EmailField()
+    address = models.TextField(blank=True)
+    emergency_contact_name = models.CharField(max_length=200, blank=True)
+    emergency_contact_phone = models.CharField(max_length=20, blank=True)
     
     # Employment Information
+    staff_category = models.CharField(max_length=100, choices=STAFF_CATEGORY_CHOICES, blank=True)
+    department = models.CharField(max_length=100, blank=True)
+    job_title = models.CharField(max_length=100, blank=True)
+    designation = models.CharField(max_length=100, blank=True)
+    employment_type = models.CharField(max_length=50, choices=EMPLOYMENT_TYPE_CHOICES, blank=True)
+    hire_date = models.DateField(null=True, blank=True)
     date_joined = models.DateField(default=timezone.now)
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='Active')
     is_active = models.BooleanField(default=True)
+    
+    # Banking Information
+    bank_name = models.CharField(max_length=100, blank=True)
+    bank_branch = models.CharField(max_length=100, blank=True)
+    account_number = models.CharField(max_length=50, blank=True)
+    
+    # Tax & Insurance
+    kra_pin = models.CharField(max_length=50, blank=True)
+    nhif_number = models.CharField(max_length=50, blank=True)
+    nssf_number = models.CharField(max_length=50, blank=True)
+    
+    # Salary Information
+    salary_scale = models.CharField(max_length=50, blank=True)
+    basic_salary = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    house_allowance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    transport_allowance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    responsibility_allowance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    other_allowances = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
@@ -42,10 +104,16 @@ class Teacher(models.Model):
         db_table = 'teachers'
         verbose_name = 'Teacher'
         verbose_name_plural = 'Teachers'
-        ordering = ['full_name']
+        ordering = ['-created_at']
+    
+    def save(self, *args, **kwargs):
+        # Auto-generate full_name from first_name and last_name
+        if self.first_name or self.last_name:
+            self.full_name = f"{self.first_name} {self.last_name}".strip()
+        super().save(*args, **kwargs)
     
     def __str__(self):
-        return f"{self.full_name} ({self.tsc_number})"
+        return f"{self.full_name} ({self.tsc_number})" if self.full_name else self.tsc_number
     
     @property
     def age(self):
@@ -57,7 +125,8 @@ class Teacher(models.Model):
     @property
     def years_of_service(self):
         today = timezone.now().date()
-        return today.year - self.date_joined.year
+        service_date = self.hire_date or self.date_joined
+        return today.year - service_date.year
 
 class TeacherSubjectAssignment(models.Model):
     """Model to assign teachers to subjects and classes"""
