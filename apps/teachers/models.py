@@ -30,13 +30,14 @@ class Teacher(models.Model):
         ('Terminated', 'Terminated'),
     ]
     
-    # School relationship
+    # School relationship - must match Supabase column name
     school = models.ForeignKey(
         'schools.School',
         on_delete=models.CASCADE,
         related_name='teachers',
-        null=True,
-        blank=True
+        db_column='school_id',  # Maps to school_id in Supabase
+        null=False,  # Required field
+        blank=False
     )
     
     # Personal Information
