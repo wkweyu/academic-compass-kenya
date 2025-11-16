@@ -75,7 +75,7 @@ class Teacher(models.Model):
     designation = models.CharField(max_length=100, blank=True)
     employment_type = models.CharField(max_length=50, choices=EMPLOYMENT_TYPE_CHOICES, blank=True)
     hire_date = models.DateField(null=True, blank=True)
-    date_joined = models.DateField(default=timezone.now)
+    date_joined = models.DateField(default=timezone.localdate)
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='Active')
     is_active = models.BooleanField(default=True)
     
