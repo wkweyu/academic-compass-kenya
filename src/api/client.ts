@@ -1,7 +1,7 @@
 import { authHeaders } from './api';
 import { parseError, StandardError } from '@/utils/errorHandler';
 
-const API_URL = "http://localhost:8000/api";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export class ApiError extends Error {
   public standardError: StandardError;
@@ -36,7 +36,7 @@ async function client<T>(
       config.body = JSON.stringify(data);
     }
 
-    const response = await fetch(`${API_URL}/${endpoint}`, config);
+    const response = await fetch(`${API_URL}/api/${endpoint}`, config);
 
     if (!response.ok) {
       let errorData;
