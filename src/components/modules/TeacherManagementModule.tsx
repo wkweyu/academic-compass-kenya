@@ -43,12 +43,14 @@ export const TeacherManagementModule = () => {
       
       setStaff(staffData);
       setStats(statsData);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading staff data:', error);
+      const errorMessage = error?.standardError?.message || error?.message || "Failed to load staff data";
       toast({
-        title: "Error",
-        description: "Failed to load staff data",
+        title: "Backend Connection Error",
+        description: errorMessage,
         variant: "destructive",
+        duration: 10000, // Show for 10 seconds
       });
     } finally {
       setLoading(false);
@@ -64,11 +66,14 @@ export const TeacherManagementModule = () => {
       });
       setIsCreateStaffOpen(false);
       loadData();
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Error creating staff:', error);
+      const errorMessage = error?.standardError?.message || error?.message || "Failed to create staff member";
       toast({
-        title: "Error",
-        description: "Failed to create staff member",
+        title: "Backend Connection Error",
+        description: errorMessage,
         variant: "destructive",
+        duration: 10000, // Show for 10 seconds
       });
     }
   };
