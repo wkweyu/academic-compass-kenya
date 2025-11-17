@@ -1,5 +1,5 @@
 import { authHeaders } from './api';
-import { parseError, StandardError } from '@/utils/errorHandler';
+import { parseError, StandardError, ErrorCategory, ErrorSeverity } from '@/utils/errorHandler';
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
@@ -68,6 +68,20 @@ async function client<T>(
     // If it's already an ApiError, rethrow it
     if (error instanceof ApiError) {
       throw error;
+    }
+
+    // Check if this is a network error (Django not running)
+    if (error instanceof Error && error.message === 'Failed to fetch') {
+      const networkError: StandardError = {
+        message: 'Backend server is not running. Please start Django with: python manage.py runserver',
+        code: 'BACKEND_NOT_RUNNING',
+        category: ErrorCategory.NETWORK,
+        severity: ErrorSeverity.CRITICAL,
+        timestamp: new Date().toISOString(),
+        action: 'Start Django server with: python manage.py runserver',
+        details: '⚠️ Django Backend Not Running!\n\nPlease start the Django server:\n1. Open a terminal\n2. Run: python manage.py runserver\n3. Keep the terminal open\n4. Try again'
+      };
+      throw new ApiError(networkError);
     }
 
     // Parse and wrap other errors
