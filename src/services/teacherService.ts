@@ -1,5 +1,4 @@
-// @ts-nocheck
-import { api } from "@/api/api";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   Staff,
   Teacher,
@@ -17,10 +16,31 @@ export const staffService = {
   async getStaff(filters?: StaffFilters): Promise<Staff[]> {
     console.log('staffService.getStaff called with filters:', filters);
     try {
-      const response = await api.get('/api/teachers/', filters);
-      console.log('staffService.getStaff response:', response);
-      const data = response.data;
-      return data.results || data;
+      let query = supabase.from('teachers').select('*');
+      
+      // Apply filters if provided
+      if (filters?.department) {
+        query = query.eq('department', filters.department);
+      }
+      if (filters?.status) {
+        query = query.eq('status', filters.status);
+      }
+      if (filters?.employment_type) {
+        query = query.eq('employment_type', filters.employment_type);
+      }
+      if (filters?.staff_category) {
+        query = query.eq('category', filters.staff_category);
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+      
+      console.log('staffService.getStaff response:', data);
+      return data || [];
     } catch (error) {
       console.error('staffService.getStaff error:', error);
       throw error;
@@ -29,8 +49,14 @@ export const staffService = {
 
   async getStaffMember(id: number): Promise<Staff | null> {
     try {
-      const response = await api.get(`/api/teachers/${id}/`);
-      return response.data;
+      const { data, error } = await supabase
+        .from('teachers')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (error) throw error;
+      return data;
     } catch (error) {
       console.error('Error fetching staff member:', error);
       throw error;
@@ -40,14 +66,24 @@ export const staffService = {
   async createStaff(data: Omit<Staff, 'id' | 'created_at' | 'updated_at' | 'full_name' | 'years_of_service' | 'gross_salary'>): Promise<Staff> {
     console.log('staffService.createStaff called with data:', data);
     try {
-      const response = await api.post('/api/teachers/', data);
-      console.log('staffService.createStaff response:', response);
-      return response.data;
+      const { data: newStaff, error } = await supabase
+        .from('teachers')
+        .insert([data])
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+      
+      console.log('staffService.createStaff response:', newStaff);
+      return newStaff;
     } catch (error: any) {
       console.error('staffService.createStaff error details:', {
         message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
+        details: error.details,
+        hint: error.hint,
         fullError: error
       });
       throw error;
@@ -56,8 +92,15 @@ export const staffService = {
 
   async updateStaff(id: number, data: Partial<Staff>): Promise<Staff | null> {
     try {
-      const response = await api.patch(`/api/teachers/${id}/`, data);
-      return response.data;
+      const { data: updatedStaff, error } = await supabase
+        .from('teachers')
+        .update(data)
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return updatedStaff;
     } catch (error) {
       console.error('Error updating staff:', error);
       throw error;
@@ -66,7 +109,12 @@ export const staffService = {
 
   async deleteStaff(id: number): Promise<boolean> {
     try {
-      await api.delete(`/api/teachers/${id}/`);
+      const { error } = await supabase
+        .from('teachers')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
       return true;
     } catch (error) {
       console.error('Error deleting staff:', error);
@@ -76,20 +124,15 @@ export const staffService = {
 
   // Subject assignments (mainly for teaching staff)
   async getStaffSubjects(staffId: number): Promise<StaffSubjectAssignment[]> {
-    const response = await api.get(`/api/teachers/${staffId}/subjects/`);
-    const data = response.data;
-    return data;
+    // TODO: Implement with Supabase
+    console.log('getStaffSubjects not yet implemented for:', staffId);
+    return [];
   },
 
   async assignStaffToSubject(staffId: number, subjectId: number, classId: number, streamId?: number, isClassTeacher: boolean = false): Promise<StaffSubjectAssignment> {
-    const response = await api.post(`/api/teachers/${staffId}/subjects/`, {
-      subject_id: subjectId,
-      class_id: classId,
-      stream_id: streamId,
-      is_class_teacher: isClassTeacher,
-    });
-    const assignment = response.data;
-    return assignment;
+    // TODO: Implement with Supabase
+    console.log('assignStaffToSubject not yet implemented:', { staffId, subjectId, classId, streamId, isClassTeacher });
+    return {} as StaffSubjectAssignment;
   },
 
   // Payroll operations
@@ -108,10 +151,17 @@ export const staffService = {
   // Statistics
   async getStaffStats(): Promise<StaffStats> {
     try {
-      const response = await api.get('/api/teachers/stats/');
+      const { data, error } = await supabase
+        .from('teachers')
+        .select('*');
+      
+      if (error) throw error;
+      
+      const activeStaff = data?.filter(s => s.status === 'Active') || [];
+      
       return {
-        total_staff: response.data.total_teachers || 0,
-        active_staff: response.data.active_teachers || 0,
+        total_staff: data?.length || 0,
+        active_staff: activeStaff.length,
         staff_by_department: {},
         staff_by_category: {},
         staff_by_employment_type: {},
@@ -122,17 +172,7 @@ export const staffService = {
       };
     } catch (error) {
       console.error('Error fetching staff stats:', error);
-      return {
-        total_staff: 0,
-        active_staff: 0,
-        staff_by_department: {},
-        staff_by_category: {},
-        staff_by_employment_type: {},
-        average_years_service: 0,
-        total_payroll_cost: 0,
-        staff_on_leave: 0,
-        new_hires_this_month: 0,
-      };
+      throw error;
     }
   }
 };
@@ -141,65 +181,43 @@ export const staffService = {
 export const teacherService = {
   async getTeachers(filters?: TeacherFilters): Promise<Teacher[]> {
     const staffFilters: StaffFilters = { ...filters, staff_category: 'Teaching Staff' };
-    const response = await api.get('/api/teachers/', staffFilters);
-    const data = response.data;
-    return data.results;
+    return staffService.getStaff(staffFilters) as Promise<Teacher[]>;
   },
 
   async getTeacher(id: number): Promise<Teacher | null> {
-    const response = await api.get(`/api/teachers/${id}/`);
-    const data = response.data;
-    return data;
+    return staffService.getStaffMember(id) as Promise<Teacher | null>;
   },
 
   async createTeacher(data: Omit<Teacher, 'id' | 'created_at' | 'updated_at' | 'full_name' | 'years_of_service' | 'gross_salary'>): Promise<Teacher> {
-    const response = await api.post('/api/teachers/', data);
-    const newTeacher = response.data;
-    return newTeacher;
+    const staffData = { ...data, staff_category: 'Teaching Staff' as const };
+    return staffService.createStaff(staffData) as Promise<Teacher>;
   },
 
   async updateTeacher(id: number, data: Partial<Teacher>): Promise<Teacher | null> {
-    const response = await api.patch(`/api/teachers/${id}/`, data);
-    const updatedTeacher = response.data;
-    return updatedTeacher;
+    return staffService.updateStaff(id, data) as Promise<Teacher | null>;
   },
 
   async deleteTeacher(id: number): Promise<boolean> {
-    await api.delete(`/api/teachers/${id}/`);
-    return true;
+    return staffService.deleteStaff(id);
   },
 
   async getTeacherSubjects(teacherId: number): Promise<TeacherSubjectAssignment[]> {
-    const response = await api.get(`/api/teachers/${teacherId}/subjects/`);
-    const data = response.data;
-    return data;
+    return staffService.getStaffSubjects(teacherId);
   },
 
   async assignTeacherToSubject(teacherId: number, subjectId: number, classId: number, streamId?: number, isClassTeacher: boolean = false): Promise<TeacherSubjectAssignment> {
-    const response = await api.post(`/api/teachers/${teacherId}/subjects/`, {
-      subject_id: subjectId,
-      class_id: classId,
-      stream_id: streamId,
-      is_class_teacher: isClassTeacher,
-    });
-    const assignment = response.data;
-    return assignment;
+    return staffService.assignStaffToSubject(teacherId, subjectId, classId, streamId, isClassTeacher);
   },
 
   async getTeacherPayroll(teacherId: number, year?: number): Promise<PayrollTransaction[]> {
-    // TODO: Implement this function
-    console.log(teacherId, year);
-    return [];
+    return staffService.getStaffPayroll(teacherId, year);
   },
 
   async generatePayslip(teacherId: number, month: number, year: number): Promise<PayrollTransaction> {
-    // TODO: Implement this function
-    console.log(teacherId, month, year);
-    return {} as PayrollTransaction;
+    return staffService.generatePayslip(teacherId, month, year);
   },
 
   async getTeacherStats(): Promise<TeacherStats> {
-    // TODO: Implement this function
-    return {} as TeacherStats;
+    return staffService.getStaffStats();
   }
 };
