@@ -66,12 +66,15 @@ export const staffService = {
   async createStaff(data: Omit<Staff, 'id' | 'created_at' | 'updated_at' | 'full_name' | 'years_of_service' | 'gross_salary'>): Promise<Staff> {
     console.log('staffService.createStaff called with data:', data);
     try {
+      const now = new Date().toISOString();
       // Map fields to match database schema
       const mappedData = {
         ...data,
         gender: data.gender === 'Male' ? 'M' : data.gender === 'Female' ? 'F' : data.gender,
         date_joined: data.hire_date, // Required field in database
-        is_active: true // Set active status
+        is_active: true, // Set active status
+        created_at: now,
+        updated_at: now
       };
       
       const { data: newStaff, error } = await supabase
