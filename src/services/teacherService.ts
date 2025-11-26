@@ -66,9 +66,15 @@ export const staffService = {
   async createStaff(data: Omit<Staff, 'id' | 'created_at' | 'updated_at' | 'full_name' | 'years_of_service' | 'gross_salary'>): Promise<Staff> {
     console.log('staffService.createStaff called with data:', data);
     try {
+      // Map gender values: Male -> M, Female -> F to match database schema
+      const mappedData = {
+        ...data,
+        gender: data.gender === 'Male' ? 'M' : data.gender === 'Female' ? 'F' : data.gender
+      };
+      
       const { data: newStaff, error } = await supabase
         .from('teachers')
-        .insert([data])
+        .insert([mappedData])
         .select()
         .single();
       
@@ -92,9 +98,14 @@ export const staffService = {
 
   async updateStaff(id: number, data: Partial<Staff>): Promise<Staff | null> {
     try {
+      // Map gender values: Male -> M, Female -> F to match database schema
+      const mappedData = data.gender
+        ? { ...data, gender: data.gender === 'Male' ? 'M' : data.gender === 'Female' ? 'F' : data.gender }
+        : data;
+      
       const { data: updatedStaff, error } = await supabase
         .from('teachers')
-        .update(data)
+        .update(mappedData)
         .eq('id', id)
         .select()
         .single();
