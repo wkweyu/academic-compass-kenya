@@ -70,8 +70,8 @@ export const staffService = {
       const mappedData = {
         ...data,
         gender: data.gender === 'Male' ? 'M' : data.gender === 'Female' ? 'F' : data.gender,
-        date_joined: data.hire_date, // Map hire_date to date_joined for database
-        category: data.staff_category // Map staff_category to category for database
+        date_joined: data.hire_date, // Required field in database
+        is_active: true // Set active status
       };
       
       const { data: newStaff, error } = await supabase
@@ -107,9 +107,6 @@ export const staffService = {
       }
       if (data.hire_date) {
         mappedData.date_joined = data.hire_date;
-      }
-      if (data.staff_category) {
-        mappedData.category = data.staff_category;
       }
       
       const { data: updatedStaff, error } = await supabase
