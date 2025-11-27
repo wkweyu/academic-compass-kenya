@@ -19,6 +19,9 @@ export const staffService = {
       let query = supabase.from('teachers').select('*');
       
       // Apply filters if provided
+      if (filters?.search) {
+        query = query.or(`full_name.ilike.%${filters.search}%,first_name.ilike.%${filters.search}%,last_name.ilike.%${filters.search}%,employee_no.ilike.%${filters.search}%`);
+      }
       if (filters?.department) {
         query = query.eq('department', filters.department);
       }
@@ -29,7 +32,7 @@ export const staffService = {
         query = query.eq('employment_type', filters.employment_type);
       }
       if (filters?.staff_category) {
-        query = query.eq('category', filters.staff_category);
+        query = query.eq('staff_category', filters.staff_category);
       }
       
       const { data, error } = await query;

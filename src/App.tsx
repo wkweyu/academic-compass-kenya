@@ -25,6 +25,7 @@ import FeesPage from "./pages/FeesPage";
 import PromotionsPage from "./pages/PromotionsPage";
 import ComingSoonPage from "./pages/ComingSoonPage";
 import SettingsPage from "./pages/SettingsPage";
+import StaffProfilePage from "./pages/StaffProfilePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -47,6 +48,7 @@ const App = () => (
                 <Route path="/students/:id" element={<StudentProfilePage />} />
                 <Route path="/classes" element={<ClassesPage />} />
                 <Route path="/teachers" element={<TeachersPage />} />
+                <Route path="/teachers/:id" element={<StaffProfilePage />} />
                 <Route path="/subjects" element={<SubjectsPage />} />
                 <Route path="/scores" element={<ScoresPage />} />
                 <Route path="/results" element={<ResultsPage />} />
