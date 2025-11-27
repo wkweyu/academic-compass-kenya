@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Users, DollarSign, Calendar, Filter, Edit, Trash2, Eye, UserCheck, FileText, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,9 +14,12 @@ import { Staff, StaffStats, StaffFilters, DEPARTMENTS, EMPLOYMENT_TYPES, STAFF_S
 import { staffService } from '@/services/teacherService';
 import { StaffForm } from '@/components/forms/StaffForm';
 import { DeleteConfirmationDialog } from '@/components/ui/DeleteConfirmationDialog';
+import StaffAttendanceModule from './StaffAttendanceModule';
+import StaffReportsModule from './StaffReportsModule';
 
 export const TeacherManagementModule = () => {
   console.log('TeacherManagementModule rendering...');
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [staff, setStaff] = useState<Staff[]>([]);
   const [stats, setStats] = useState<StaffStats | null>(null);
@@ -222,9 +226,8 @@ export const TeacherManagementModule = () => {
       <Tabs defaultValue="staff" className="space-y-4">
         <TabsList>
           <TabsTrigger value="staff">All Staff</TabsTrigger>
-          <TabsTrigger value="assignments">Teaching Assignments</TabsTrigger>
-          <TabsTrigger value="payroll">Payroll</TabsTrigger>
           <TabsTrigger value="attendance">Attendance</TabsTrigger>
+          <TabsTrigger value="reports">Reports</TabsTrigger>
         </TabsList>
 
         <TabsContent value="staff" className="space-y-4">
@@ -367,9 +370,13 @@ export const TeacherManagementModule = () => {
                           {member.status}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => navigate(`/teachers/${member.id}`)}
+                          >
                             <Eye className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="sm">
@@ -392,48 +399,12 @@ export const TeacherManagementModule = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="assignments" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Teaching Assignments</CardTitle>
-              <CardDescription>Assign teachers to subjects and classes</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <BookOpen className="h-12 w-12 mx-auto mb-4" />
-                <p>Teaching assignment functionality is being set up...</p>
-                <p className="text-sm mt-2">This will allow you to assign teachers to specific subjects and classes.</p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="payroll" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Payroll Management</CardTitle>
-              <CardDescription>Process monthly payroll and generate payslips for all staff</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                Payroll management will be implemented next...
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         <TabsContent value="attendance" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Staff Attendance</CardTitle>
-              <CardDescription>Track daily attendance and leave management for all staff</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                Attendance tracking will be implemented next...
-              </div>
-            </CardContent>
-          </Card>
+          <StaffAttendanceModule />
+        </TabsContent>
+
+        <TabsContent value="reports" className="space-y-4">
+          <StaffReportsModule />
         </TabsContent>
       </Tabs>
 
