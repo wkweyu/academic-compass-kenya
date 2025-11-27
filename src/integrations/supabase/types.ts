@@ -1847,6 +1847,63 @@ export type Database = {
           },
         ]
       }
+      staff_attendance: {
+        Row: {
+          approved_by: number | null
+          check_in_time: string | null
+          check_out_time: string | null
+          created_at: string | null
+          date: string
+          id: number
+          leave_type: string | null
+          notes: string | null
+          staff_id: number
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          approved_by?: number | null
+          check_in_time?: string | null
+          check_out_time?: string | null
+          created_at?: string | null
+          date: string
+          id?: number
+          leave_type?: string | null
+          notes?: string | null
+          staff_id: number
+          status: string
+          updated_at?: string | null
+        }
+        Update: {
+          approved_by?: number | null
+          check_in_time?: string | null
+          check_out_time?: string | null
+          created_at?: string | null
+          date?: string
+          id?: number
+          leave_type?: string | null
+          notes?: string | null
+          staff_id?: number
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_attendance_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_attendance_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stream_name_settings: {
         Row: {
           created_at: string
@@ -2427,9 +2484,12 @@ export type Database = {
           created_at: string
           id: number
           is_active: boolean
+          is_class_teacher: boolean | null
           stream_id: number | null
           subject_id: number
           teacher_id: number
+          term: number | null
+          updated_at: string | null
         }
         Insert: {
           academic_year: number
@@ -2437,9 +2497,12 @@ export type Database = {
           created_at: string
           id?: number
           is_active: boolean
+          is_class_teacher?: boolean | null
           stream_id?: number | null
           subject_id: number
           teacher_id: number
+          term?: number | null
+          updated_at?: string | null
         }
         Update: {
           academic_year?: number
@@ -2447,9 +2510,12 @@ export type Database = {
           created_at?: string
           id?: number
           is_active?: boolean
+          is_class_teacher?: boolean | null
           stream_id?: number | null
           subject_id?: number
           teacher_id?: number
+          term?: number | null
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -2903,6 +2969,7 @@ export type Database = {
         }[]
       }
       generate_admission_number: { Args: never; Returns: string }
+      generate_employee_number: { Args: never; Returns: string }
       generate_school_code: { Args: never; Returns: string }
       get_current_user_profile: {
         Args: never
