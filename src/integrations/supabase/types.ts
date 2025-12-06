@@ -1134,6 +1134,69 @@ export type Database = {
         }
         Relationships: []
       }
+      leave_requests: {
+        Row: {
+          approved_at: string | null
+          approved_by: number | null
+          created_at: string | null
+          days_requested: number
+          end_date: string
+          id: number
+          leave_type: string
+          reason: string | null
+          rejection_reason: string | null
+          staff_id: number
+          start_date: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: number | null
+          created_at?: string | null
+          days_requested: number
+          end_date: string
+          id?: number
+          leave_type: string
+          reason?: string | null
+          rejection_reason?: string | null
+          staff_id: number
+          start_date: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: number | null
+          created_at?: string | null
+          days_requested?: number
+          end_date?: string
+          id?: number
+          leave_type?: string
+          reason?: string | null
+          rejection_reason?: string | null
+          staff_id?: number
+          start_date?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leave_requests_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leave_requests_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       procurement_feesinkindtransaction: {
         Row: {
           amount: number
@@ -2548,10 +2611,59 @@ export type Database = {
           },
         ]
       }
+      teacher_subjects: {
+        Row: {
+          created_at: string | null
+          id: number
+          is_primary_subject: boolean | null
+          qualification_level: string | null
+          subject_id: number
+          teacher_id: number
+          updated_at: string | null
+          years_experience: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: number
+          is_primary_subject?: boolean | null
+          qualification_level?: string | null
+          subject_id: number
+          teacher_id: number
+          updated_at?: string | null
+          years_experience?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: number
+          is_primary_subject?: boolean | null
+          qualification_level?: string | null
+          subject_id?: number
+          teacher_id?: number
+          updated_at?: string | null
+          years_experience?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_subjects_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_subjects_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teachers: {
         Row: {
           account_number: string | null
           address: string | null
+          available_days: string[] | null
           bank_branch: string | null
           bank_name: string | null
           basic_salary: number | null
@@ -2572,15 +2684,18 @@ export type Database = {
           house_allowance: number | null
           id: number
           is_active: boolean
+          is_hod: boolean | null
           job_title: string | null
           kra_pin: string | null
           last_name: string | null
           national_id: string | null
           nhif_number: string | null
+          notes: string | null
           nssf_number: string | null
           other_allowances: number | null
           passport_no: string | null
           phone: string
+          qualifications: string[] | null
           responsibility_allowance: number | null
           salary_scale: string | null
           school_id: number | null
@@ -2588,11 +2703,14 @@ export type Database = {
           status: string | null
           transport_allowance: number | null
           tsc_number: string
+          unavailable_dates: string[] | null
           updated_at: string
+          weekly_workload_limit: number | null
         }
         Insert: {
           account_number?: string | null
           address?: string | null
+          available_days?: string[] | null
           bank_branch?: string | null
           bank_name?: string | null
           basic_salary?: number | null
@@ -2613,15 +2731,18 @@ export type Database = {
           house_allowance?: number | null
           id?: number
           is_active: boolean
+          is_hod?: boolean | null
           job_title?: string | null
           kra_pin?: string | null
           last_name?: string | null
           national_id?: string | null
           nhif_number?: string | null
+          notes?: string | null
           nssf_number?: string | null
           other_allowances?: number | null
           passport_no?: string | null
           phone: string
+          qualifications?: string[] | null
           responsibility_allowance?: number | null
           salary_scale?: string | null
           school_id?: number | null
@@ -2629,11 +2750,14 @@ export type Database = {
           status?: string | null
           transport_allowance?: number | null
           tsc_number: string
+          unavailable_dates?: string[] | null
           updated_at: string
+          weekly_workload_limit?: number | null
         }
         Update: {
           account_number?: string | null
           address?: string | null
+          available_days?: string[] | null
           bank_branch?: string | null
           bank_name?: string | null
           basic_salary?: number | null
@@ -2654,15 +2778,18 @@ export type Database = {
           house_allowance?: number | null
           id?: number
           is_active?: boolean
+          is_hod?: boolean | null
           job_title?: string | null
           kra_pin?: string | null
           last_name?: string | null
           national_id?: string | null
           nhif_number?: string | null
+          notes?: string | null
           nssf_number?: string | null
           other_allowances?: number | null
           passport_no?: string | null
           phone?: string
+          qualifications?: string[] | null
           responsibility_allowance?: number | null
           salary_scale?: string | null
           school_id?: number | null
@@ -2670,7 +2797,9 @@ export type Database = {
           status?: string | null
           transport_allowance?: number | null
           tsc_number?: string
+          unavailable_dates?: string[] | null
           updated_at?: string
+          weekly_workload_limit?: number | null
         }
         Relationships: [
           {

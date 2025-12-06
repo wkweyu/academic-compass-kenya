@@ -16,6 +16,8 @@ import { StaffForm } from '@/components/forms/StaffForm';
 import { DeleteConfirmationDialog } from '@/components/ui/DeleteConfirmationDialog';
 import StaffAttendanceModule from './StaffAttendanceModule';
 import StaffReportsModule from './StaffReportsModule';
+import TeacherAssignmentsModule from './TeacherAssignmentsModule';
+import LeaveManagementModule from './LeaveManagementModule';
 
 export const TeacherManagementModule = () => {
   console.log('TeacherManagementModule rendering...');
@@ -226,7 +228,9 @@ export const TeacherManagementModule = () => {
       <Tabs defaultValue="staff" className="space-y-4">
         <TabsList>
           <TabsTrigger value="staff">All Staff</TabsTrigger>
+          <TabsTrigger value="assignments">Assignments</TabsTrigger>
           <TabsTrigger value="attendance">Attendance</TabsTrigger>
+          <TabsTrigger value="leave">Leave</TabsTrigger>
           <TabsTrigger value="reports">Reports</TabsTrigger>
         </TabsList>
 
@@ -399,8 +403,16 @@ export const TeacherManagementModule = () => {
           </Card>
         </TabsContent>
 
+        <TabsContent value="assignments" className="space-y-4">
+          <TeacherAssignmentsModule />
+        </TabsContent>
+
         <TabsContent value="attendance" className="space-y-4">
           <StaffAttendanceModule />
+        </TabsContent>
+
+        <TabsContent value="leave" className="space-y-4">
+          <LeaveManagementModule />
         </TabsContent>
 
         <TabsContent value="reports" className="space-y-4">
