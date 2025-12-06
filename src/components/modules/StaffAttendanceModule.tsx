@@ -249,7 +249,7 @@ const StaffAttendanceModule = () => {
               ) : (
                 <div className="space-y-2">
                   {filteredStaff.map((member) => {
-                    const currentAttendance = attendance[member.id] || {};
+                    const currentAttendance = attendance[member.id] || { status: '', check_in: '', notes: '', leave_type: '' };
                     return (
                       <div 
                         key={member.id} 
