@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Users, DollarSign, Calendar, Filter, Edit, Trash2, Eye, UserCheck, FileText, BookOpen } from 'lucide-react';
+import { Plus, Search, Users, DollarSign, Calendar, Filter, Edit, Trash2, Eye, UserCheck, FileText, BookOpen, Crown, Clock, BarChart3, Briefcase } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,6 +18,9 @@ import StaffAttendanceModule from './StaffAttendanceModule';
 import StaffReportsModule from './StaffReportsModule';
 import TeacherAssignmentsModule from './TeacherAssignmentsModule';
 import LeaveManagementModule from './LeaveManagementModule';
+import TeacherAvailabilityModule from './TeacherAvailabilityModule';
+import TeacherPerformanceModule from './TeacherPerformanceModule';
+import TeacherWorkloadModule from './TeacherWorkloadModule';
 
 export const TeacherManagementModule = () => {
   console.log('TeacherManagementModule rendering...');
@@ -226,11 +229,14 @@ export const TeacherManagementModule = () => {
 
       {/* Main Content */}
       <Tabs defaultValue="staff" className="space-y-4">
-        <TabsList>
+        <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="staff">All Staff</TabsTrigger>
           <TabsTrigger value="assignments">Assignments</TabsTrigger>
+          <TabsTrigger value="availability">Availability</TabsTrigger>
+          <TabsTrigger value="workload">Workload</TabsTrigger>
           <TabsTrigger value="attendance">Attendance</TabsTrigger>
           <TabsTrigger value="leave">Leave</TabsTrigger>
+          <TabsTrigger value="performance">Performance</TabsTrigger>
           <TabsTrigger value="reports">Reports</TabsTrigger>
         </TabsList>
 
@@ -342,7 +348,7 @@ export const TeacherManagementModule = () => {
                     <TableHead>Category</TableHead>
                     <TableHead>Department</TableHead>
                     <TableHead>Job Title</TableHead>
-                    <TableHead>Employment Type</TableHead>
+                    <TableHead>HOD</TableHead>
                     <TableHead>Gross Salary</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Actions</TableHead>
@@ -366,7 +372,14 @@ export const TeacherManagementModule = () => {
                       <TableCell>{member.department}</TableCell>
                       <TableCell>{member.job_title}</TableCell>
                       <TableCell>
-                        <Badge variant="secondary">{member.employment_type}</Badge>
+                        {(member as any).is_hod ? (
+                          <Badge className="bg-amber-100 text-amber-800">
+                            <Crown className="h-3 w-3 mr-1" />
+                            HOD
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">-</span>
+                        )}
                       </TableCell>
                       <TableCell>{formatCurrency(member.gross_salary || 0)}</TableCell>
                       <TableCell>
@@ -407,12 +420,24 @@ export const TeacherManagementModule = () => {
           <TeacherAssignmentsModule />
         </TabsContent>
 
+        <TabsContent value="availability" className="space-y-4">
+          <TeacherAvailabilityModule />
+        </TabsContent>
+
+        <TabsContent value="workload" className="space-y-4">
+          <TeacherWorkloadModule />
+        </TabsContent>
+
         <TabsContent value="attendance" className="space-y-4">
           <StaffAttendanceModule />
         </TabsContent>
 
         <TabsContent value="leave" className="space-y-4">
           <LeaveManagementModule />
+        </TabsContent>
+
+        <TabsContent value="performance" className="space-y-4">
+          <TeacherPerformanceModule />
         </TabsContent>
 
         <TabsContent value="reports" className="space-y-4">
