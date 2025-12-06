@@ -2540,6 +2540,101 @@ export type Database = {
         }
         Relationships: []
       }
+      teacher_availability: {
+        Row: {
+          created_at: string | null
+          day_of_week: number
+          end_time: string
+          id: number
+          is_available: boolean | null
+          reason: string | null
+          school_id: number
+          start_time: string
+          teacher_id: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          day_of_week: number
+          end_time?: string
+          id?: number
+          is_available?: boolean | null
+          reason?: string | null
+          school_id: number
+          start_time?: string
+          teacher_id: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          day_of_week?: number
+          end_time?: string
+          id?: number
+          is_available?: boolean | null
+          reason?: string | null
+          school_id?: number
+          start_time?: string
+          teacher_id?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_availability_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teacher_specializations: {
+        Row: {
+          created_at: string | null
+          id: number
+          is_primary: boolean | null
+          proficiency_level: string | null
+          school_id: number
+          subject_id: number
+          teacher_id: number
+          years_experience: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: number
+          is_primary?: boolean | null
+          proficiency_level?: string | null
+          school_id: number
+          subject_id: number
+          teacher_id: number
+          years_experience?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: number
+          is_primary?: boolean | null
+          proficiency_level?: string | null
+          school_id?: number
+          subject_id?: number
+          teacher_id?: number
+          years_experience?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_specializations_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_specializations_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teacher_subject_assignments: {
         Row: {
           academic_year: number
@@ -2659,6 +2754,80 @@ export type Database = {
           },
         ]
       }
+      teacher_workload: {
+        Row: {
+          academic_year: number
+          class_id: number
+          created_at: string | null
+          id: number
+          is_class_teacher: boolean | null
+          lessons_per_week: number
+          school_id: number
+          stream_id: number | null
+          subject_id: number
+          teacher_id: number
+          term: number
+          updated_at: string | null
+        }
+        Insert: {
+          academic_year?: number
+          class_id: number
+          created_at?: string | null
+          id?: number
+          is_class_teacher?: boolean | null
+          lessons_per_week?: number
+          school_id: number
+          stream_id?: number | null
+          subject_id: number
+          teacher_id: number
+          term?: number
+          updated_at?: string | null
+        }
+        Update: {
+          academic_year?: number
+          class_id?: number
+          created_at?: string | null
+          id?: number
+          is_class_teacher?: boolean | null
+          lessons_per_week?: number
+          school_id?: number
+          stream_id?: number | null
+          subject_id?: number
+          teacher_id?: number
+          term?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_workload_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_workload_stream_id_fkey"
+            columns: ["stream_id"]
+            isOneToOne: false
+            referencedRelation: "streams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_workload_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_workload_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teachers: {
         Row: {
           account_number: string | null
@@ -2668,6 +2837,7 @@ export type Database = {
           bank_name: string | null
           basic_salary: number | null
           created_at: string
+          current_workload: number | null
           date_joined: string
           date_of_birth: string
           department: string | null
@@ -2715,6 +2885,7 @@ export type Database = {
           bank_name?: string | null
           basic_salary?: number | null
           created_at: string
+          current_workload?: number | null
           date_joined: string
           date_of_birth: string
           department?: string | null
@@ -2762,6 +2933,7 @@ export type Database = {
           bank_name?: string | null
           basic_salary?: number | null
           created_at?: string
+          current_workload?: number | null
           date_joined?: string
           date_of_birth?: string
           department?: string | null
@@ -3032,6 +3204,14 @@ export type Database = {
       }
     }
     Functions: {
+      calculate_teacher_workload: {
+        Args: { p_teacher_id: number }
+        Returns: number
+      }
+      can_teacher_teach_subject: {
+        Args: { p_subject_id: number; p_teacher_id: number }
+        Returns: boolean
+      }
       clear_orphaned_school_reference: { Args: never; Returns: undefined }
       create_school_profile: {
         Args: {

@@ -51,6 +51,18 @@ export interface TeacherWorkload {
   assignments: StaffSubjectAssignment[];
 }
 
+// Helper function to calculate overall rating
+const calculateOverallRating = (attendanceRate: number, workloadPercentage: number): string => {
+  const attendanceScore = attendanceRate >= 95 ? 5 : attendanceRate >= 90 ? 4 : attendanceRate >= 80 ? 3 : attendanceRate >= 70 ? 2 : 1;
+  const workloadScore = workloadPercentage <= 100 ? 5 : workloadPercentage <= 110 ? 4 : workloadPercentage <= 120 ? 3 : 2;
+  const avgScore = (attendanceScore + workloadScore) / 2;
+  
+  if (avgScore >= 4.5) return 'Excellent';
+  if (avgScore >= 3.5) return 'Good';
+  if (avgScore >= 2.5) return 'Satisfactory';
+  return 'Needs Improvement';
+};
+
 export const staffService = {
   // Staff CRUD operations
   async getStaff(filters?: StaffFilters): Promise<Staff[]> {
@@ -711,6 +723,380 @@ export const staffService = {
       return data || [];
     } catch (error) {
       console.error('Error fetching HODs:', error);
+      throw error;
+    }
+  },
+
+  // Teacher Availability
+  async getTeacherAvailability(teacherId: number) {
+    try {
+      const { data, error } = await supabase
+        .from('teacher_availability')
+        .select('*')
+        .eq('teacher_id', teacherId)
+        .order('day_of_week');
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching teacher availability:', error);
+      throw error;
+    }
+  },
+
+  async setTeacherAvailability(teacherId: number, schoolId: number, availability: {
+    day_of_week: number;
+    start_time: string;
+    end_time: string;
+    is_available: boolean;
+    reason?: string;
+  }) {
+    try {
+      const { data, error } = await supabase
+        .from('teacher_availability')
+        .upsert({
+          teacher_id: teacherId,
+          school_id: schoolId,
+          ...availability
+        }, {
+          onConflict: 'teacher_id,day_of_week'
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error setting teacher availability:', error);
+      throw error;
+    }
+  },
+
+  async bulkSetAvailability(teacherId: number, schoolId: number, availabilityList: Array<{
+    day_of_week: number;
+    start_time: string;
+    end_time: string;
+    is_available: boolean;
+    reason?: string;
+  }>) {
+    try {
+      const records = availabilityList.map(a => ({
+        teacher_id: teacherId,
+        school_id: schoolId,
+        ...a
+      }));
+      
+      const { data, error } = await supabase
+        .from('teacher_availability')
+        .upsert(records, { onConflict: 'teacher_id,day_of_week' })
+        .select();
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error bulk setting availability:', error);
+      throw error;
+    }
+  },
+
+  // Teacher Specializations (from new table)
+  async getTeacherSpecializations(teacherId: number) {
+    try {
+      const { data, error } = await supabase
+        .from('teacher_specializations')
+        .select(`
+          *,
+          subject:subjects(id, name, code)
+        `)
+        .eq('teacher_id', teacherId);
+      
+      if (error) throw error;
+      return (data || []).map((item: any) => ({
+        id: item.id,
+        teacher_id: item.teacher_id,
+        subject_id: item.subject_id,
+        subject_name: item.subject?.name,
+        subject_code: item.subject?.code,
+        proficiency_level: item.proficiency_level,
+        is_primary: item.is_primary,
+        years_experience: item.years_experience
+      }));
+    } catch (error) {
+      console.error('Error fetching specializations:', error);
+      throw error;
+    }
+  },
+
+  async addTeacherSpecialization(teacherId: number, schoolId: number, subjectId: number, options?: {
+    proficiency_level?: string;
+    is_primary?: boolean;
+    years_experience?: number;
+  }) {
+    try {
+      const { data, error } = await supabase
+        .from('teacher_specializations')
+        .insert({
+          teacher_id: teacherId,
+          subject_id: subjectId,
+          school_id: schoolId,
+          proficiency_level: options?.proficiency_level || 'Intermediate',
+          is_primary: options?.is_primary || false,
+          years_experience: options?.years_experience || 0
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error adding specialization:', error);
+      throw error;
+    }
+  },
+
+  async removeTeacherSpecialization(id: number) {
+    try {
+      const { error } = await supabase
+        .from('teacher_specializations')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error removing specialization:', error);
+      throw error;
+    }
+  },
+
+  // Detailed Workload Management
+  async getDetailedWorkload(teacherId: number) {
+    try {
+      const { data, error } = await supabase
+        .from('teacher_workload')
+        .select(`
+          *,
+          class:classes(id, name, grade_level),
+          stream:streams(id, name),
+          subject:subjects(id, name, code)
+        `)
+        .eq('teacher_id', teacherId)
+        .eq('academic_year', new Date().getFullYear());
+      
+      if (error) throw error;
+      
+      const teacher = await this.getStaffMember(teacherId);
+      const totalLessons = (data || []).reduce((sum, w) => sum + (w.lessons_per_week || 0), 0);
+      const weeklyLimit = (teacher as any)?.weekly_workload_limit || 28;
+      
+      return {
+        assignments: data || [],
+        total_lessons: totalLessons,
+        weekly_limit: weeklyLimit,
+        is_overloaded: totalLessons > weeklyLimit,
+        workload_percentage: Math.round((totalLessons / weeklyLimit) * 100),
+        unique_subjects: new Set((data || []).map((w: any) => w.subject_id)).size,
+        unique_classes: new Set((data || []).map((w: any) => w.class_id)).size
+      };
+    } catch (error) {
+      console.error('Error fetching detailed workload:', error);
+      throw error;
+    }
+  },
+
+  async addWorkloadAssignment(assignment: {
+    teacher_id: number;
+    class_id: number;
+    stream_id?: number;
+    subject_id: number;
+    lessons_per_week: number;
+    is_class_teacher?: boolean;
+    school_id: number;
+    term?: number;
+  }) {
+    try {
+      const { data, error } = await supabase
+        .from('teacher_workload')
+        .insert({
+          ...assignment,
+          academic_year: new Date().getFullYear(),
+          term: assignment.term || 1
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error adding workload assignment:', error);
+      throw error;
+    }
+  },
+
+  async removeWorkloadAssignment(id: number) {
+    try {
+      const { error } = await supabase
+        .from('teacher_workload')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error removing workload assignment:', error);
+      throw error;
+    }
+  },
+
+  async updateWorkloadLimit(teacherId: number, limit: number) {
+    try {
+      const { data, error } = await supabase
+        .from('teachers')
+        .update({ weekly_workload_limit: limit })
+        .eq('id', teacherId)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error updating workload limit:', error);
+      throw error;
+    }
+  },
+
+  async getOverloadedTeachers() {
+    try {
+      const { data, error } = await supabase
+        .from('teachers')
+        .select('*')
+        .gt('current_workload', 0)
+        .eq('staff_category', 'Teaching Staff')
+        .eq('status', 'Active');
+      
+      if (error) throw error;
+      
+      return (data || []).filter(t => 
+        (t as any).current_workload > ((t as any).weekly_workload_limit || 28)
+      );
+    } catch (error) {
+      console.error('Error fetching overloaded teachers:', error);
+      throw error;
+    }
+  },
+
+  // Performance Analytics
+  async getTeacherPerformanceAnalytics(teacherId: number, academicYear?: number) {
+    try {
+      const year = academicYear || new Date().getFullYear();
+      
+      // Get teacher's assignments
+      const assignments = await this.getStaffSubjects(teacherId);
+      const workload = await this.getDetailedWorkload(teacherId);
+      const attendance = await this.getStaffAttendanceStats(teacherId, year);
+      
+      // Get exam scores for classes this teacher teaches
+      const classIds = [...new Set(assignments.map(a => a.class_id))];
+      const subjectIds = [...new Set(assignments.map(a => a.subject_id))];
+      
+      let classPerformance: any[] = [];
+      let subjectPerformance: any[] = [];
+      
+      if (classIds.length > 0 && subjectIds.length > 0) {
+        // Get scores for teacher's subjects and classes - simplified query
+        const { data: scores } = await supabase
+          .from('scores')
+          .select('marks, exam_id')
+          .limit(500);
+        
+        // Get exams separately to avoid deep type instantiation
+        const { data: exams } = await supabase
+          .from('exams_exam')
+          .select('id, name, max_marks, subject_id, class_assigned_id')
+          .in('subject_id', subjectIds)
+          .in('class_assigned_id', classIds);
+        
+        if (scores && scores.length > 0 && exams && exams.length > 0) {
+          // Create exam lookup map
+          const examMap = new Map(exams.map(e => [e.id, e]));
+          
+          // Calculate class-wise performance
+          const classBuckets: { [key: string]: { total: number; count: number; name: string } } = {};
+          const subjectBuckets: { [key: string]: { total: number; count: number; name: string } } = {};
+          
+          scores.forEach((score: any) => {
+            const exam = examMap.get(score.exam_id);
+            if (exam) {
+              const classKey = String(exam.class_assigned_id);
+              const subjectKey = String(exam.subject_id);
+              const percentage = (score.marks / exam.max_marks) * 100;
+              
+              if (!classBuckets[classKey]) {
+                classBuckets[classKey] = { total: 0, count: 0, name: `Class ${classKey}` };
+              }
+              classBuckets[classKey].total += percentage;
+              classBuckets[classKey].count++;
+              
+              if (!subjectBuckets[subjectKey]) {
+                subjectBuckets[subjectKey] = { total: 0, count: 0, name: `Subject ${subjectKey}` };
+              }
+              subjectBuckets[subjectKey].total += percentage;
+              subjectBuckets[subjectKey].count++;
+            }
+          });
+          
+          classPerformance = Object.entries(classBuckets).map(([id, data]) => ({
+            class_id: parseInt(id),
+            class_name: data.name,
+            average_score: Math.round(data.total / data.count),
+            total_students: data.count
+          }));
+          
+          subjectPerformance = Object.entries(subjectBuckets).map(([id, data]) => ({
+            subject_id: parseInt(id),
+            subject_name: data.name,
+            average_score: Math.round(data.total / data.count),
+            total_exams: data.count
+          }));
+        }
+      }
+      
+      return {
+        teacher_id: teacherId,
+        academic_year: year,
+        workload_summary: {
+          total_lessons: workload.total_lessons,
+          weekly_limit: workload.weekly_limit,
+          workload_efficiency: Math.min(100, workload.workload_percentage),
+          is_overloaded: workload.is_overloaded,
+          classes_count: workload.unique_classes,
+          subjects_count: workload.unique_subjects
+        },
+        attendance_summary: {
+          attendance_rate: Math.round(attendance.attendance_rate),
+          days_present: attendance.present,
+          days_absent: attendance.absent,
+          days_on_leave: attendance.on_leave
+        },
+        class_performance: classPerformance,
+        subject_performance: subjectPerformance,
+        overall_rating: calculateOverallRating(attendance.attendance_rate, workload.workload_percentage)
+      };
+    } catch (error) {
+      console.error('Error fetching performance analytics:', error);
+      throw error;
+    }
+  },
+
+  async getAllTeachersPerformance(academicYear?: number) {
+    try {
+      const teachers = await this.getStaff({ staff_category: 'Teaching Staff', status: 'Active' });
+      const performances = await Promise.all(
+        teachers.slice(0, 20).map(t => this.getTeacherPerformanceAnalytics(t.id, academicYear))
+      );
+      return performances;
+    } catch (error) {
+      console.error('Error fetching all teachers performance:', error);
       throw error;
     }
   },
