@@ -52,7 +52,21 @@ const studentNavigation = [
 ];
 
 const staffNavigation = [
-  { id: 'teachers', title: 'Staff & Teachers', url: '/teachers', icon: UserCheck },
+  {
+    id: 'teachers',
+    title: 'Staff & Teachers',
+    icon: UserCheck,
+    subItems: [
+      { id: 'staff-list', title: 'All Staff', url: '/teachers' },
+      { id: 'staff-assignments', title: 'Assignments', url: '/teachers/assignments' },
+      { id: 'staff-availability', title: 'Availability', url: '/teachers/availability' },
+      { id: 'staff-workload', title: 'Workload', url: '/teachers/workload' },
+      { id: 'staff-attendance', title: 'Attendance', url: '/teachers/attendance' },
+      { id: 'staff-leave', title: 'Leave Management', url: '/teachers/leave' },
+      { id: 'staff-performance', title: 'Performance', url: '/teachers/performance' },
+      { id: 'staff-reports', title: 'Reports', url: '/teachers/reports' },
+    ]
+  },
 ];
 
 const academicNavigation = [
