@@ -22,7 +22,11 @@ import TeacherAvailabilityModule from './TeacherAvailabilityModule';
 import TeacherPerformanceModule from './TeacherPerformanceModule';
 import TeacherWorkloadModule from './TeacherWorkloadModule';
 
-export const TeacherManagementModule = () => {
+interface TeacherManagementModuleProps {
+  defaultTab?: string;
+}
+
+export const TeacherManagementModule = ({ defaultTab = 'staff' }: TeacherManagementModuleProps) => {
   console.log('TeacherManagementModule rendering...');
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -228,7 +232,7 @@ export const TeacherManagementModule = () => {
       )}
 
       {/* Main Content */}
-      <Tabs defaultValue="staff" className="space-y-4">
+      <Tabs defaultValue={defaultTab} className="space-y-4" key={defaultTab}>
         <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="staff">All Staff</TabsTrigger>
           <TabsTrigger value="assignments">Assignments</TabsTrigger>
