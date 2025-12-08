@@ -71,7 +71,16 @@ const staffNavigation = [
 
 const academicNavigation = [
   { id: 'exams', title: 'Exam Management', url: '/exams', icon: ClipboardList },
-  { id: 'subjects', title: 'Subject Management', url: '/subjects', icon: BookOpen },
+  {
+    id: 'subjects',
+    title: 'Subject Management',
+    icon: BookOpen,
+    subItems: [
+      { id: 'subjects-list', title: 'All Subjects', url: '/subjects' },
+      { id: 'subjects-categories', title: 'Categories', url: '/subjects/categories' },
+      { id: 'subjects-allocations', title: 'Class Allocations', url: '/subjects/allocations' },
+    ]
+  },
   { id: 'scores', title: 'Score Entry', url: '/scores', icon: FileText },
   { id: 'grading', title: 'Grading', url: '/grading', icon: FileCheck },
   { id: 'results', title: 'Student Results', url: '/results', icon: GraduationCap },
