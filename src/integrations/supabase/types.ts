@@ -537,6 +537,279 @@ export type Database = {
         }
         Relationships: []
       }
+      exam_marks: {
+        Row: {
+          created_at: string
+          entered_by: number | null
+          exam_paper_id: number
+          grade: string | null
+          id: number
+          is_absent: boolean
+          is_submitted: boolean
+          marks: number | null
+          points: number | null
+          remarks: string | null
+          student_id: number
+          submitted_at: string | null
+          submitted_by: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          entered_by?: number | null
+          exam_paper_id: number
+          grade?: string | null
+          id?: number
+          is_absent?: boolean
+          is_submitted?: boolean
+          marks?: number | null
+          points?: number | null
+          remarks?: string | null
+          student_id: number
+          submitted_at?: string | null
+          submitted_by?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          entered_by?: number | null
+          exam_paper_id?: number
+          grade?: string | null
+          id?: number
+          is_absent?: boolean
+          is_submitted?: boolean
+          marks?: number | null
+          points?: number | null
+          remarks?: string | null
+          student_id?: number
+          submitted_at?: string | null
+          submitted_by?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_marks_entered_by_fkey"
+            columns: ["entered_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_marks_exam_paper_id_fkey"
+            columns: ["exam_paper_id"]
+            isOneToOne: false
+            referencedRelation: "exam_papers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_marks_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_summary"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "exam_marks_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_marks_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exam_papers: {
+        Row: {
+          class_id: number
+          created_at: string
+          duration_minutes: number | null
+          exam_date: string | null
+          exam_session_id: number
+          id: number
+          instructions: string | null
+          max_marks: number
+          paper_name: string
+          status: string
+          stream_id: number | null
+          subject_id: number
+          updated_at: string
+          weight: number | null
+        }
+        Insert: {
+          class_id: number
+          created_at?: string
+          duration_minutes?: number | null
+          exam_date?: string | null
+          exam_session_id: number
+          id?: number
+          instructions?: string | null
+          max_marks?: number
+          paper_name: string
+          status?: string
+          stream_id?: number | null
+          subject_id: number
+          updated_at?: string
+          weight?: number | null
+        }
+        Update: {
+          class_id?: number
+          created_at?: string
+          duration_minutes?: number | null
+          exam_date?: string | null
+          exam_session_id?: number
+          id?: number
+          instructions?: string | null
+          max_marks?: number
+          paper_name?: string
+          status?: string
+          stream_id?: number | null
+          subject_id?: number
+          updated_at?: string
+          weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_papers_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_papers_exam_session_id_fkey"
+            columns: ["exam_session_id"]
+            isOneToOne: false
+            referencedRelation: "exam_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_papers_stream_id_fkey"
+            columns: ["stream_id"]
+            isOneToOne: false
+            referencedRelation: "streams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_papers_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exam_session_classes: {
+        Row: {
+          class_id: number
+          created_at: string
+          exam_session_id: number
+          id: number
+        }
+        Insert: {
+          class_id: number
+          created_at?: string
+          exam_session_id: number
+          id?: number
+        }
+        Update: {
+          class_id?: number
+          created_at?: string
+          exam_session_id?: number
+          id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_session_classes_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_session_classes_exam_session_id_fkey"
+            columns: ["exam_session_id"]
+            isOneToOne: false
+            referencedRelation: "exam_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exam_sessions: {
+        Row: {
+          academic_year: number
+          created_at: string
+          created_by: number | null
+          description: string | null
+          end_date: string
+          id: number
+          is_locked: boolean
+          name: string
+          school_id: number
+          start_date: string
+          status: string
+          term_id: number
+          updated_at: string
+        }
+        Insert: {
+          academic_year: number
+          created_at?: string
+          created_by?: number | null
+          description?: string | null
+          end_date: string
+          id?: number
+          is_locked?: boolean
+          name: string
+          school_id: number
+          start_date: string
+          status?: string
+          term_id: number
+          updated_at?: string
+        }
+        Update: {
+          academic_year?: number
+          created_at?: string
+          created_by?: number | null
+          description?: string | null
+          end_date?: string
+          id?: number
+          is_locked?: boolean
+          name?: string
+          school_id?: number
+          start_date?: string
+          status?: string
+          term_id?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_sessions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_sessions_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_sessions_term_id_fkey"
+            columns: ["term_id"]
+            isOneToOne: false
+            referencedRelation: "settings_termsetting"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exams_exam: {
         Row: {
           academic_year: number
@@ -2134,6 +2407,114 @@ export type Database = {
           },
         ]
       }
+      student_exam_results: {
+        Row: {
+          average_percentage: number
+          average_points: number
+          class_id: number
+          class_position: number | null
+          computed_at: string | null
+          created_at: string
+          exam_session_id: number
+          head_teacher_comment: string | null
+          id: number
+          is_published: boolean
+          overall_grade: string | null
+          stream_id: number | null
+          stream_position: number | null
+          student_id: number
+          subject_positions: Json | null
+          subjects_count: number
+          teacher_comment: string | null
+          total_marks: number
+          total_points: number
+          total_possible: number
+          updated_at: string
+        }
+        Insert: {
+          average_percentage?: number
+          average_points?: number
+          class_id: number
+          class_position?: number | null
+          computed_at?: string | null
+          created_at?: string
+          exam_session_id: number
+          head_teacher_comment?: string | null
+          id?: number
+          is_published?: boolean
+          overall_grade?: string | null
+          stream_id?: number | null
+          stream_position?: number | null
+          student_id: number
+          subject_positions?: Json | null
+          subjects_count?: number
+          teacher_comment?: string | null
+          total_marks?: number
+          total_points?: number
+          total_possible?: number
+          updated_at?: string
+        }
+        Update: {
+          average_percentage?: number
+          average_points?: number
+          class_id?: number
+          class_position?: number | null
+          computed_at?: string | null
+          created_at?: string
+          exam_session_id?: number
+          head_teacher_comment?: string | null
+          id?: number
+          is_published?: boolean
+          overall_grade?: string | null
+          stream_id?: number | null
+          stream_position?: number | null
+          student_id?: number
+          subject_positions?: Json | null
+          subjects_count?: number
+          teacher_comment?: string | null
+          total_marks?: number
+          total_points?: number
+          total_possible?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_exam_results_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_exam_results_exam_session_id_fkey"
+            columns: ["exam_session_id"]
+            isOneToOne: false
+            referencedRelation: "exam_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_exam_results_stream_id_fkey"
+            columns: ["stream_id"]
+            isOneToOne: false
+            referencedRelation: "streams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_exam_results_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_summary"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_exam_results_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_fees: {
         Row: {
           amount_due: number
@@ -2896,6 +3277,57 @@ export type Database = {
           },
         ]
       }
+      teacher_marks_progress: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          exam_paper_id: number
+          id: number
+          is_complete: boolean
+          marks_entered: number
+          teacher_id: number
+          total_students: number
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          exam_paper_id: number
+          id?: number
+          is_complete?: boolean
+          marks_entered?: number
+          teacher_id: number
+          total_students?: number
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          exam_paper_id?: number
+          id?: number
+          is_complete?: boolean
+          marks_entered?: number
+          teacher_id?: number
+          total_students?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_marks_progress_exam_paper_id_fkey"
+            columns: ["exam_paper_id"]
+            isOneToOne: false
+            referencedRelation: "exam_papers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_marks_progress_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teacher_specializations: {
         Row: {
           created_at: string | null
@@ -3539,6 +3971,10 @@ export type Database = {
         }[]
       }
       clear_orphaned_school_reference: { Args: never; Returns: undefined }
+      compute_student_results: {
+        Args: { p_exam_session_id: number; p_student_id: number }
+        Returns: undefined
+      }
       create_school_profile: {
         Args: {
           p_address: string
@@ -3606,6 +4042,14 @@ export type Database = {
       generate_admission_number: { Args: never; Returns: string }
       generate_employee_number: { Args: never; Returns: string }
       generate_school_code: { Args: never; Returns: string }
+      get_cbc_grade: {
+        Args: { p_marks: number; p_max_marks: number }
+        Returns: {
+          description: string
+          grade: string
+          points: number
+        }[]
+      }
       get_current_user_profile: {
         Args: never
         Returns: {
