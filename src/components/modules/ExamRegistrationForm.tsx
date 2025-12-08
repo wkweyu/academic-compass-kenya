@@ -263,14 +263,13 @@ export function ExamRegistrationForm({ onSuccess, onCancel }: ExamRegistrationFo
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Stream (Optional)</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
+                <Select onValueChange={field.onChange} value={field.value || undefined}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="All streams" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="">All Streams</SelectItem>
                     {streams.map((stream) => (
                       <SelectItem key={stream.id} value={stream.id.toString()}>
                         {stream.name}
