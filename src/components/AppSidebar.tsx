@@ -70,7 +70,20 @@ const staffNavigation = [
 ];
 
 const academicNavigation = [
-  { id: 'exams', title: 'Exam Management', url: '/exams', icon: ClipboardList },
+  {
+    id: 'exams',
+    title: 'Exam Management',
+    icon: ClipboardList,
+    subItems: [
+      { id: 'exams-list', title: 'All Exams', url: '/exams' },
+      { id: 'exams-types', title: 'Exam Types', url: '/exams/types' },
+      { id: 'exams-register', title: 'Register Exam', url: '/exams/register' },
+      { id: 'exams-marks', title: 'Marks Entry', url: '/exams/marks' },
+      { id: 'exams-merit', title: 'Class Merit List', url: '/exams/merit' },
+      { id: 'exams-analysis', title: 'Subject Analysis', url: '/exams/analysis' },
+      { id: 'exams-reports', title: 'Student Report Cards', url: '/exams/reports' },
+    ]
+  },
   {
     id: 'subjects',
     title: 'Subject Management',
