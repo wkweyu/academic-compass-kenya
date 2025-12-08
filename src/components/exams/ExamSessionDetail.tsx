@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { ArrowLeft, Plus, BookOpen, Users, Calendar, FileSpreadsheet, BarChart3, Loader2, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Plus, BookOpen, Users, Calendar, FileSpreadsheet, BarChart3, Loader2, CheckCircle, GraduationCap, ClipboardList } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +16,8 @@ import { AddExamPapersForm } from './AddExamPapersForm';
 import { MarksEntrySheet } from './MarksEntrySheet';
 import { ClassMeritList } from './ClassMeritList';
 import { SubjectAnalysisView } from './SubjectAnalysisView';
+import { StudentReportCard } from './StudentReportCard';
+import { TeacherMarksSummary } from './TeacherMarksSummary';
 
 const paperStatusConfig = {
   draft: { label: 'Draft', variant: 'outline' as const },
@@ -128,10 +130,14 @@ export function ExamSessionDetail({ session, onBack }: ExamSessionDetailProps) {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
+        <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="papers" className="flex items-center gap-2">
             <FileSpreadsheet className="h-4 w-4" />
             Exam Papers
+          </TabsTrigger>
+          <TabsTrigger value="progress" className="flex items-center gap-2">
+            <ClipboardList className="h-4 w-4" />
+            Marks Progress
           </TabsTrigger>
           <TabsTrigger value="merit" className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4" />
@@ -140,6 +146,10 @@ export function ExamSessionDetail({ session, onBack }: ExamSessionDetailProps) {
           <TabsTrigger value="analysis" className="flex items-center gap-2">
             <BookOpen className="h-4 w-4" />
             Subject Analysis
+          </TabsTrigger>
+          <TabsTrigger value="reports" className="flex items-center gap-2">
+            <GraduationCap className="h-4 w-4" />
+            Report Cards
           </TabsTrigger>
         </TabsList>
 
@@ -268,6 +278,11 @@ export function ExamSessionDetail({ session, onBack }: ExamSessionDetailProps) {
           )}
         </TabsContent>
 
+        {/* Marks Progress Tab */}
+        <TabsContent value="progress">
+          <TeacherMarksSummary session={session} />
+        </TabsContent>
+
         {/* Merit List Tab */}
         <TabsContent value="merit">
           <ClassMeritList sessionId={session.id} classes={sessionClasses} />
@@ -276,6 +291,11 @@ export function ExamSessionDetail({ session, onBack }: ExamSessionDetailProps) {
         {/* Subject Analysis Tab */}
         <TabsContent value="analysis">
           <SubjectAnalysisView sessionId={session.id} classes={sessionClasses} />
+        </TabsContent>
+
+        {/* Report Cards Tab */}
+        <TabsContent value="reports">
+          <StudentReportCard session={session} />
         </TabsContent>
       </Tabs>
 

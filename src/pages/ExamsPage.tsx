@@ -1,30 +1,12 @@
-import { Suspense, Component, ErrorInfo, ReactNode } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Component, ErrorInfo, ReactNode } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, AlertCircle, RefreshCw } from 'lucide-react';
+import { AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
-// Direct imports instead of lazy loading to prevent chunking issues
-import { ExamManagementModule } from '@/components/modules/ExamManagementModule';
-import { ExamTypesManagement } from '@/components/modules/ExamTypesManagement';
-import { ExamRegistrationForm } from '@/components/modules/ExamRegistrationForm';
+// New V2 Exam Management Module
+import { ExamManagementModuleV2 } from '@/components/exams/ExamManagementModuleV2';
 
-// Only lazy load the heavy components with Recharts
-import { lazy } from 'react';
-const CBCMarksEntryModule = lazy(() => import('@/components/modules/CBCMarksEntryModule').then(m => ({ default: m.CBCMarksEntryModule })));
-const ClassMeritListModule = lazy(() => import('@/components/modules/ClassMeritListModule').then(m => ({ default: m.ClassMeritListModule })));
-const SubjectAnalysisModule = lazy(() => import('@/components/modules/SubjectAnalysisModule').then(m => ({ default: m.SubjectAnalysisModule })));
-const StudentReportCardModule = lazy(() => import('@/components/modules/StudentReportCardModule').then(m => ({ default: m.StudentReportCardModule })));
-
-const LoadingFallback = () => (
-  <Card>
-    <CardContent className="flex items-center justify-center py-12">
-      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      <span className="ml-2 text-muted-foreground">Loading...</span>
-    </CardContent>
-  </Card>
-);
 
 // Local error boundary for exam components
 interface ErrorBoundaryState {
@@ -87,78 +69,11 @@ class ExamErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundary
 }
 
 const ExamsPage = () => {
-  const location = useLocation();
-  const path = location.pathname;
-
-  const renderContent = () => {
-    if (path === '/exams/types') {
-      return (
-        <ExamErrorBoundary>
-          <ExamTypesManagement />
-        </ExamErrorBoundary>
-      );
-    }
-    if (path === '/exams/register') {
-      return (
-        <ExamErrorBoundary>
-          <div className="space-y-6">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">Register New Exam</h1>
-              <p className="text-muted-foreground">Create a new exam for assessment</p>
-            </div>
-            <Card>
-              <CardContent className="pt-6">
-                <ExamRegistrationForm onSuccess={() => window.history.back()} onCancel={() => window.history.back()} />
-              </CardContent>
-            </Card>
-          </div>
-        </ExamErrorBoundary>
-      );
-    }
-    if (path === '/exams/marks') {
-      return (
-        <ExamErrorBoundary>
-          <Suspense fallback={<LoadingFallback />}>
-            <CBCMarksEntryModule />
-          </Suspense>
-        </ExamErrorBoundary>
-      );
-    }
-    if (path === '/exams/merit') {
-      return (
-        <ExamErrorBoundary>
-          <Suspense fallback={<LoadingFallback />}>
-            <ClassMeritListModule />
-          </Suspense>
-        </ExamErrorBoundary>
-      );
-    }
-    if (path === '/exams/analysis') {
-      return (
-        <ExamErrorBoundary>
-          <Suspense fallback={<LoadingFallback />}>
-            <SubjectAnalysisModule />
-          </Suspense>
-        </ExamErrorBoundary>
-      );
-    }
-    if (path === '/exams/reports') {
-      return (
-        <ExamErrorBoundary>
-          <Suspense fallback={<LoadingFallback />}>
-            <StudentReportCardModule />
-          </Suspense>
-        </ExamErrorBoundary>
-      );
-    }
-    return (
-      <ExamErrorBoundary>
-        <ExamManagementModule />
-      </ExamErrorBoundary>
-    );
-  };
-
-  return renderContent();
+  return (
+    <ExamErrorBoundary>
+      <ExamManagementModuleV2 />
+    </ExamErrorBoundary>
+  );
 };
 
 export default ExamsPage;
