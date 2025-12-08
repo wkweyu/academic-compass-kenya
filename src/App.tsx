@@ -44,6 +44,12 @@ const App = () => (
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/exams" element={<ExamsPage />} />
+                <Route path="/exams/types" element={<ExamsPage />} />
+                <Route path="/exams/register" element={<ExamsPage />} />
+                <Route path="/exams/marks" element={<ExamsPage />} />
+                <Route path="/exams/merit" element={<ExamsPage />} />
+                <Route path="/exams/analysis" element={<ExamsPage />} />
+                <Route path="/exams/reports" element={<ExamsPage />} />
                 <Route path="/students" element={<StudentsPage />} />
                 <Route path="/students/:id" element={<StudentProfilePage />} />
                 <Route path="/classes" element={<ClassesPage />} />
