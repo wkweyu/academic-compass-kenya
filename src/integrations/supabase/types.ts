@@ -2257,52 +2257,82 @@ export type Database = {
         Row: {
           academic_year: number
           average_marks: number
+          average_percentage: number | null
+          average_points: number | null
           class_position: number | null
+          created_at: string | null
           generated_at: string
           generated_by_id: number | null
           head_teacher_comment: string
           id: number
           is_published: boolean
           overall_grade: string
+          principal_remarks: string | null
+          school_id: number | null
           stream_position: number | null
           student_id: number
           teacher_comment: string
+          teacher_remarks: string | null
           term: number
+          term_id: number | null
           total_marks: number
+          total_possible_marks: number | null
+          total_students_in_class: number | null
+          total_students_in_stream: number | null
           updated_at: string
         }
         Insert: {
           academic_year: number
           average_marks: number
+          average_percentage?: number | null
+          average_points?: number | null
           class_position?: number | null
+          created_at?: string | null
           generated_at: string
           generated_by_id?: number | null
           head_teacher_comment: string
           id?: number
           is_published: boolean
           overall_grade: string
+          principal_remarks?: string | null
+          school_id?: number | null
           stream_position?: number | null
           student_id: number
           teacher_comment: string
+          teacher_remarks?: string | null
           term: number
+          term_id?: number | null
           total_marks: number
+          total_possible_marks?: number | null
+          total_students_in_class?: number | null
+          total_students_in_stream?: number | null
           updated_at: string
         }
         Update: {
           academic_year?: number
           average_marks?: number
+          average_percentage?: number | null
+          average_points?: number | null
           class_position?: number | null
+          created_at?: string | null
           generated_at?: string
           generated_by_id?: number | null
           head_teacher_comment?: string
           id?: number
           is_published?: boolean
           overall_grade?: string
+          principal_remarks?: string | null
+          school_id?: number | null
           stream_position?: number | null
           student_id?: number
           teacher_comment?: string
+          teacher_remarks?: string | null
           term?: number
+          term_id?: number | null
           total_marks?: number
+          total_possible_marks?: number | null
+          total_students_in_class?: number | null
+          total_students_in_stream?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -2311,6 +2341,13 @@ export type Database = {
             columns: ["generated_by_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_reports_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
             referencedColumns: ["id"]
           },
           {
@@ -2325,6 +2362,13 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_reports_term_id_fkey"
+            columns: ["term_id"]
+            isOneToOne: false
+            referencedRelation: "settings_termsetting"
             referencedColumns: ["id"]
           },
         ]
@@ -3469,6 +3513,14 @@ export type Database = {
       }
     }
     Functions: {
+      calculate_cbc_grade: {
+        Args: { percentage: number }
+        Returns: {
+          description: string
+          grade: string
+          points: number
+        }[]
+      }
       calculate_teacher_workload: {
         Args: { p_teacher_id: number }
         Returns: number
