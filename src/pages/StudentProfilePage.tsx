@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ArrowLeft, Edit, Phone, Mail, MapPin, Calendar, User, GraduationCap, Users } from 'lucide-react';
+import { ArrowLeft, Edit, Phone, Mail, MapPin, Calendar, User, GraduationCap, Users, FileText } from 'lucide-react';
+import { StudentExamProgress } from '@/components/exams/StudentExamProgress';
 
 export default function StudentProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -107,8 +108,9 @@ export default function StudentProfilePage() {
 
       {/* Tabs Section */}
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList>
+        <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="exams">Exam Progress</TabsTrigger>
           <TabsTrigger value="academic">Academic History</TabsTrigger>
           <TabsTrigger value="guardian">Guardian Info</TabsTrigger>
           <TabsTrigger value="siblings">Siblings</TabsTrigger>
@@ -205,6 +207,20 @@ export default function StudentProfilePage() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="exams" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText size={20} />
+                Exam Progress
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <StudentExamProgress studentId={typeof student.id === 'string' ? parseInt(student.id) : student.id} />
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="academic" className="space-y-4">

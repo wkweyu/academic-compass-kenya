@@ -18,6 +18,7 @@ import { ClassMeritList } from './ClassMeritList';
 import { SubjectAnalysisView } from './SubjectAnalysisView';
 import { StudentReportCard } from './StudentReportCard';
 import { TeacherMarksSummary } from './TeacherMarksSummary';
+import { TermReportCard } from './TermReportCard';
 
 const paperStatusConfig = {
   draft: { label: 'Draft', variant: 'outline' as const },
@@ -151,6 +152,10 @@ export function ExamSessionDetail({ session, onBack }: ExamSessionDetailProps) {
             <TabsTrigger value="reports" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
               <GraduationCap className="h-3 w-3 sm:h-4 sm:w-4" />
               Reports
+            </TabsTrigger>
+            <TabsTrigger value="term-report" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
+              <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
+              Term Report
             </TabsTrigger>
           </TabsList>
         </div>
@@ -299,6 +304,14 @@ export function ExamSessionDetail({ session, onBack }: ExamSessionDetailProps) {
         {/* Report Cards Tab */}
         <TabsContent value="reports">
           <StudentReportCard session={session} />
+        </TabsContent>
+
+        {/* Term Report Card Tab */}
+        <TabsContent value="term-report">
+          <TermReportCard 
+            termId={session.term_id} 
+            academicYear={session.academic_year} 
+          />
         </TabsContent>
       </Tabs>
 
