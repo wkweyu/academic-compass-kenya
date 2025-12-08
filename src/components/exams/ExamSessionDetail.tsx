@@ -74,90 +74,92 @@ export function ExamSessionDetail({ session, onBack }: ExamSessionDetailProps) {
   }, {} as Record<number, { class_name: string; papers: ExamPaper[] }>);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={onBack}>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+        <Button variant="ghost" size="icon" onClick={onBack} className="self-start">
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div className="flex-1">
-          <h2 className="text-2xl font-bold">{session.name}</h2>
-          <p className="text-muted-foreground">
+        <div className="flex-1 min-w-0">
+          <h2 className="text-xl sm:text-2xl font-bold truncate">{session.name}</h2>
+          <p className="text-xs sm:text-sm text-muted-foreground">
             Term {session.term_number} • {session.academic_year} • {format(new Date(session.start_date), 'MMM d')} - {format(new Date(session.end_date), 'MMM d, yyyy')}
           </p>
         </div>
-        <Badge variant={session.status === 'active' ? 'default' : 'outline'}>
+        <Badge variant={session.status === 'active' ? 'default' : 'outline'} className="self-start sm:self-auto">
           {session.status.charAt(0).toUpperCase() + session.status.slice(1)}
         </Badge>
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
         <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Classes</CardDescription>
-            <CardTitle className="text-2xl flex items-center gap-2">
-              <Users className="h-5 w-5 text-muted-foreground" />
+          <CardHeader className="p-3 sm:pb-2 sm:p-6">
+            <CardDescription className="text-xs sm:text-sm">Classes</CardDescription>
+            <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
+              <Users className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
               {sessionClasses.length}
             </CardTitle>
           </CardHeader>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Exam Papers</CardDescription>
-            <CardTitle className="text-2xl flex items-center gap-2">
-              <BookOpen className="h-5 w-5 text-muted-foreground" />
+          <CardHeader className="p-3 sm:pb-2 sm:p-6">
+            <CardDescription className="text-xs sm:text-sm">Exam Papers</CardDescription>
+            <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
+              <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
               {papers.length}
             </CardTitle>
           </CardHeader>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Completion</CardDescription>
-            <CardTitle className="text-2xl">{session.completion_percentage || 0}%</CardTitle>
+          <CardHeader className="p-3 sm:pb-2 sm:p-6">
+            <CardDescription className="text-xs sm:text-sm">Completion</CardDescription>
+            <CardTitle className="text-xl sm:text-2xl">{session.completion_percentage || 0}%</CardTitle>
           </CardHeader>
-          <CardContent className="pt-0">
+          <CardContent className="pt-0 px-3 pb-3 sm:px-6 sm:pb-6">
             <Progress value={session.completion_percentage || 0} className="h-2" />
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Status</CardDescription>
-            <CardTitle className="text-2xl capitalize">{session.status}</CardTitle>
+          <CardHeader className="p-3 sm:pb-2 sm:p-6">
+            <CardDescription className="text-xs sm:text-sm">Status</CardDescription>
+            <CardTitle className="text-xl sm:text-2xl capitalize">{session.status}</CardTitle>
           </CardHeader>
         </Card>
       </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="flex-wrap h-auto gap-1">
-          <TabsTrigger value="papers" className="flex items-center gap-2">
-            <FileSpreadsheet className="h-4 w-4" />
-            Exam Papers
-          </TabsTrigger>
-          <TabsTrigger value="progress" className="flex items-center gap-2">
-            <ClipboardList className="h-4 w-4" />
-            Marks Progress
-          </TabsTrigger>
-          <TabsTrigger value="merit" className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" />
-            Merit List
-          </TabsTrigger>
-          <TabsTrigger value="analysis" className="flex items-center gap-2">
-            <BookOpen className="h-4 w-4" />
-            Subject Analysis
-          </TabsTrigger>
-          <TabsTrigger value="reports" className="flex items-center gap-2">
-            <GraduationCap className="h-4 w-4" />
-            Report Cards
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <TabsList className="inline-flex h-auto gap-1 min-w-max">
+            <TabsTrigger value="papers" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
+              <FileSpreadsheet className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Exam</span> Papers
+            </TabsTrigger>
+            <TabsTrigger value="progress" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
+              <ClipboardList className="h-3 w-3 sm:h-4 sm:w-4" />
+              Progress
+            </TabsTrigger>
+            <TabsTrigger value="merit" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
+              <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4" />
+              Merit
+            </TabsTrigger>
+            <TabsTrigger value="analysis" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
+              <BookOpen className="h-3 w-3 sm:h-4 sm:w-4" />
+              Analysis
+            </TabsTrigger>
+            <TabsTrigger value="reports" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
+              <GraduationCap className="h-3 w-3 sm:h-4 sm:w-4" />
+              Reports
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Papers Tab */}
         <TabsContent value="papers" className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <Select value={selectedClassId} onValueChange={setSelectedClassId}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-full sm:w-[200px]">
                 <SelectValue placeholder="Filter by class" />
               </SelectTrigger>
               <SelectContent>
@@ -172,12 +174,12 @@ export function ExamSessionDetail({ session, onBack }: ExamSessionDetailProps) {
 
             <Dialog open={isAddPapersOpen} onOpenChange={setIsAddPapersOpen}>
               <DialogTrigger asChild>
-                <Button disabled={session.status === 'completed' || session.is_locked}>
+                <Button className="w-full sm:w-auto" disabled={session.status === 'completed' || session.is_locked}>
                   <Plus className="mr-2 h-4 w-4" />
                   Add Papers
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-3xl">
+              <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Add Exam Papers</DialogTitle>
                 </DialogHeader>
@@ -208,15 +210,16 @@ export function ExamSessionDetail({ session, onBack }: ExamSessionDetailProps) {
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {Object.entries(papersByClass).map(([classId, { class_name, papers: classPapers }]) => (
                 <Card key={classId}>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg">{class_name}</CardTitle>
+                  <CardHeader className="p-4 sm:p-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <CardTitle className="text-base sm:text-lg">{class_name}</CardTitle>
                       <Button
                         variant="outline"
                         size="sm"
+                        className="w-full sm:w-auto"
                         onClick={() => computeResultsMutation.mutate(parseInt(classId))}
                         disabled={computeResultsMutation.isPending}
                       >
@@ -229,8 +232,8 @@ export function ExamSessionDetail({ session, onBack }: ExamSessionDetailProps) {
                       </Button>
                     </div>
                   </CardHeader>
-                  <CardContent>
-                    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                  <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       {classPapers.map((paper) => {
                         const statusConfig = paperStatusConfig[paper.status];
                         const completionPercentage = paper.total_students
@@ -240,29 +243,29 @@ export function ExamSessionDetail({ session, onBack }: ExamSessionDetailProps) {
                         return (
                           <div
                             key={paper.id}
-                            className="border rounded-lg p-4 hover:bg-accent/50 cursor-pointer transition-colors"
+                            className="border rounded-lg p-3 sm:p-4 hover:bg-accent/50 cursor-pointer transition-colors"
                             onClick={() => setSelectedPaper(paper)}
                           >
-                            <div className="flex items-start justify-between mb-2">
-                              <div>
-                                <h4 className="font-medium">{paper.subject_name}</h4>
-                                <p className="text-sm text-muted-foreground">{paper.paper_name}</p>
+                            <div className="flex items-start justify-between mb-2 gap-2">
+                              <div className="min-w-0">
+                                <h4 className="font-medium text-sm sm:text-base truncate">{paper.subject_name}</h4>
+                                <p className="text-xs sm:text-sm text-muted-foreground truncate">{paper.paper_name}</p>
                               </div>
-                              <Badge variant={statusConfig.variant}>{statusConfig.label}</Badge>
+                              <Badge variant={statusConfig.variant} className="text-xs flex-shrink-0">{statusConfig.label}</Badge>
                             </div>
-                            <div className="space-y-2">
-                              <div className="flex items-center justify-between text-sm">
+                            <div className="space-y-1 sm:space-y-2 text-xs sm:text-sm">
+                              <div className="flex items-center justify-between">
                                 <span className="text-muted-foreground">Max Marks</span>
                                 <span>{paper.max_marks}</span>
                               </div>
-                              <div className="flex items-center justify-between text-sm">
-                                <span className="text-muted-foreground">Marks Entered</span>
+                              <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">Entered</span>
                                 <span>{paper.marks_entered}/{paper.total_students}</span>
                               </div>
                               {paper.exam_date && (
-                                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                <div className="flex items-center gap-1 text-muted-foreground">
                                   <Calendar className="h-3 w-3" />
-                                  {format(new Date(paper.exam_date), 'MMM d, yyyy')}
+                                  {format(new Date(paper.exam_date), 'MMM d')}
                                 </div>
                               )}
                               <Progress value={completionPercentage} className="h-1" />
