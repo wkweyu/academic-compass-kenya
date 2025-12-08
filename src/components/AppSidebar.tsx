@@ -75,13 +75,7 @@ const academicNavigation = [
     title: 'Exam Management',
     icon: ClipboardList,
     subItems: [
-      { id: 'exams-list', title: 'All Exams', url: '/exams' },
-      { id: 'exams-types', title: 'Exam Types', url: '/exams/types' },
-      { id: 'exams-register', title: 'Register Exam', url: '/exams/register' },
-      { id: 'exams-marks', title: 'Marks Entry', url: '/exams/marks' },
-      { id: 'exams-merit', title: 'Class Merit List', url: '/exams/merit' },
-      { id: 'exams-analysis', title: 'Subject Analysis', url: '/exams/analysis' },
-      { id: 'exams-reports', title: 'Student Report Cards', url: '/exams/reports' },
+      { id: 'exams-sessions', title: 'Exam Sessions', url: '/exams' },
     ]
   },
   {
@@ -94,9 +88,6 @@ const academicNavigation = [
       { id: 'subjects-allocations', title: 'Class Allocations', url: '/subjects/allocations' },
     ]
   },
-  { id: 'scores', title: 'Score Entry', url: '/scores', icon: FileText },
-  { id: 'grading', title: 'Grading', url: '/grading', icon: FileCheck },
-  { id: 'results', title: 'Student Results', url: '/results', icon: GraduationCap },
 ];
 
 const financeNavigation = [

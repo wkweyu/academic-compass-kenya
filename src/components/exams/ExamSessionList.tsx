@@ -67,20 +67,20 @@ export function ExamSessionList({ onSelectSession }: ExamSessionListProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold">Exam Sessions</h2>
-          <p className="text-muted-foreground">Manage examination sessions and track progress</p>
+          <h2 className="text-xl sm:text-2xl font-bold">Exam Sessions</h2>
+          <p className="text-sm text-muted-foreground">Manage examination sessions and track progress</p>
         </div>
 
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button className="w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" />
               New Session
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create Exam Session</DialogTitle>
             </DialogHeader>
@@ -107,7 +107,7 @@ export function ExamSessionList({ onSelectSession }: ExamSessionListProps) {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {sessions.map((session) => {
             const config = statusConfig[session.status];
             return (
@@ -117,14 +117,14 @@ export function ExamSessionList({ onSelectSession }: ExamSessionListProps) {
                 onClick={() => onSelectSession(session)}
               >
                 <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <CardTitle className="text-lg">{session.name}</CardTitle>
-                      <CardDescription>
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                    <div className="space-y-1 min-w-0">
+                      <CardTitle className="text-base sm:text-lg truncate">{session.name}</CardTitle>
+                      <CardDescription className="text-xs sm:text-sm">
                         Term {session.term_number} • {session.academic_year}
                       </CardDescription>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       <Badge variant={config.variant} className="flex items-center gap-1">
                         {config.icon}
                         {config.label}
@@ -160,22 +160,24 @@ export function ExamSessionList({ onSelectSession }: ExamSessionListProps) {
                   </div>
                 </CardHeader>
 
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <CardContent className="pt-2">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground flex-wrap">
                       <div className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4" />
-                        {format(new Date(session.start_date), 'MMM d')} - {format(new Date(session.end_date), 'MMM d, yyyy')}
+                        <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
+                        <span className="truncate">
+                          {format(new Date(session.start_date), 'MMM d')} - {format(new Date(session.end_date), 'MMM d, yyyy')}
+                        </span>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-4 text-sm">
+                    <div className="flex items-center gap-3 text-xs sm:text-sm">
                       <div className="flex items-center gap-1">
-                        <Users className="h-4 w-4 text-muted-foreground" />
+                        <Users className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
                         {session.classes_count} classes
                       </div>
                       <div className="flex items-center gap-1">
-                        <BookOpen className="h-4 w-4 text-muted-foreground" />
+                        <BookOpen className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
                         {session.papers_count} papers
                       </div>
                     </div>

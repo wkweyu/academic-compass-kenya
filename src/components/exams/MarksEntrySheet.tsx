@@ -74,74 +74,129 @@ export function MarksEntrySheet({ paper, isOpen, onClose, onSuccess }: MarksEntr
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>{paper.subject_name} - {paper.paper_name}</SheetTitle>
-          <p className="text-sm text-muted-foreground">{paper.class_name} • Max Marks: {paper.max_marks}</p>
+      <SheetContent className="w-full sm:max-w-2xl overflow-y-auto p-4 sm:p-6">
+        <SheetHeader className="mb-4">
+          <SheetTitle className="text-lg sm:text-xl">{paper.subject_name} - {paper.paper_name}</SheetTitle>
+          <p className="text-xs sm:text-sm text-muted-foreground">{paper.class_name} • Max Marks: {paper.max_marks}</p>
         </SheetHeader>
 
         {isLoading ? (
           <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin" /></div>
         ) : (
-          <div className="mt-6 space-y-4">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Student</TableHead>
-                  <TableHead className="w-20">Marks</TableHead>
-                  <TableHead className="w-16">Grade</TableHead>
-                  <TableHead className="w-16">Absent</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {marks.map((mark) => {
-                  const gradeInfo = mark.grade ? CBC_GRADES[mark.grade as keyof typeof CBC_GRADES] : null;
-                  return (
-                    <TableRow key={mark.student_id}>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{mark.full_name}</p>
-                          <p className="text-sm text-muted-foreground">{mark.admission_number}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min={0}
-                          max={paper.max_marks}
-                          value={mark.marks ?? ''}
-                          disabled={mark.is_absent || paper.status === 'locked'}
-                          onChange={(e) => {
-                            const val = e.target.value === '' ? null : Math.min(parseInt(e.target.value), paper.max_marks);
-                            updateMark(mark.student_id, 'marks', val);
-                          }}
-                          className="w-20"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {gradeInfo && (
-                          <Badge className={gradeInfo.bgColor + ' ' + gradeInfo.color}>{mark.grade}</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
+          <div className="space-y-4">
+            {/* Mobile Card View */}
+            <div className="block sm:hidden space-y-3">
+              {marks.map((mark) => {
+                const gradeInfo = mark.grade ? CBC_GRADES[mark.grade as keyof typeof CBC_GRADES] : null;
+                return (
+                  <div key={mark.student_id} className="border rounded-lg p-3 space-y-2">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="font-medium text-sm">{mark.full_name}</p>
+                        <p className="text-xs text-muted-foreground">{mark.admission_number}</p>
+                      </div>
+                      {gradeInfo && (
+                        <Badge className={gradeInfo.bgColor + ' ' + gradeInfo.color + ' text-xs'}>{mark.grade}</Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Input
+                        type="number"
+                        min={0}
+                        max={paper.max_marks}
+                        value={mark.marks ?? ''}
+                        disabled={mark.is_absent || paper.status === 'locked'}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? null : Math.min(parseInt(e.target.value), paper.max_marks);
+                          updateMark(mark.student_id, 'marks', val);
+                        }}
+                        className="w-20"
+                        placeholder="Marks"
+                      />
+                      <label className="flex items-center gap-2 text-xs">
                         <Checkbox
                           checked={mark.is_absent}
                           disabled={paper.status === 'locked'}
                           onCheckedChange={(checked) => updateMark(mark.student_id, 'is_absent', !!checked)}
                         />
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                        Absent
+                      </label>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
 
-            <div className="flex gap-2 pt-4">
-              <Button variant="outline" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || paper.status === 'locked'}>
+            {/* Desktop Table View */}
+            <div className="hidden sm:block overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Student</TableHead>
+                    <TableHead className="w-24">Marks</TableHead>
+                    <TableHead className="w-20">Grade</TableHead>
+                    <TableHead className="w-20">Absent</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {marks.map((mark) => {
+                    const gradeInfo = mark.grade ? CBC_GRADES[mark.grade as keyof typeof CBC_GRADES] : null;
+                    return (
+                      <TableRow key={mark.student_id}>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">{mark.full_name}</p>
+                            <p className="text-sm text-muted-foreground">{mark.admission_number}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={paper.max_marks}
+                            value={mark.marks ?? ''}
+                            disabled={mark.is_absent || paper.status === 'locked'}
+                            onChange={(e) => {
+                              const val = e.target.value === '' ? null : Math.min(parseInt(e.target.value), paper.max_marks);
+                              updateMark(mark.student_id, 'marks', val);
+                            }}
+                            className="w-20"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          {gradeInfo && (
+                            <Badge className={gradeInfo.bgColor + ' ' + gradeInfo.color}>{mark.grade}</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Checkbox
+                            checked={mark.is_absent}
+                            disabled={paper.status === 'locked'}
+                            onCheckedChange={(checked) => updateMark(mark.student_id, 'is_absent', !!checked)}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2 pt-4 sticky bottom-0 bg-background pb-2">
+              <Button 
+                variant="outline" 
+                className="w-full sm:w-auto"
+                onClick={() => saveMutation.mutate()} 
+                disabled={saveMutation.isPending || paper.status === 'locked'}
+              >
                 {saveMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Save Draft
               </Button>
-              <Button onClick={() => submitMutation.mutate()} disabled={submitMutation.isPending || paper.status === 'locked'}>
+              <Button 
+                className="w-full sm:w-auto"
+                onClick={() => submitMutation.mutate()} 
+                disabled={submitMutation.isPending || paper.status === 'locked'}
+              >
                 {submitMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                 Submit Marks
               </Button>
