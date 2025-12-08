@@ -45,13 +45,17 @@ export function StudentReportCardModule() {
 
   const loadFormData = async () => {
     try {
+      const { data: schoolId } = await supabase.rpc('get_user_school_id');
+      if (!schoolId) return;
+
       const [studentsRes, termsRes, schoolRes] = await Promise.all([
         supabase
           .from('students')
           .select('id, admission_number, full_name, class:classes(name), stream:streams(name)')
+          .eq('school_id', schoolId)
           .eq('is_active', true)
           .order('full_name'),
-        supabase.from('settings_termsetting').select('id, term, year').order('year', { ascending: false }).order('term'),
+        supabase.from('settings_termsetting').select('id, term, year').eq('school_id', schoolId).order('year', { ascending: false }).order('term'),
         supabase.rpc('get_or_create_school_profile'),
       ]);
 
