@@ -40,6 +40,7 @@ interface ExamRegistrationFormProps {
 export function ExamRegistrationForm({ onSuccess, onCancel }: ExamRegistrationFormProps) {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [classes, setClasses] = useState<any[]>([]);
   const [streams, setStreams] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
@@ -68,11 +69,18 @@ export function ExamRegistrationForm({ onSuccess, onCancel }: ExamRegistrationFo
 
   const loadFormData = async () => {
     try {
+      setIsLoading(true);
       // Get user's school ID first
       const { data: schoolId, error: schoolError } = await supabase.rpc('get_user_school_id');
       
       if (schoolError || !schoolId) {
         console.error('No school associated with user:', schoolError);
+        toast({
+          title: 'Configuration Error',
+          description: 'No school associated with your account. Please configure your school profile first.',
+          variant: 'destructive',
+        });
+        setIsLoading(false);
         return;
       }
       
@@ -87,17 +95,33 @@ export function ExamRegistrationForm({ onSuccess, onCancel }: ExamRegistrationFo
       setTerms(termsRes.data || []);
     } catch (error) {
       console.error('Error loading form data:', error);
+      toast({
+        title: 'Error loading data',
+        description: 'Failed to load form data. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const loadStreamsAndSubjects = async (classId: number) => {
     try {
+      // Get user's school ID first
+      const { data: schoolId, error: schoolError } = await supabase.rpc('get_user_school_id');
+      
+      if (schoolError || !schoolId) {
+        console.error('No school associated with user:', schoolError);
+        return;
+      }
+
       const [streamsRes, subjectsRes] = await Promise.all([
-        supabase.from('streams').select('id, name').order('name'),
+        supabase.from('streams').select('id, name').eq('school_id', schoolId).eq('class_assigned_id', classId).order('name'),
         supabase
           .from('class_subjects')
           .select('subject:subjects(id, name, code)')
           .eq('class_id', classId)
+          .eq('school_id', schoolId)
           .eq('is_examinable', true)
           .eq('is_active', true),
       ]);
@@ -147,6 +171,15 @@ export function ExamRegistrationForm({ onSuccess, onCancel }: ExamRegistrationFo
       setIsSubmitting(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2">Loading form data...</span>
+      </div>
+    );
+  }
 
   return (
     <Form {...form}>
