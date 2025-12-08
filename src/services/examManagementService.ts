@@ -79,9 +79,13 @@ export interface SubjectAnalysis {
 export const examManagementService = {
   // ============ EXAM TYPES ============
   async getExamTypes(): Promise<ExamType[]> {
+    const { data: schoolId } = await supabase.rpc('get_user_school_id');
+    if (!schoolId) return [];
+
     const { data, error } = await supabase
       .from('exams_examtype')
       .select('*')
+      .eq('school_id', schoolId)
       .eq('is_active', true)
       .order('name');
     

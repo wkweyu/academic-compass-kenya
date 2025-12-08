@@ -68,10 +68,18 @@ export function ExamRegistrationForm({ onSuccess, onCancel }: ExamRegistrationFo
 
   const loadFormData = async () => {
     try {
+      // Get user's school ID first
+      const { data: schoolId, error: schoolError } = await supabase.rpc('get_user_school_id');
+      
+      if (schoolError || !schoolId) {
+        console.error('No school associated with user:', schoolError);
+        return;
+      }
+      
       const [classesRes, examTypesRes, termsRes] = await Promise.all([
-        supabase.from('classes').select('id, name').order('name'),
+        supabase.from('classes').select('id, name').eq('school_id', schoolId).order('name'),
         examManagementService.getExamTypes(),
-        supabase.from('settings_termsetting').select('id, term, year').order('year', { ascending: false }).order('term'),
+        supabase.from('settings_termsetting').select('id, term, year').eq('school_id', schoolId).order('year', { ascending: false }).order('term'),
       ]);
 
       setClasses(classesRes.data || []);
