@@ -121,10 +121,19 @@ export const staffService = {
   async createStaff(data: Omit<Staff, 'id' | 'created_at' | 'updated_at' | 'full_name' | 'years_of_service' | 'gross_salary'>): Promise<Staff> {
     console.log('staffService.createStaff called with data:', data);
     try {
+      // Get the user's school_id
+      const { data: userData } = await supabase.rpc('get_current_user_profile');
+      const schoolId = userData?.school_id;
+      
+      if (!schoolId) {
+        throw new Error('User does not have a school assigned');
+      }
+
       const now = new Date().toISOString();
       // Map fields to match database schema
       const mappedData = {
         ...data,
+        school_id: schoolId,
         gender: data.gender === 'Male' ? 'M' : data.gender === 'Female' ? 'F' : data.gender,
         date_joined: data.hire_date,
         is_active: true,
