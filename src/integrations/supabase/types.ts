@@ -298,6 +298,71 @@ export type Database = {
         }
         Relationships: []
       }
+      class_subjects: {
+        Row: {
+          class_id: number
+          created_at: string
+          id: number
+          is_active: boolean
+          periods_per_week: number | null
+          school_id: number
+          subject_id: number
+          teacher_id: number | null
+          updated_at: string
+        }
+        Insert: {
+          class_id: number
+          created_at?: string
+          id?: number
+          is_active?: boolean
+          periods_per_week?: number | null
+          school_id: number
+          subject_id: number
+          teacher_id?: number | null
+          updated_at?: string
+        }
+        Update: {
+          class_id?: number
+          created_at?: string
+          id?: number
+          is_active?: boolean
+          periods_per_week?: number | null
+          school_id?: number
+          subject_id?: number
+          teacher_id?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_subjects_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_subjects_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_subjects_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_subjects_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       classes: {
         Row: {
           created_at: string
@@ -2507,38 +2572,103 @@ export type Database = {
           },
         ]
       }
+      subject_categories: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_order: number | null
+          id: number
+          is_active: boolean
+          name: string
+          school_id: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          id?: number
+          is_active?: boolean
+          name: string
+          school_id: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          id?: number
+          is_active?: boolean
+          name?: string
+          school_id?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subject_categories_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subjects: {
         Row: {
+          category_id: number | null
           code: string
           created_at: string
           description: string
           grade_levels: string
           id: number
+          is_active: boolean
           is_core: boolean
           name: string
+          school_id: number | null
           updated_at: string
         }
         Insert: {
+          category_id?: number | null
           code: string
           created_at: string
           description: string
           grade_levels: string
           id?: number
+          is_active?: boolean
           is_core: boolean
           name: string
+          school_id?: number | null
           updated_at: string
         }
         Update: {
+          category_id?: number | null
           code?: string
           created_at?: string
           description?: string
           grade_levels?: string
           id?: number
+          is_active?: boolean
           is_core?: boolean
           name?: string
+          school_id?: number | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "subjects_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "subject_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subjects_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       teacher_availability: {
         Row: {
@@ -3212,6 +3342,15 @@ export type Database = {
         Args: { p_subject_id: number; p_teacher_id: number }
         Returns: boolean
       }
+      check_subject_dependencies: {
+        Args: { p_subject_id: number }
+        Returns: {
+          class_count: number
+          exam_count: number
+          has_dependencies: boolean
+          teacher_count: number
+        }[]
+      }
       clear_orphaned_school_reference: { Args: never; Returns: undefined }
       create_school_profile: {
         Args: {
@@ -3335,6 +3474,14 @@ export type Database = {
           school_id: number
           updated_at: string
           username: string
+        }[]
+      }
+      get_subject_stats: {
+        Args: { p_subject_id: number }
+        Returns: {
+          assigned_classes: number
+          assigned_teachers: number
+          total_exams: number
         }[]
       }
       get_user_school_id: { Args: never; Returns: number }
