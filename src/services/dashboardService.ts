@@ -6,29 +6,19 @@ export const dashboardService = {
     try {
       console.log('Fetching dashboard data...');
       
-      // Get user's school ID
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.error('User not authenticated');
-        throw new Error("Not authenticated");
-      }
-
-      const { data: userData, error: userError } = await supabase
-        .from("users")
-        .select("school_id")
-        .eq("auth_user_id", user.id)
-        .maybeSingle();
-
-      console.log('User data:', userData, 'Error:', userError);
-
-      if (userError) throw userError;
+      // Get user's school ID using RPC function (bypasses RLS)
+      const { data: schoolId, error: schoolError } = await supabase.rpc('get_user_school_id');
       
-      if (!userData?.school_id) {
+      if (schoolError) {
+        console.error('Error getting school ID:', schoolError);
+        throw schoolError;
+      }
+      
+      if (!schoolId) {
         console.warn('No school associated with user');
         throw new Error("No school associated with user");
       }
 
-      const schoolId = userData.school_id;
       console.log('Using school ID:', schoolId);
 
       // Fetch all statistics in parallel
