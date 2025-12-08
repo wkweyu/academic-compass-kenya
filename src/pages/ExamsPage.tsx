@@ -1,12 +1,15 @@
-import { lazy, Suspense } from 'react';
+import { Suspense } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 
-// Lazy load components to prevent chunking issues
-const ExamManagementModule = lazy(() => import('@/components/modules/ExamManagementModule').then(m => ({ default: m.ExamManagementModule })));
-const ExamTypesManagement = lazy(() => import('@/components/modules/ExamTypesManagement').then(m => ({ default: m.ExamTypesManagement })));
-const ExamRegistrationForm = lazy(() => import('@/components/modules/ExamRegistrationForm').then(m => ({ default: m.ExamRegistrationForm })));
+// Direct imports instead of lazy loading to prevent chunking issues
+import { ExamManagementModule } from '@/components/modules/ExamManagementModule';
+import { ExamTypesManagement } from '@/components/modules/ExamTypesManagement';
+import { ExamRegistrationForm } from '@/components/modules/ExamRegistrationForm';
+
+// Only lazy load the heavy components with Recharts
+import { lazy } from 'react';
 const CBCMarksEntryModule = lazy(() => import('@/components/modules/CBCMarksEntryModule').then(m => ({ default: m.CBCMarksEntryModule })));
 const ClassMeritListModule = lazy(() => import('@/components/modules/ClassMeritListModule').then(m => ({ default: m.ClassMeritListModule })));
 const SubjectAnalysisModule = lazy(() => import('@/components/modules/SubjectAnalysisModule').then(m => ({ default: m.SubjectAnalysisModule })));
@@ -45,25 +48,37 @@ const ExamsPage = () => {
       );
     }
     if (path === '/exams/marks') {
-      return <CBCMarksEntryModule />;
+      return (
+        <Suspense fallback={<LoadingFallback />}>
+          <CBCMarksEntryModule />
+        </Suspense>
+      );
     }
     if (path === '/exams/merit') {
-      return <ClassMeritListModule />;
+      return (
+        <Suspense fallback={<LoadingFallback />}>
+          <ClassMeritListModule />
+        </Suspense>
+      );
     }
     if (path === '/exams/analysis') {
-      return <SubjectAnalysisModule />;
+      return (
+        <Suspense fallback={<LoadingFallback />}>
+          <SubjectAnalysisModule />
+        </Suspense>
+      );
     }
     if (path === '/exams/reports') {
-      return <StudentReportCardModule />;
+      return (
+        <Suspense fallback={<LoadingFallback />}>
+          <StudentReportCardModule />
+        </Suspense>
+      );
     }
     return <ExamManagementModule />;
   };
 
-  return (
-    <Suspense fallback={<LoadingFallback />}>
-      {renderContent()}
-    </Suspense>
-  );
+  return renderContent();
 };
 
 export default ExamsPage;
