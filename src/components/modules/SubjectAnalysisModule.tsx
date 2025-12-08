@@ -40,9 +40,12 @@ export function SubjectAnalysisModule() {
 
   const loadFormData = async () => {
     try {
+      const { data: schoolId } = await supabase.rpc('get_user_school_id');
+      if (!schoolId) return;
+
       const [classesRes, termsRes] = await Promise.all([
-        supabase.from('classes').select('id, name').order('name'),
-        supabase.from('settings_termsetting').select('id, term, year').order('year', { ascending: false }).order('term'),
+        supabase.from('classes').select('id, name').eq('school_id', schoolId).order('name'),
+        supabase.from('settings_termsetting').select('id, term, year').eq('school_id', schoolId).order('year', { ascending: false }).order('term'),
       ]);
 
       setClasses(classesRes.data || []);
