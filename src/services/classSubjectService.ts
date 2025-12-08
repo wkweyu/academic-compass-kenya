@@ -282,6 +282,35 @@ export const classSubjectService = {
     return allocations.map(a => a.student).filter(Boolean);
   },
 
+  // Get student count for each class subject in a class
+  async getStudentCountsForClassSubjects(classId: number): Promise<Record<number, number>> {
+    const { data: schoolId } = await supabase.rpc('get_user_school_id');
+    if (!schoolId) return {};
+
+    // Get all class subjects for this class
+    const { data: classSubjects } = await supabase
+      .from('class_subjects')
+      .select('id')
+      .eq('class_id', classId)
+      .eq('school_id', schoolId);
+
+    if (!classSubjects || classSubjects.length === 0) return {};
+
+    const counts: Record<number, number> = {};
+    
+    for (const cs of classSubjects) {
+      const { count } = await supabase
+        .from('student_subject_allocations')
+        .select('*', { count: 'exact', head: true })
+        .eq('class_subject_id', cs.id)
+        .eq('is_active', true);
+      
+      counts[cs.id] = count || 0;
+    }
+
+    return counts;
+  },
+
   // Get subjects a specific student is enrolled in
   async getSubjectsForStudent(studentId: number, academicYear?: number): Promise<ClassSubject[]> {
     const { data: schoolId } = await supabase.rpc('get_user_school_id');
