@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, BookOpen, Users, Trash2, Edit, CheckCircle, XCircle, GraduationCap } from 'lucide-react';
+import { Plus, Search, BookOpen, Users, Trash2, Edit, CheckCircle, XCircle, GraduationCap, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,12 +30,16 @@ export const ClassSubjectsTab = ({ classes, teachers }: ClassSubjectsTabProps) =
   const [subjectGroups, setSubjectGroups] = useState<SubjectGroup[]>([]);
   const [availableSubjects, setAvailableSubjects] = useState<Subject[]>([]);
   const [students, setStudents] = useState<any[]>([]);
+  const [studentCounts, setStudentCounts] = useState<Record<number, number>>({});
   
   // Dialog states
   const [isAddSubjectOpen, setIsAddSubjectOpen] = useState(false);
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
   const [isAllocateStudentsOpen, setIsAllocateStudentsOpen] = useState(false);
+  const [isViewStudentsOpen, setIsViewStudentsOpen] = useState(false);
   const [selectedClassSubject, setSelectedClassSubject] = useState<ClassSubject | null>(null);
+  const [allocatedStudentsList, setAllocatedStudentsList] = useState<any[]>([]);
+  const [loadingStudentsList, setLoadingStudentsList] = useState(false);
   
   // Form states
   const [subjectForm, setSubjectForm] = useState<ClassSubjectFormData>({
@@ -65,10 +69,12 @@ export const ClassSubjectsTab = ({ classes, teachers }: ClassSubjectsTabProps) =
       loadClassSubjects();
       loadSubjectGroups();
       loadStudentsInClass();
+      loadStudentCounts();
     } else {
       setClassSubjects([]);
       setSubjectGroups([]);
       setStudents([]);
+      setStudentCounts({});
     }
   }, [selectedClassId]);
 
@@ -121,6 +127,35 @@ export const ClassSubjectsTab = ({ classes, teachers }: ClassSubjectsTabProps) =
       setStudents(data || []);
     } catch (error) {
       console.error('Failed to load students:', error);
+    }
+  };
+
+  const loadStudentCounts = async () => {
+    if (!selectedClassId) return;
+    try {
+      const counts = await classSubjectService.getStudentCountsForClassSubjects(parseInt(selectedClassId));
+      setStudentCounts(counts);
+    } catch (error) {
+      console.error('Failed to load student counts:', error);
+    }
+  };
+
+  const handleViewAllocatedStudents = async (classSubject: ClassSubject) => {
+    setSelectedClassSubject(classSubject);
+    setLoadingStudentsList(true);
+    setIsViewStudentsOpen(true);
+    try {
+      const studentsData = await classSubjectService.getStudentsForSubject(classSubject.id);
+      setAllocatedStudentsList(studentsData);
+    } catch (error) {
+      console.error('Failed to load allocated students:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load student list",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingStudentsList(false);
     }
   };
 
@@ -244,6 +279,7 @@ export const ClassSubjectsTab = ({ classes, teachers }: ClassSubjectsTabProps) =
       setIsAllocateStudentsOpen(false);
       setSelectedStudents([]);
       setSelectedClassSubject(null);
+      loadStudentCounts(); // Refresh counts after allocation
     } catch (error: any) {
       toast({
         title: "Error",
@@ -259,6 +295,7 @@ export const ClassSubjectsTab = ({ classes, teachers }: ClassSubjectsTabProps) =
       const currentYear = new Date().getFullYear();
       await classSubjectService.autoAllocateCompulsorySubjects(parseInt(selectedClassId), currentYear, 1);
       toast({ title: "Success", description: "All students allocated to compulsory subjects" });
+      loadStudentCounts(); // Refresh counts after auto-allocation
     } catch (error: any) {
       toast({
         title: "Error",
@@ -611,6 +648,7 @@ export const ClassSubjectsTab = ({ classes, teachers }: ClassSubjectsTabProps) =
                     <TableHead>Teacher</TableHead>
                     <TableHead>Periods/Week</TableHead>
                     <TableHead>Type</TableHead>
+                    <TableHead>Students</TableHead>
                     <TableHead>Examinable</TableHead>
                     <TableHead>Group</TableHead>
                     <TableHead>Actions</TableHead>
@@ -635,6 +673,18 @@ export const ClassSubjectsTab = ({ classes, teachers }: ClassSubjectsTabProps) =
                         <Badge variant={cs.is_compulsory ? "default" : "secondary"}>
                           {cs.is_compulsory ? "Compulsory" : "Elective"}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="flex items-center gap-1 text-primary hover:underline p-0 h-auto"
+                          onClick={() => handleViewAllocatedStudents(cs)}
+                        >
+                          <Users className="h-3 w-3" />
+                          <span>{studentCounts[cs.id] || 0}</span>
+                          <Eye className="h-3 w-3 ml-1" />
+                        </Button>
                       </TableCell>
                       <TableCell>
                         <Switch
@@ -729,6 +779,74 @@ export const ClassSubjectsTab = ({ classes, teachers }: ClassSubjectsTabProps) =
             <Button onClick={handleAllocateStudents} disabled={selectedStudents.length === 0}>
               Allocate {selectedStudents.length} Students
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Allocated Students Dialog */}
+      <Dialog open={isViewStudentsOpen} onOpenChange={setIsViewStudentsOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Students Allocated to {selectedClassSubject?.subject?.name}
+            </DialogTitle>
+            <DialogDescription>
+              {allocatedStudentsList.length} student{allocatedStudentsList.length !== 1 ? 's' : ''} enrolled in this subject
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[400px] overflow-y-auto py-4">
+            {loadingStudentsList ? (
+              <div className="text-center py-8 text-muted-foreground">Loading students...</div>
+            ) : allocatedStudentsList.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Users className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>No students allocated to this subject yet</p>
+                {!selectedClassSubject?.is_compulsory && (
+                  <p className="text-sm mt-1">Use the allocate button to add students</p>
+                )}
+                {selectedClassSubject?.is_compulsory && (
+                  <p className="text-sm mt-1">Click "Auto-Allocate Compulsory" to enroll all students</p>
+                )}
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-10">#</TableHead>
+                    <TableHead>Student Name</TableHead>
+                    <TableHead>Admission No.</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {allocatedStudentsList.map((student, index) => (
+                    <TableRow key={student.id}>
+                      <TableCell className="text-muted-foreground">{index + 1}</TableCell>
+                      <TableCell className="font-medium">{student.full_name}</TableCell>
+                      <TableCell>{student.admission_number}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsViewStudentsOpen(false)}>
+              Close
+            </Button>
+            {!selectedClassSubject?.is_compulsory && (
+              <Button 
+                onClick={() => {
+                  setIsViewStudentsOpen(false);
+                  if (selectedClassSubject) {
+                    setIsAllocateStudentsOpen(true);
+                  }
+                }}
+              >
+                <GraduationCap className="mr-2 h-4 w-4" />
+                Manage Allocation
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
