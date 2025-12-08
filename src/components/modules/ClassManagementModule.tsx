@@ -17,6 +17,7 @@ import { streamSettingsService } from '@/services/streamSettingsService';
 import { StreamNameSetting } from '@/types/stream-settings';
 import { api } from '@/api/api';
 import { supabase } from '@/integrations/supabase/client';
+import { ClassSubjectsTab } from './ClassSubjectsTab';
 
 export const ClassManagementModule = () => {
   const { toast } = useToast();
@@ -60,27 +61,33 @@ export const ClassManagementModule = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [classData, streamData, statsData, streamNamesData, teachersData] = await Promise.all([
+      const [classData, streamData, statsData, streamNamesData] = await Promise.all([
         classService.getClasses(filters),
         classService.getStreams(streamFilters),
         classService.getClassStats(),
-        streamSettingsService.getStreamNames(),
-        api.get('/teachers/').then((res: any) => res.data.results || []).catch(() => [])
+        streamSettingsService.getStreamNames()
       ]);
       
-      // Load students directly from Supabase
-      const { data: studentsData } = await supabase
-        .from('students')
-        .select('*')
-        .eq('is_active', true)
-        .order('admission_number');
+      // Load students and teachers directly from Supabase
+      const [studentsResult, teachersResult] = await Promise.all([
+        supabase
+          .from('students')
+          .select('*')
+          .eq('is_active', true)
+          .order('admission_number'),
+        supabase
+          .from('teachers')
+          .select('id, first_name, last_name, employee_no')
+          .eq('is_active', true)
+          .order('first_name')
+      ]);
       
       setClasses(classData);
       setStreams(streamData);
       setStats(statsData);
       setStreamNames(streamNamesData);
-      setTeachers(teachersData);
-      setStudents(studentsData || []);
+      setTeachers(teachersResult.data || []);
+      setStudents(studentsResult.data || []);
     } catch (error) {
       console.error('Load data error:', error);
       toast({
@@ -460,7 +467,8 @@ export const ClassManagementModule = () => {
         <TabsList>
           <TabsTrigger value="classes">Classes</TabsTrigger>
           <TabsTrigger value="streams">Streams</TabsTrigger>
-          <TabsTrigger value="allocations">Allocations</TabsTrigger>
+          <TabsTrigger value="subjects">Class Subjects</TabsTrigger>
+          <TabsTrigger value="allocations">Student Allocations</TabsTrigger>
         </TabsList>
 
         <TabsContent value="classes" className="space-y-4">
@@ -647,6 +655,13 @@ export const ClassManagementModule = () => {
               </Table>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="subjects" className="space-y-4">
+          <ClassSubjectsTab 
+            classes={classes.map(c => ({ id: c.id, name: c.name, grade_level: c.grade_level }))} 
+            teachers={teachers}
+          />
         </TabsContent>
 
         <TabsContent value="allocations" className="space-y-4">
