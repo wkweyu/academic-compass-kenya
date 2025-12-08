@@ -2630,15 +2630,15 @@ export type Database = {
         Insert: {
           category_id?: number | null
           code: string
-          created_at: string
-          description: string
+          created_at?: string
+          description?: string
           grade_levels: string
           id?: number
           is_active?: boolean
           is_core: boolean
           name: string
           school_id?: number | null
-          updated_at: string
+          updated_at?: string
         }
         Update: {
           category_id?: number | null
