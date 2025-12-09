@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { ArrowLeft, Plus, BookOpen, Users, Calendar, FileSpreadsheet, BarChart3, Loader2, CheckCircle, GraduationCap, ClipboardList } from 'lucide-react';
+import { ArrowLeft, Plus, BookOpen, Users, Calendar, FileSpreadsheet, BarChart3, Loader2, CheckCircle, GraduationCap, ClipboardList, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -14,9 +14,9 @@ import { examSessionService } from '@/services/examSessionService';
 import { ExamSession, ExamPaper } from '@/types/exam-management';
 import { AddExamPapersForm } from './AddExamPapersForm';
 import { MarksEntrySheet } from './MarksEntrySheet';
-import { ClassMeritList } from './ClassMeritList';
-import { SubjectAnalysisView } from './SubjectAnalysisView';
-import { StudentReportCard } from './StudentReportCard';
+import { EnhancedMeritList } from './EnhancedMeritList';
+import { EnhancedSubjectAnalysis } from './EnhancedSubjectAnalysis';
+import { BatchReportCards } from './BatchReportCards';
 import { TeacherMarksSummary } from './TeacherMarksSummary';
 import { TermReportCard } from './TermReportCard';
 
@@ -293,17 +293,17 @@ export function ExamSessionDetail({ session, onBack }: ExamSessionDetailProps) {
 
         {/* Merit List Tab */}
         <TabsContent value="merit">
-          <ClassMeritList sessionId={session.id} classes={sessionClasses} />
+          <EnhancedMeritList sessionId={session.id} classes={sessionClasses} />
         </TabsContent>
 
         {/* Subject Analysis Tab */}
         <TabsContent value="analysis">
-          <SubjectAnalysisView sessionId={session.id} classes={sessionClasses} />
+          <EnhancedSubjectAnalysis sessionId={session.id} classes={sessionClasses} />
         </TabsContent>
 
         {/* Report Cards Tab */}
         <TabsContent value="reports">
-          <StudentReportCard session={session} />
+          <BatchReportCards session={session} />
         </TabsContent>
 
         {/* Term Report Card Tab */}
