@@ -149,7 +149,7 @@ export function TermReportCard({ classId, termId, academicYear }: TermReportCard
         .select('id, name, start_date, status')
         .eq('term_id', parseInt(selectedTerm))
         .eq('academic_year', parseInt(selectedYear))
-        .eq('status', 'completed')
+        .in('status', ['completed', 'active'])
         .order('start_date');
 
       if (error) throw error;
