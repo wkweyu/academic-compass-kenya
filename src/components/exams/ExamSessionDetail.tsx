@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { ArrowLeft, Plus, BookOpen, Users, Calendar, FileSpreadsheet, BarChart3, Loader2, CheckCircle, GraduationCap, ClipboardList, FileText } from 'lucide-react';
+import { ArrowLeft, Plus, BookOpen, Users, Calendar, FileSpreadsheet, BarChart3, Loader2, CheckCircle, GraduationCap, ClipboardList, FileText, Mail, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +19,7 @@ import { EnhancedSubjectAnalysis } from './EnhancedSubjectAnalysis';
 import { BatchReportCards } from './BatchReportCards';
 import { TeacherMarksSummary } from './TeacherMarksSummary';
 import { TermReportCard } from './TermReportCard';
+import { SendResultsDialog } from './SendResultsDialog';
 
 const paperStatusConfig = {
   draft: { label: 'Draft', variant: 'outline' as const },
@@ -36,6 +37,7 @@ export function ExamSessionDetail({ session, onBack }: ExamSessionDetailProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isAddPapersOpen, setIsAddPapersOpen] = useState(false);
+  const [isSendResultsOpen, setIsSendResultsOpen] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState<string>('all');
   const [selectedPaper, setSelectedPaper] = useState<ExamPaper | null>(null);
   const [activeTab, setActiveTab] = useState('papers');
@@ -131,33 +133,46 @@ export function ExamSessionDetail({ session, onBack }: ExamSessionDetailProps) {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-          <TabsList className="inline-flex h-auto gap-1 min-w-max">
-            <TabsTrigger value="papers" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
-              <FileSpreadsheet className="h-3 w-3 sm:h-4 sm:w-4" />
-              <span className="hidden sm:inline">Exam</span> Papers
-            </TabsTrigger>
-            <TabsTrigger value="progress" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
-              <ClipboardList className="h-3 w-3 sm:h-4 sm:w-4" />
-              Progress
-            </TabsTrigger>
-            <TabsTrigger value="merit" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
-              <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4" />
-              Merit
-            </TabsTrigger>
-            <TabsTrigger value="analysis" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
-              <BookOpen className="h-3 w-3 sm:h-4 sm:w-4" />
-              Analysis
-            </TabsTrigger>
-            <TabsTrigger value="reports" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
-              <GraduationCap className="h-3 w-3 sm:h-4 sm:w-4" />
-              Reports
-            </TabsTrigger>
-            <TabsTrigger value="term-report" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
-              <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
-              Term Report
-            </TabsTrigger>
-          </TabsList>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+            <TabsList className="inline-flex h-auto gap-1 min-w-max">
+              <TabsTrigger value="papers" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
+                <FileSpreadsheet className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Exam</span> Papers
+              </TabsTrigger>
+              <TabsTrigger value="progress" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
+                <ClipboardList className="h-3 w-3 sm:h-4 sm:w-4" />
+                Progress
+              </TabsTrigger>
+              <TabsTrigger value="merit" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
+                <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4" />
+                Merit
+              </TabsTrigger>
+              <TabsTrigger value="analysis" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
+                <BookOpen className="h-3 w-3 sm:h-4 sm:w-4" />
+                Analysis
+              </TabsTrigger>
+              <TabsTrigger value="reports" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
+                <GraduationCap className="h-3 w-3 sm:h-4 sm:w-4" />
+                Reports
+              </TabsTrigger>
+              <TabsTrigger value="term-report" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
+                <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
+                Term Report
+              </TabsTrigger>
+            </TabsList>
+          </div>
+          
+          {/* Send Results Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full sm:w-auto"
+            onClick={() => setIsSendResultsOpen(true)}
+          >
+            <Mail className="h-4 w-4 mr-2" />
+            Send Results to Parents
+          </Button>
         </div>
 
         {/* Papers Tab */}
@@ -326,6 +341,13 @@ export function ExamSessionDetail({ session, onBack }: ExamSessionDetailProps) {
           }}
         />
       )}
+
+      {/* Send Results Dialog */}
+      <SendResultsDialog
+        session={session}
+        isOpen={isSendResultsOpen}
+        onClose={() => setIsSendResultsOpen(false)}
+      />
     </div>
   );
 }
