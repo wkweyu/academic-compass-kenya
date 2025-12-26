@@ -21,6 +21,7 @@ import AttendanceReportsPage from "./pages/AttendanceReportsPage";
 import { BiometricIntegration } from "./pages/Attendance/BiometricIntegration";
 import { SmsIntegration } from "./pages/Attendance/SmsIntegration";
 import ResultsPage from "./pages/ResultsPage";
+import TermReportsPage from "./pages/TermReportsPage";
 import FeesPage from "./pages/FeesPage";
 import PromotionsPage from "./pages/PromotionsPage";
 import ComingSoonPage from "./pages/ComingSoonPage";
@@ -67,6 +68,7 @@ const App = () => (
                 <Route path="/subjects/allocations" element={<SubjectsPage />} />
                 <Route path="/scores" element={<ScoresPage />} />
                 <Route path="/results" element={<ResultsPage />} />
+                <Route path="/term-reports" element={<TermReportsPage />} />
                 <Route path="/promotions" element={<PromotionsPage />} />
                 <Route path="/fees" element={<FeesPage />} />
                 <Route path="/attendance" element={<AttendancePage />} />

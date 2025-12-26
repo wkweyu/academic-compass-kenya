@@ -3943,6 +3943,33 @@ export type Database = {
           },
         ]
       }
+      exam_session_class_progress: {
+        Row: {
+          class_id: number | null
+          class_name: string | null
+          completed_papers: number | null
+          completion_percentage: number | null
+          exam_session_id: number | null
+          total_papers: number | null
+          total_students: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_session_classes_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_session_classes_exam_session_id_fkey"
+            columns: ["exam_session_id"]
+            isOneToOne: false
+            referencedRelation: "exam_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       calculate_cbc_grade: {
