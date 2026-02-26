@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { ArrowLeft, Plus, BookOpen, Users, Calendar, FileSpreadsheet, BarChart3, Loader2, CheckCircle, GraduationCap, ClipboardList, FileText, Mail, Send } from 'lucide-react';
+import { ArrowLeft, Plus, BookOpen, Users, Calendar, FileSpreadsheet, BarChart3, Loader2, CheckCircle, GraduationCap, ClipboardList, FileText, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -18,8 +18,9 @@ import { EnhancedMeritList } from './EnhancedMeritList';
 import { EnhancedSubjectAnalysis } from './EnhancedSubjectAnalysis';
 import { BatchReportCards } from './BatchReportCards';
 import { TeacherMarksSummary } from './TeacherMarksSummary';
-import { TermReportCard } from './TermReportCard';
 import { SendResultsDialog } from './SendResultsDialog';
+import { ExamSessionProgressCard } from './ExamSessionProgressCard';
+import { ClassMarksheet } from './ClassMarksheet';
 
 const paperStatusConfig = {
   draft: { label: 'Draft', variant: 'outline' as const },
@@ -156,9 +157,9 @@ export function ExamSessionDetail({ session, onBack }: ExamSessionDetailProps) {
                 <GraduationCap className="h-3 w-3 sm:h-4 sm:w-4" />
                 Reports
               </TabsTrigger>
-              <TabsTrigger value="term-report" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
-                <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
-                Term Report
+              <TabsTrigger value="marksheet" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
+                <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
+                Marksheet
               </TabsTrigger>
             </TabsList>
           </div>
@@ -303,7 +304,7 @@ export function ExamSessionDetail({ session, onBack }: ExamSessionDetailProps) {
 
         {/* Marks Progress Tab */}
         <TabsContent value="progress">
-          <TeacherMarksSummary session={session} />
+          <ExamSessionProgressCard session={session} />
         </TabsContent>
 
         {/* Merit List Tab */}
@@ -321,12 +322,9 @@ export function ExamSessionDetail({ session, onBack }: ExamSessionDetailProps) {
           <BatchReportCards session={session} />
         </TabsContent>
 
-        {/* Term Report Card Tab */}
-        <TabsContent value="term-report">
-          <TermReportCard 
-            termId={session.term_id} 
-            academicYear={session.academic_year} 
-          />
+        {/* Marksheet Tab */}
+        <TabsContent value="marksheet">
+          <ClassMarksheet sessionId={session.id} classes={sessionClasses} />
         </TabsContent>
       </Tabs>
 

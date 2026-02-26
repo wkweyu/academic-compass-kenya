@@ -76,6 +76,7 @@ const academicNavigation = [
     icon: ClipboardList,
     subItems: [
       { id: 'exams-sessions', title: 'Exam Sessions', url: '/exams' },
+      { id: 'term-reports', title: 'Term Reports', url: '/term-reports' },
     ]
   },
   {
