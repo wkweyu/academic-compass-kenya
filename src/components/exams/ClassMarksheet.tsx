@@ -13,8 +13,8 @@ import { toast } from 'sonner';
 
 interface ClassMarksheetProps {
   sessionId: number;
-  sessionName: string;
-  classes: { class_id: number; class_name: string }[];
+  sessionName?: string;
+  classes: { class_id: number; class_name?: string }[];
 }
 
 interface StudentMark {
