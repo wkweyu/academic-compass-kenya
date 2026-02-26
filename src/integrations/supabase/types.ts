@@ -271,6 +271,57 @@ export type Database = {
           },
         ]
       }
+      chart_of_accounts: {
+        Row: {
+          account_code: string
+          account_name: string
+          account_type: string
+          created_at: string
+          description: string | null
+          id: number
+          is_active: boolean
+          parent_id: number | null
+          school_id: number
+        }
+        Insert: {
+          account_code: string
+          account_name: string
+          account_type: string
+          created_at?: string
+          description?: string | null
+          id?: never
+          is_active?: boolean
+          parent_id?: number | null
+          school_id: number
+        }
+        Update: {
+          account_code?: string
+          account_name?: string
+          account_type?: string
+          created_at?: string
+          description?: string | null
+          id?: never
+          is_active?: boolean
+          parent_id?: number | null
+          school_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chart_of_accounts_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chart_of_accounts_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       class_subject_allocations: {
         Row: {
           class_id: string
@@ -1488,6 +1539,111 @@ export type Database = {
         }
         Relationships: []
       }
+      journal_entries: {
+        Row: {
+          created_at: string
+          description: string
+          entry_date: string
+          id: number
+          posted_at: string | null
+          posted_by: number | null
+          reference_number: string
+          school_id: number
+          status: string
+          total_credit: number
+          total_debit: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          entry_date?: string
+          id?: never
+          posted_at?: string | null
+          posted_by?: number | null
+          reference_number: string
+          school_id: number
+          status?: string
+          total_credit?: number
+          total_debit?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          entry_date?: string
+          id?: never
+          posted_at?: string | null
+          posted_by?: number | null
+          reference_number?: string
+          school_id?: number
+          status?: string
+          total_credit?: number
+          total_debit?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_entries_posted_by_fkey"
+            columns: ["posted_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entries_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_entry_lines: {
+        Row: {
+          account_id: number
+          created_at: string
+          credit_amount: number
+          debit_amount: number
+          description: string | null
+          id: number
+          journal_entry_id: number
+        }
+        Insert: {
+          account_id: number
+          created_at?: string
+          credit_amount?: number
+          debit_amount?: number
+          description?: string | null
+          id?: never
+          journal_entry_id: number
+        }
+        Update: {
+          account_id?: number
+          created_at?: string
+          credit_amount?: number
+          debit_amount?: number
+          description?: string | null
+          id?: never
+          journal_entry_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_entry_lines_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entry_lines_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leave_requests: {
         Row: {
           approved_at: string | null
@@ -1544,6 +1700,204 @@ export type Database = {
           },
           {
             foreignKeyName: "leave_requests_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payroll_entries: {
+        Row: {
+          basic_salary: number
+          created_at: string
+          gross_salary: number
+          id: number
+          net_salary: number
+          paid_at: string | null
+          payment_status: string
+          payroll_run_id: number
+          staff_id: number
+          total_allowances: number
+          total_deductions: number
+        }
+        Insert: {
+          basic_salary?: number
+          created_at?: string
+          gross_salary?: number
+          id?: never
+          net_salary?: number
+          paid_at?: string | null
+          payment_status?: string
+          payroll_run_id: number
+          staff_id: number
+          total_allowances?: number
+          total_deductions?: number
+        }
+        Update: {
+          basic_salary?: number
+          created_at?: string
+          gross_salary?: number
+          id?: never
+          net_salary?: number
+          paid_at?: string | null
+          payment_status?: string
+          payroll_run_id?: number
+          staff_id?: number
+          total_allowances?: number
+          total_deductions?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_entries_payroll_run_id_fkey"
+            columns: ["payroll_run_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_entries_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payroll_runs: {
+        Row: {
+          approved_at: string | null
+          approved_by: number | null
+          created_at: string
+          id: number
+          month: number
+          school_id: number
+          staff_count: number
+          status: string
+          total_deductions: number
+          total_gross: number
+          total_net: number
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: number | null
+          created_at?: string
+          id?: never
+          month: number
+          school_id: number
+          staff_count?: number
+          status?: string
+          total_deductions?: number
+          total_gross?: number
+          total_net?: number
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: number | null
+          created_at?: string
+          id?: never
+          month?: number
+          school_id?: number
+          staff_count?: number
+          status?: string
+          total_deductions?: number
+          total_gross?: number
+          total_net?: number
+          updated_at?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_runs_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_runs_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payroll_salary_structures: {
+        Row: {
+          basic_salary: number
+          created_at: string
+          effective_from: string
+          house_allowance: number
+          id: number
+          is_active: boolean
+          loan_deduction: number
+          medical_allowance: number
+          net_salary: number | null
+          nhif_deduction: number
+          nssf_deduction: number
+          other_allowances: number
+          other_deductions: number
+          paye_deduction: number
+          school_id: number
+          staff_id: number
+          transport_allowance: number
+          updated_at: string
+        }
+        Insert: {
+          basic_salary?: number
+          created_at?: string
+          effective_from?: string
+          house_allowance?: number
+          id?: never
+          is_active?: boolean
+          loan_deduction?: number
+          medical_allowance?: number
+          net_salary?: number | null
+          nhif_deduction?: number
+          nssf_deduction?: number
+          other_allowances?: number
+          other_deductions?: number
+          paye_deduction?: number
+          school_id: number
+          staff_id: number
+          transport_allowance?: number
+          updated_at?: string
+        }
+        Update: {
+          basic_salary?: number
+          created_at?: string
+          effective_from?: string
+          house_allowance?: number
+          id?: never
+          is_active?: boolean
+          loan_deduction?: number
+          medical_allowance?: number
+          net_salary?: number | null
+          nhif_deduction?: number
+          nssf_deduction?: number
+          other_allowances?: number
+          other_deductions?: number
+          paye_deduction?: number
+          school_id?: number
+          staff_id?: number
+          transport_allowance?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_salary_structures_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_salary_structures_staff_id_fkey"
             columns: ["staff_id"]
             isOneToOne: false
             referencedRelation: "teachers"
