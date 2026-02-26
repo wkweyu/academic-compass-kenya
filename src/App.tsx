@@ -27,6 +27,9 @@ import PromotionsPage from "./pages/PromotionsPage";
 import ComingSoonPage from "./pages/ComingSoonPage";
 import SettingsPage from "./pages/SettingsPage";
 import StaffProfilePage from "./pages/StaffProfilePage";
+import ProcurementPage from "./pages/ProcurementPage";
+import AccountingPage from "./pages/AccountingPage";
+import PayrollPage from "./pages/PayrollPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -77,9 +80,9 @@ const App = () => (
                 <Route path="/attendance/sms" element={<SmsIntegration />} />
                 <Route path="/grading" element={<ComingSoonPage title="Grading" />} />
                 <Route path="/transport" element={<ComingSoonPage title="Transport" />} />
-                <Route path="/procurement" element={<ComingSoonPage title="Procurement" />} />
-                <Route path="/payroll" element={<ComingSoonPage title="Payroll Management" />} />
-                <Route path="/accounting" element={<ComingSoonPage title="Accounting" />} />
+                <Route path="/procurement" element={<ProcurementPage />} />
+                <Route path="/payroll" element={<PayrollPage />} />
+                <Route path="/accounting" element={<AccountingPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
               </Route>
               <Route path="*" element={<NotFound />} />
