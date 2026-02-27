@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Users, DollarSign, Plus, Calendar, CheckCircle, Clock } from 'lucide-react';
+import { Plus, CheckCircle, Clock, DollarSign } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { payrollService } from '@/services/payrollService';
+import { supabase } from '@/integrations/supabase/client';
 
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES', minimumFractionDigits: 0 }).format(amount);
@@ -23,16 +24,31 @@ export default function PayrollPage() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('runs');
   const [isRunOpen, setIsRunOpen] = useState(false);
+  const [isSalaryOpen, setIsSalaryOpen] = useState(false);
   const [runForm, setRunForm] = useState({ month: (new Date().getMonth() + 1).toString(), year: new Date().getFullYear().toString() });
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
+  const [salaryForm, setSalaryForm] = useState({
+    staff_id: '', basic_salary: '', house_allowance: '0', transport_allowance: '0',
+    medical_allowance: '0', other_allowances: '0', nhif_deduction: '0', nssf_deduction: '0',
+    paye_deduction: '0', loan_deduction: '0', other_deductions: '0',
+    effective_from: new Date().toISOString().split('T')[0],
+  });
 
   const { data: stats } = useQuery({ queryKey: ['payroll-stats'], queryFn: () => payrollService.getStats() });
   const { data: runs = [], refetch: refetchRuns } = useQuery({ queryKey: ['payroll-runs'], queryFn: () => payrollService.getPayrollRuns() });
-  const { data: structures = [] } = useQuery({ queryKey: ['salary-structures'], queryFn: () => payrollService.getSalaryStructures() });
+  const { data: structures = [], refetch: refetchStructures } = useQuery({ queryKey: ['salary-structures'], queryFn: () => payrollService.getSalaryStructures() });
   const { data: entries = [] } = useQuery({
     queryKey: ['payroll-entries', selectedRunId],
     queryFn: () => payrollService.getPayrollEntries(selectedRunId!),
     enabled: !!selectedRunId,
+  });
+
+  const { data: teachers = [] } = useQuery({
+    queryKey: ['teachers-for-payroll'],
+    queryFn: async () => {
+      const { data } = await supabase.from('teachers').select('id, first_name, last_name, employee_no').eq('is_active', true).order('first_name');
+      return data || [];
+    },
   });
 
   const handleCreateRun = async () => {
@@ -51,6 +67,40 @@ export default function PayrollPage() {
       refetchRuns();
     } catch (e: any) { toast({ title: 'Error', description: e.message, variant: 'destructive' }); }
   };
+
+  const handleCreateSalary = async () => {
+    if (!salaryForm.staff_id || !salaryForm.basic_salary) {
+      toast({ title: 'Select staff and enter basic salary', variant: 'destructive' }); return;
+    }
+    try {
+      const basic = parseFloat(salaryForm.basic_salary);
+      const house = parseFloat(salaryForm.house_allowance) || 0;
+      const transport = parseFloat(salaryForm.transport_allowance) || 0;
+      const medical = parseFloat(salaryForm.medical_allowance) || 0;
+      const otherAllow = parseFloat(salaryForm.other_allowances) || 0;
+      const nhif = parseFloat(salaryForm.nhif_deduction) || 0;
+      const nssf = parseFloat(salaryForm.nssf_deduction) || 0;
+      const paye = parseFloat(salaryForm.paye_deduction) || 0;
+      const loan = parseFloat(salaryForm.loan_deduction) || 0;
+      const otherDed = parseFloat(salaryForm.other_deductions) || 0;
+
+      await payrollService.createSalaryStructure({
+        staff_id: parseInt(salaryForm.staff_id),
+        basic_salary: basic, house_allowance: house, transport_allowance: transport,
+        medical_allowance: medical, other_allowances: otherAllow,
+        nhif_deduction: nhif, nssf_deduction: nssf, paye_deduction: paye,
+        loan_deduction: loan, other_deductions: otherDed,
+        effective_from: salaryForm.effective_from, is_active: true, school_id: 0,
+      });
+      toast({ title: 'Salary structure created' });
+      setIsSalaryOpen(false);
+      setSalaryForm({ staff_id: '', basic_salary: '', house_allowance: '0', transport_allowance: '0', medical_allowance: '0', other_allowances: '0', nhif_deduction: '0', nssf_deduction: '0', paye_deduction: '0', loan_deduction: '0', other_deductions: '0', effective_from: new Date().toISOString().split('T')[0] });
+      refetchStructures();
+    } catch (e: any) { toast({ title: 'Error', description: e.message, variant: 'destructive' }); }
+  };
+
+  const grossPreview = (parseFloat(salaryForm.basic_salary) || 0) + (parseFloat(salaryForm.house_allowance) || 0) + (parseFloat(salaryForm.transport_allowance) || 0) + (parseFloat(salaryForm.medical_allowance) || 0) + (parseFloat(salaryForm.other_allowances) || 0);
+  const deductionsPreview = (parseFloat(salaryForm.nhif_deduction) || 0) + (parseFloat(salaryForm.nssf_deduction) || 0) + (parseFloat(salaryForm.paye_deduction) || 0) + (parseFloat(salaryForm.loan_deduction) || 0) + (parseFloat(salaryForm.other_deductions) || 0);
 
   return (
     <div className="space-y-6">
@@ -108,8 +158,8 @@ export default function PayrollPage() {
                       <TableCell>{formatCurrency(Number(r.total_deductions))}</TableCell>
                       <TableCell className="font-medium">{formatCurrency(Number(r.total_net))}</TableCell>
                       <TableCell><Badge variant={r.status === 'approved' ? 'default' : r.status === 'paid' ? 'secondary' : 'outline'}>{r.status}</Badge></TableCell>
-                      <TableCell>
-                        {r.status === 'draft' && <Button size="sm" variant="outline" onClick={e => { e.stopPropagation(); handleApprove(r.id); }}>Approve</Button>}
+                      <TableCell onClick={e => e.stopPropagation()}>
+                        {r.status === 'draft' && <Button size="sm" variant="outline" onClick={() => handleApprove(r.id)}>Approve</Button>}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -122,7 +172,58 @@ export default function PayrollPage() {
 
         <TabsContent value="structures">
           <Card>
-            <CardHeader><CardTitle>Salary Structures</CardTitle><CardDescription>Active salary configurations for staff</CardDescription></CardHeader>
+            <CardHeader>
+              <div className="flex justify-between">
+                <div><CardTitle>Salary Structures</CardTitle><CardDescription>Active salary configurations for staff</CardDescription></div>
+                <Dialog open={isSalaryOpen} onOpenChange={setIsSalaryOpen}>
+                  <DialogTrigger asChild><Button><Plus className="mr-2 h-4 w-4" />Add Salary Structure</Button></DialogTrigger>
+                  <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader><DialogTitle>Create Salary Structure</DialogTitle></DialogHeader>
+                    <div className="space-y-4 pt-4">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div><Label>Staff Member *</Label>
+                          <Select value={salaryForm.staff_id} onValueChange={v => setSalaryForm(p => ({ ...p, staff_id: v }))}>
+                            <SelectTrigger><SelectValue placeholder="Select staff" /></SelectTrigger>
+                            <SelectContent>{teachers.map(t => <SelectItem key={t.id} value={t.id.toString()}>{t.first_name} {t.last_name} ({t.employee_no})</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                        <div><Label>Effective From</Label><Input type="date" value={salaryForm.effective_from} onChange={e => setSalaryForm(p => ({ ...p, effective_from: e.target.value }))} /></div>
+                      </div>
+
+                      <div className="border rounded-md p-3 space-y-3">
+                        <Label className="text-base font-semibold">Earnings</Label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div><Label>Basic Salary *</Label><Input type="number" min="0" value={salaryForm.basic_salary} onChange={e => setSalaryForm(p => ({ ...p, basic_salary: e.target.value }))} /></div>
+                          <div><Label>House Allowance</Label><Input type="number" min="0" value={salaryForm.house_allowance} onChange={e => setSalaryForm(p => ({ ...p, house_allowance: e.target.value }))} /></div>
+                          <div><Label>Transport Allowance</Label><Input type="number" min="0" value={salaryForm.transport_allowance} onChange={e => setSalaryForm(p => ({ ...p, transport_allowance: e.target.value }))} /></div>
+                          <div><Label>Medical Allowance</Label><Input type="number" min="0" value={salaryForm.medical_allowance} onChange={e => setSalaryForm(p => ({ ...p, medical_allowance: e.target.value }))} /></div>
+                          <div><Label>Other Allowances</Label><Input type="number" min="0" value={salaryForm.other_allowances} onChange={e => setSalaryForm(p => ({ ...p, other_allowances: e.target.value }))} /></div>
+                        </div>
+                      </div>
+
+                      <div className="border rounded-md p-3 space-y-3">
+                        <Label className="text-base font-semibold">Deductions</Label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div><Label>NHIF</Label><Input type="number" min="0" value={salaryForm.nhif_deduction} onChange={e => setSalaryForm(p => ({ ...p, nhif_deduction: e.target.value }))} /></div>
+                          <div><Label>NSSF</Label><Input type="number" min="0" value={salaryForm.nssf_deduction} onChange={e => setSalaryForm(p => ({ ...p, nssf_deduction: e.target.value }))} /></div>
+                          <div><Label>PAYE</Label><Input type="number" min="0" value={salaryForm.paye_deduction} onChange={e => setSalaryForm(p => ({ ...p, paye_deduction: e.target.value }))} /></div>
+                          <div><Label>Loan Deduction</Label><Input type="number" min="0" value={salaryForm.loan_deduction} onChange={e => setSalaryForm(p => ({ ...p, loan_deduction: e.target.value }))} /></div>
+                          <div><Label>Other Deductions</Label><Input type="number" min="0" value={salaryForm.other_deductions} onChange={e => setSalaryForm(p => ({ ...p, other_deductions: e.target.value }))} /></div>
+                        </div>
+                      </div>
+
+                      <div className="bg-muted/50 rounded-md p-3 grid grid-cols-3 gap-3 text-sm">
+                        <div><span className="text-muted-foreground">Gross:</span> <span className="font-bold">{formatCurrency(grossPreview)}</span></div>
+                        <div><span className="text-muted-foreground">Deductions:</span> <span className="font-bold text-destructive">{formatCurrency(deductionsPreview)}</span></div>
+                        <div><span className="text-muted-foreground">Net:</span> <span className="font-bold text-green-600">{formatCurrency(grossPreview - deductionsPreview)}</span></div>
+                      </div>
+
+                      <Button onClick={handleCreateSalary} className="w-full">Create Salary Structure</Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader><TableRow><TableHead>Staff</TableHead><TableHead>Basic</TableHead><TableHead>Allowances</TableHead><TableHead>Deductions</TableHead><TableHead>Net Salary</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
