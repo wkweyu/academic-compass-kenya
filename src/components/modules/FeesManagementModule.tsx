@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { 
-  Plus, DollarSign, Receipt, AlertCircle, 
-  TrendingUp, Download, FileText,
-  Banknote, Clock, CheckCircle2
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  Plus, DollarSign, Receipt as ReceiptIcon, AlertCircle,
+  TrendingUp, FileText, Banknote, Users, Search,
+  BookOpen, BarChart3, ArrowUpDown, Printer
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,7 +17,7 @@ import { Progress } from '@/components/ui/progress';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { feesService, VoteHead, DebitTransaction, PaymentTransaction, FeeBalanceRecord } from '@/services/feesService';
+import { feesService, VoteHead, Receipt, StudentLedger, FeesReport } from '@/services/feesService';
 import { FeeStructuresTab } from './FeeStructuresTab';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -33,14 +33,18 @@ const formatCurrency = (amount: number) =>
 
 export const FeesManagementModule = () => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('overview');
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
-  const [isDebitOpen, setIsDebitOpen] = useState(false);
+  const [isBulkDebitOpen, setIsBulkDebitOpen] = useState(false);
+  const [statementStudentId, setStatementStudentId] = useState<number | null>(null);
   const [paymentForm, setPaymentForm] = useState({
-    student_id: '', amount: '', mode: 'cash', transaction_code: '', remarks: '',
+    student_id: '', amount: '', mode: 'cash', reference: '', term: '1',
+    year: new Date().getFullYear().toString(), remarks: '',
   });
-  const [debitForm, setDebitForm] = useState({
-    student_id: '', vote_head_id: '', amount: '', term: '1', year: new Date().getFullYear().toString(), remarks: '',
+  const [bulkDebitForm, setBulkDebitForm] = useState({
+    structure_group_id: '', term: '1', year: new Date().getFullYear().toString(),
+    class_id: '',
   });
 
   const { data: stats } = useQuery({
@@ -53,22 +57,33 @@ export const FeesManagementModule = () => {
     queryFn: () => feesService.getVoteHeads(),
   });
 
-  const { data: debits = [], refetch: refetchDebits } = useQuery({
-    queryKey: ['debits'],
-    queryFn: () => feesService.getDebits(),
-    enabled: activeTab === 'invoices' || activeTab === 'overview',
+  const { data: receipts = [] } = useQuery({
+    queryKey: ['receipts'],
+    queryFn: () => feesService.getReceipts(),
+    enabled: activeTab === 'receipts' || activeTab === 'overview',
   });
 
-  const { data: payments = [], refetch: refetchPayments } = useQuery({
-    queryKey: ['payments'],
-    queryFn: () => feesService.getPayments(),
-    enabled: activeTab === 'payments' || activeTab === 'overview',
-  });
-
-  const { data: balances = [] } = useQuery({
-    queryKey: ['balances'],
-    queryFn: () => feesService.getFeeBalances(),
+  const { data: ledgers = [] } = useQuery({
+    queryKey: ['student-ledgers'],
+    queryFn: () => feesService.getStudentLedgers(),
     enabled: activeTab === 'balances',
+  });
+
+  const { data: reports } = useQuery({
+    queryKey: ['fees-reports'],
+    queryFn: () => feesService.generateReports(),
+    enabled: activeTab === 'reports',
+  });
+
+  const { data: statement } = useQuery({
+    queryKey: ['student-statement', statementStudentId],
+    queryFn: () => feesService.getStudentStatement(statementStudentId!),
+    enabled: !!statementStudentId,
+  });
+
+  const { data: structureGroups = [] } = useQuery({
+    queryKey: ['fee-structure-groups'],
+    queryFn: () => feesService.getStructureGroups(),
   });
 
   const { data: students = [] } = useQuery({
@@ -81,134 +96,138 @@ export const FeesManagementModule = () => {
         .order('full_name');
       return (data || []).map((s: any) => ({
         id: s.id, name: s.full_name, admission_number: s.admission_number,
-        class_name: s.classes?.name,
+        class_name: s.classes?.name, class_id: s.current_class_id,
       }));
     },
   });
 
-  const handleRecordPayment = async () => {
-    if (!paymentForm.student_id || !paymentForm.amount || !paymentForm.transaction_code) {
-      toast({ title: 'Error', description: 'Fill all required fields', variant: 'destructive' });
+  const { data: classes = [] } = useQuery({
+    queryKey: ['classes-for-fees'],
+    queryFn: async () => {
+      const { data } = await supabase.from('classes').select('id, name').order('name');
+      return data || [];
+    },
+  });
+
+  // ==================== COLLECT PAYMENT ====================
+  const handleCollectPayment = async () => {
+    if (!paymentForm.student_id || !paymentForm.amount || !paymentForm.reference) {
+      toast({ title: 'Error', description: 'Fill student, amount & reference', variant: 'destructive' });
       return;
     }
     try {
-      const schoolId = (await supabase.rpc('get_user_school_id')).data as number;
-      await feesService.createPayment({
+      const receipt = await feesService.collectPayment({
         student_id: parseInt(paymentForm.student_id),
         amount: parseFloat(paymentForm.amount),
-        mode: paymentForm.mode,
-        transaction_code: paymentForm.transaction_code,
-        date: new Date().toISOString(),
-        remarks: paymentForm.remarks || '',
-        apportion_log: {},
-        school_id: schoolId,
+        payment_mode: paymentForm.mode,
+        reference: paymentForm.reference,
+        term: parseInt(paymentForm.term),
+        year: parseInt(paymentForm.year),
+        remarks: paymentForm.remarks,
       });
-      toast({ title: 'Payment recorded successfully' });
+      toast({
+        title: 'Payment collected',
+        description: `Receipt ${receipt.receipt_no} — ${formatCurrency(receipt.amount)}. ${(receipt.allocations || []).length} allocations made.`,
+      });
       setIsPaymentOpen(false);
-      setPaymentForm({ student_id: '', amount: '', mode: 'cash', transaction_code: '', remarks: '' });
-      refetchPayments();
+      setPaymentForm({ student_id: '', amount: '', mode: 'cash', reference: '', term: '1', year: new Date().getFullYear().toString(), remarks: '' });
+      queryClient.invalidateQueries({ queryKey: ['fees-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['receipts'] });
+      queryClient.invalidateQueries({ queryKey: ['student-ledgers'] });
     } catch (e: any) {
       toast({ title: 'Error', description: e.message, variant: 'destructive' });
     }
   };
 
-  const handleCreateDebit = async () => {
-    if (!debitForm.student_id || !debitForm.vote_head_id || !debitForm.amount) {
-      toast({ title: 'Error', description: 'Fill all required fields', variant: 'destructive' });
+  // ==================== BULK DEBIT ====================
+  const handleBulkDebit = async () => {
+    if (!bulkDebitForm.structure_group_id) {
+      toast({ title: 'Select a fee structure', variant: 'destructive' });
       return;
     }
     try {
-      const schoolId = (await supabase.rpc('get_user_school_id')).data as number;
-      const invoiceNo = `INV-${Date.now().toString().slice(-8)}`;
-      await feesService.createDebit({
-        student_id: parseInt(debitForm.student_id),
-        vote_head_id: parseInt(debitForm.vote_head_id),
-        amount: parseFloat(debitForm.amount),
-        term: parseInt(debitForm.term),
-        year: parseInt(debitForm.year),
-        date: new Date().toISOString(),
-        invoice_number: invoiceNo,
-        remarks: debitForm.remarks || '',
-        school_id: schoolId,
-      });
-      toast({ title: 'Invoice created successfully' });
-      setIsDebitOpen(false);
-      setDebitForm({ student_id: '', vote_head_id: '', amount: '', term: '1', year: new Date().getFullYear().toString(), remarks: '' });
-      refetchDebits();
+      const filteredStudents = bulkDebitForm.class_id
+        ? students.filter(s => s.class_id === parseInt(bulkDebitForm.class_id))
+        : students;
+      if (filteredStudents.length === 0) {
+        toast({ title: 'No students found for selection', variant: 'destructive' });
+        return;
+      }
+      const { count } = await feesService.postTermFeesBulk(
+        parseInt(bulkDebitForm.structure_group_id),
+        filteredStudents.map(s => s.id),
+        parseInt(bulkDebitForm.term),
+        parseInt(bulkDebitForm.year),
+      );
+      toast({ title: 'Bulk debit posted', description: `${count} entries created for ${filteredStudents.length} students` });
+      setIsBulkDebitOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['fees-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['student-ledgers'] });
     } catch (e: any) {
       toast({ title: 'Error', description: e.message, variant: 'destructive' });
     }
   };
-
-  // Aggregate balances by student
-  const studentBalances = balances.reduce((acc, b) => {
-    if (!acc[b.student_id]) {
-      acc[b.student_id] = {
-        student_id: b.student_id, student_name: b.student_name || '', admission_number: b.admission_number || '',
-        class_name: b.class_name || '', total_invoiced: 0, total_paid: 0, closing_balance: 0,
-      };
-    }
-    acc[b.student_id].total_invoiced += Number(b.amount_invoiced);
-    acc[b.student_id].total_paid += Number(b.amount_paid);
-    acc[b.student_id].closing_balance += Number(b.closing_balance);
-    return acc;
-  }, {} as Record<number, any>);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Fees Management</h1>
-          <p className="text-muted-foreground">Vote heads, invoicing, payments & balances</p>
+          <p className="text-muted-foreground">Double-entry accounting • Vote heads • Receipts • Reports</p>
         </div>
         <div className="flex gap-2">
-          <Dialog open={isDebitOpen} onOpenChange={setIsDebitOpen}>
+          {/* Bulk Debit Dialog */}
+          <Dialog open={isBulkDebitOpen} onOpenChange={setIsBulkDebitOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline"><FileText className="mr-2 h-4 w-4" />Create Invoice</Button>
+              <Button variant="outline"><FileText className="mr-2 h-4 w-4" />Post Term Fees</Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>Create Invoice (Debit)</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>Post Term Fees (Bulk Debit)</DialogTitle></DialogHeader>
               <div className="space-y-4 pt-4">
                 <div>
-                  <Label>Student *</Label>
-                  <Select value={debitForm.student_id} onValueChange={v => setDebitForm(p => ({ ...p, student_id: v }))}>
-                    <SelectTrigger><SelectValue placeholder="Select student" /></SelectTrigger>
+                  <Label>Fee Structure *</Label>
+                  <Select value={bulkDebitForm.structure_group_id} onValueChange={v => setBulkDebitForm(p => ({ ...p, structure_group_id: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select structure" /></SelectTrigger>
                     <SelectContent>
-                      {students.map(s => <SelectItem key={s.id} value={s.id.toString()}>{s.name} ({s.admission_number})</SelectItem>)}
+                      {structureGroups.map(g => (
+                        <SelectItem key={g.id} value={g.id.toString()}>
+                          {g.name} ({formatCurrency(g.total || 0)})
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <Label>Vote Head *</Label>
-                  <Select value={debitForm.vote_head_id} onValueChange={v => setDebitForm(p => ({ ...p, vote_head_id: v }))}>
-                    <SelectTrigger><SelectValue placeholder="Select vote head" /></SelectTrigger>
+                  <Label>Class (optional — leave empty for all)</Label>
+                  <Select value={bulkDebitForm.class_id} onValueChange={v => setBulkDebitForm(p => ({ ...p, class_id: v }))}>
+                    <SelectTrigger><SelectValue placeholder="All classes" /></SelectTrigger>
                     <SelectContent>
-                      {voteHeads.map(v => <SelectItem key={v.id} value={v.id.toString()}>{v.name}</SelectItem>)}
+                      <SelectItem value="">All Classes</SelectItem>
+                      {classes.map((c: any) => <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div><Label>Amount (KES) *</Label><Input type="number" value={debitForm.amount} onChange={e => setDebitForm(p => ({ ...p, amount: e.target.value }))} /></div>
+                <div className="grid grid-cols-2 gap-3">
                   <div><Label>Term</Label>
-                    <Select value={debitForm.term} onValueChange={v => setDebitForm(p => ({ ...p, term: v }))}>
+                    <Select value={bulkDebitForm.term} onValueChange={v => setBulkDebitForm(p => ({ ...p, term: v }))}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent><SelectItem value="1">Term 1</SelectItem><SelectItem value="2">Term 2</SelectItem><SelectItem value="3">Term 3</SelectItem></SelectContent>
                     </Select>
                   </div>
-                  <div><Label>Year</Label><Input type="number" value={debitForm.year} onChange={e => setDebitForm(p => ({ ...p, year: e.target.value }))} /></div>
+                  <div><Label>Year</Label><Input type="number" value={bulkDebitForm.year} onChange={e => setBulkDebitForm(p => ({ ...p, year: e.target.value }))} /></div>
                 </div>
-                <div><Label>Remarks</Label><Textarea value={debitForm.remarks} onChange={e => setDebitForm(p => ({ ...p, remarks: e.target.value }))} /></div>
-                <Button onClick={handleCreateDebit} className="w-full">Create Invoice</Button>
+                <Button onClick={handleBulkDebit} className="w-full">Post Fees to Students</Button>
               </div>
             </DialogContent>
           </Dialog>
 
+          {/* Collect Payment Dialog */}
           <Dialog open={isPaymentOpen} onOpenChange={setIsPaymentOpen}>
             <DialogTrigger asChild>
-              <Button><Plus className="mr-2 h-4 w-4" />Record Payment</Button>
+              <Button><Plus className="mr-2 h-4 w-4" />Collect Payment</Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>Record Payment</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>Collect Payment</DialogTitle></DialogHeader>
               <div className="space-y-4 pt-4">
                 <div>
                   <Label>Student *</Label>
@@ -228,9 +247,18 @@ export const FeesManagementModule = () => {
                     </Select>
                   </div>
                 </div>
-                <div><Label>Transaction/Receipt Code *</Label><Input value={paymentForm.transaction_code} onChange={e => setPaymentForm(p => ({ ...p, transaction_code: e.target.value }))} /></div>
+                <div><Label>Reference (M-PESA Code / Receipt No) *</Label><Input value={paymentForm.reference} onChange={e => setPaymentForm(p => ({ ...p, reference: e.target.value }))} /></div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><Label>Term</Label>
+                    <Select value={paymentForm.term} onValueChange={v => setPaymentForm(p => ({ ...p, term: v }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent><SelectItem value="1">Term 1</SelectItem><SelectItem value="2">Term 2</SelectItem><SelectItem value="3">Term 3</SelectItem></SelectContent>
+                    </Select>
+                  </div>
+                  <div><Label>Year</Label><Input type="number" value={paymentForm.year} onChange={e => setPaymentForm(p => ({ ...p, year: e.target.value }))} /></div>
+                </div>
                 <div><Label>Remarks</Label><Textarea value={paymentForm.remarks} onChange={e => setPaymentForm(p => ({ ...p, remarks: e.target.value }))} /></div>
-                <Button onClick={handleRecordPayment} className="w-full">Record Payment</Button>
+                <Button onClick={handleCollectPayment} className="w-full">Collect Payment & Auto-Allocate</Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -243,7 +271,7 @@ export const FeesManagementModule = () => {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Invoiced</CardTitle>
-              <Receipt className="h-4 w-4 text-muted-foreground" />
+              <ReceiptIcon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{formatCurrency(stats.total_invoiced)}</div>
@@ -268,16 +296,17 @@ export const FeesManagementModule = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-destructive">{formatCurrency(stats.total_outstanding)}</div>
+              <p className="text-xs text-muted-foreground">{stats.students_owing} students owing</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Payments</CardTitle>
+              <CardTitle className="text-sm font-medium">Receipts</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.payment_count}</div>
-              <p className="text-xs text-muted-foreground">Total transactions</p>
+              <p className="text-xs text-muted-foreground">{stats.students_clear} students clear</p>
             </CardContent>
           </Card>
         </div>
@@ -285,46 +314,49 @@ export const FeesManagementModule = () => {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList>
+        <TabsList className="flex-wrap">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="vote-heads">Vote Heads</TabsTrigger>
-          <TabsTrigger value="structures">Fee Structures</TabsTrigger>
-          <TabsTrigger value="invoices">Invoices</TabsTrigger>
-          <TabsTrigger value="payments">Payments</TabsTrigger>
-          <TabsTrigger value="balances">Student Balances</TabsTrigger>
+          <TabsTrigger value="structures">Structures</TabsTrigger>
+          <TabsTrigger value="receipts">Receipts</TabsTrigger>
+          <TabsTrigger value="balances">Ledgers</TabsTrigger>
+          <TabsTrigger value="statement">Statement</TabsTrigger>
+          <TabsTrigger value="reports">Reports</TabsTrigger>
         </TabsList>
 
         {/* Overview */}
         <TabsContent value="overview" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <Card>
-              <CardHeader><CardTitle>Recent Invoices</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Recent Receipts</CardTitle></CardHeader>
               <CardContent>
-                {debits.slice(0, 5).map(d => (
-                  <div key={d.id} className="flex justify-between items-center py-2 border-b last:border-0">
+                {receipts.slice(0, 5).map(r => (
+                  <div key={r.id} className="flex justify-between items-center py-2 border-b last:border-0">
                     <div>
-                      <p className="font-medium text-sm">{d.student_name}</p>
-                      <p className="text-xs text-muted-foreground">{d.vote_head_name} • {d.invoice_number}</p>
+                      <p className="font-medium text-sm">{r.student_name}</p>
+                      <p className="text-xs text-muted-foreground">{r.receipt_no} • {r.payment_mode}</p>
                     </div>
-                    <span className="font-medium">{formatCurrency(Number(d.amount))}</span>
+                    <span className="font-medium text-green-600">{formatCurrency(Number(r.amount))}</span>
                   </div>
                 ))}
-                {debits.length === 0 && <p className="text-muted-foreground text-sm text-center py-4">No invoices yet</p>}
+                {receipts.length === 0 && <p className="text-muted-foreground text-sm text-center py-4">No receipts yet</p>}
               </CardContent>
             </Card>
             <Card>
-              <CardHeader><CardTitle>Recent Payments</CardTitle></CardHeader>
-              <CardContent>
-                {payments.slice(0, 5).map(p => (
-                  <div key={p.id} className="flex justify-between items-center py-2 border-b last:border-0">
-                    <div>
-                      <p className="font-medium text-sm">{p.student_name}</p>
-                      <p className="text-xs text-muted-foreground">{p.mode} • {p.transaction_code}</p>
-                    </div>
-                    <span className="font-medium text-green-600">{formatCurrency(Number(p.amount))}</span>
-                  </div>
-                ))}
-                {payments.length === 0 && <p className="text-muted-foreground text-sm text-center py-4">No payments yet</p>}
+              <CardHeader><CardTitle>Quick Actions</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                <Button className="w-full justify-start" variant="outline" onClick={() => setIsPaymentOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" />Collect Payment
+                </Button>
+                <Button className="w-full justify-start" variant="outline" onClick={() => setIsBulkDebitOpen(true)}>
+                  <FileText className="mr-2 h-4 w-4" />Post Term Fees (Bulk)
+                </Button>
+                <Button className="w-full justify-start" variant="outline" onClick={() => setActiveTab('statement')}>
+                  <Search className="mr-2 h-4 w-4" />View Student Statement
+                </Button>
+                <Button className="w-full justify-start" variant="outline" onClick={() => setActiveTab('reports')}>
+                  <BarChart3 className="mr-2 h-4 w-4" />View Reports
+                </Button>
               </CardContent>
             </Card>
           </div>
@@ -336,130 +368,314 @@ export const FeesManagementModule = () => {
         {/* Fee Structures */}
         <TabsContent value="structures"><FeeStructuresTab /></TabsContent>
 
-        {/* Invoices */}
-        <TabsContent value="invoices">
+        {/* Receipts */}
+        <TabsContent value="receipts">
           <Card>
-            <CardHeader><CardTitle>Invoices (Debit Transactions)</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Payment Receipts</CardTitle><CardDescription>All payments with auto-generated receipt numbers</CardDescription></CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Receipt #</TableHead>
                     <TableHead>Student</TableHead>
-                    <TableHead>Vote Head</TableHead>
-                    <TableHead>Invoice #</TableHead>
                     <TableHead>Amount</TableHead>
+                    <TableHead>Mode</TableHead>
+                    <TableHead>Reference</TableHead>
                     <TableHead>Term/Year</TableHead>
                     <TableHead>Date</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {debits.map(d => (
-                    <TableRow key={d.id}>
+                  {receipts.map(r => (
+                    <TableRow key={r.id}>
+                      <TableCell className="font-mono font-medium">{r.receipt_no}</TableCell>
                       <TableCell>
-                        <div className="font-medium">{d.student_name}</div>
-                        <div className="text-xs text-muted-foreground">{d.admission_number}</div>
+                        <div className="font-medium">{r.student_name}</div>
+                        <div className="text-xs text-muted-foreground">{r.admission_number}</div>
                       </TableCell>
-                      <TableCell><Badge variant="outline">{d.vote_head_name}</Badge></TableCell>
-                      <TableCell className="font-mono text-sm">{d.invoice_number}</TableCell>
-                      <TableCell className="font-medium">{formatCurrency(Number(d.amount))}</TableCell>
-                      <TableCell>T{d.term}/{d.year}</TableCell>
-                      <TableCell>{new Date(d.date).toLocaleDateString()}</TableCell>
+                      <TableCell className="font-medium text-green-600">{formatCurrency(Number(r.amount))}</TableCell>
+                      <TableCell><Badge variant="outline">{r.payment_mode}</Badge></TableCell>
+                      <TableCell className="font-mono text-sm">{r.reference}</TableCell>
+                      <TableCell>T{r.term}/{r.year}</TableCell>
+                      <TableCell>{new Date(r.created_at).toLocaleDateString()}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
-              {debits.length === 0 && <p className="text-center py-8 text-muted-foreground">No invoices found</p>}
+              {receipts.length === 0 && <p className="text-center py-8 text-muted-foreground">No receipts found</p>}
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Payments */}
-        <TabsContent value="payments">
-          <Card>
-            <CardHeader><CardTitle>Payment Records</CardTitle></CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Student</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Mode</TableHead>
-                    <TableHead>Transaction Code</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Remarks</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {payments.map(p => (
-                    <TableRow key={p.id}>
-                      <TableCell>
-                        <div className="font-medium">{p.student_name}</div>
-                        <div className="text-xs text-muted-foreground">{p.admission_number}</div>
-                      </TableCell>
-                      <TableCell className="font-medium text-green-600">{formatCurrency(Number(p.amount))}</TableCell>
-                      <TableCell><Badge variant="outline">{p.mode}</Badge></TableCell>
-                      <TableCell className="font-mono text-sm">{p.transaction_code}</TableCell>
-                      <TableCell>{new Date(p.date).toLocaleDateString()}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{p.remarks}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              {payments.length === 0 && <p className="text-center py-8 text-muted-foreground">No payments found</p>}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Balances */}
+        {/* Student Ledgers */}
         <TabsContent value="balances">
           <Card>
-            <CardHeader><CardTitle>Student Fee Balances</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Student Ledgers</CardTitle><CardDescription>Running debit, credit & balance per student</CardDescription></CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Student</TableHead>
                     <TableHead>Class</TableHead>
-                    <TableHead>Total Invoiced</TableHead>
-                    <TableHead>Total Paid</TableHead>
+                    <TableHead>Total Debits</TableHead>
+                    <TableHead>Total Credits</TableHead>
                     <TableHead>Balance</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {Object.values(studentBalances).map((b: any) => (
-                    <TableRow key={b.student_id}>
+                  {ledgers.map(l => (
+                    <TableRow key={l.id}>
                       <TableCell>
-                        <div className="font-medium">{b.student_name}</div>
-                        <div className="text-xs text-muted-foreground">{b.admission_number}</div>
+                        <div className="font-medium">{l.student_name}</div>
+                        <div className="text-xs text-muted-foreground">{l.admission_number}</div>
                       </TableCell>
-                      <TableCell>{b.class_name}</TableCell>
-                      <TableCell>{formatCurrency(b.total_invoiced)}</TableCell>
-                      <TableCell>{formatCurrency(b.total_paid)}</TableCell>
+                      <TableCell>{l.class_name}</TableCell>
+                      <TableCell>{formatCurrency(Number(l.debit_total))}</TableCell>
+                      <TableCell className="text-green-600">{formatCurrency(Number(l.credit_total))}</TableCell>
                       <TableCell>
-                        <span className={b.closing_balance > 0 ? 'text-destructive font-medium' : 'text-green-600'}>
-                          {formatCurrency(b.closing_balance)}
+                        <span className={Number(l.balance) > 0 ? 'text-destructive font-bold' : 'text-green-600 font-bold'}>
+                          {formatCurrency(Number(l.balance))}
                         </span>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={b.closing_balance <= 0 ? 'default' : 'destructive'}>
-                          {b.closing_balance <= 0 ? 'Clear' : 'Owing'}
+                        <Badge variant={Number(l.balance) <= 0 ? 'default' : 'destructive'}>
+                          {Number(l.balance) <= 0 ? 'Clear' : 'Owing'}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="sm" onClick={() => { setStatementStudentId(l.student_id); setActiveTab('statement'); }}>
+                          <BookOpen className="h-4 w-4" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
-              {Object.keys(studentBalances).length === 0 && <p className="text-center py-8 text-muted-foreground">No balance records found</p>}
+              {ledgers.length === 0 && <p className="text-center py-8 text-muted-foreground">No ledger records. Post term fees to generate.</p>}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Student Statement */}
+        <TabsContent value="statement">
+          <Card>
+            <CardHeader>
+              <CardTitle>Student Statement</CardTitle>
+              <CardDescription>Select a student to view their full fee statement</CardDescription>
+              <div className="mt-2 max-w-sm">
+                <Select value={statementStudentId?.toString() || ''} onValueChange={v => setStatementStudentId(parseInt(v))}>
+                  <SelectTrigger><SelectValue placeholder="Select student" /></SelectTrigger>
+                  <SelectContent>
+                    {students.map(s => <SelectItem key={s.id} value={s.id.toString()}>{s.name} ({s.admission_number})</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {statement ? (
+                <div className="space-y-6">
+                  <div className="border rounded-lg p-4">
+                    <h3 className="font-semibold text-lg">{statement.student_name}</h3>
+                    <p className="text-sm text-muted-foreground">Adm: {statement.admission_number} • Class: {statement.class_name}</p>
+                    <div className="mt-3 flex gap-6">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Total Debits</p>
+                        <p className="font-bold">{formatCurrency(Number(statement.ledger?.debit_total || 0))}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Total Credits</p>
+                        <p className="font-bold text-green-600">{formatCurrency(Number(statement.ledger?.credit_total || 0))}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Running Balance</p>
+                        <p className={`font-bold ${statement.running_balance > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                          {formatCurrency(statement.running_balance)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold mb-2 flex items-center gap-2"><ArrowUpDown className="h-4 w-4" />Debits (Charges)</h4>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Invoice</TableHead>
+                          <TableHead>Vote Head</TableHead>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Term/Year</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {statement.debits.map(d => (
+                          <TableRow key={d.id}>
+                            <TableCell>{new Date(d.date).toLocaleDateString()}</TableCell>
+                            <TableCell className="font-mono text-sm">{d.invoice_number}</TableCell>
+                            <TableCell><Badge variant="outline">{d.vote_head_name}</Badge></TableCell>
+                            <TableCell className="font-medium">{formatCurrency(Number(d.amount))}</TableCell>
+                            <TableCell>T{d.term}/{d.year}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    {statement.debits.length === 0 && <p className="text-sm text-muted-foreground text-center py-2">No debits</p>}
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold mb-2 flex items-center gap-2"><Banknote className="h-4 w-4" />Credits (Payments)</h4>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Receipt #</TableHead>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Mode</TableHead>
+                          <TableHead>Allocations</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {statement.credits.map(r => (
+                          <TableRow key={r.id}>
+                            <TableCell>{new Date(r.created_at).toLocaleDateString()}</TableCell>
+                            <TableCell className="font-mono font-medium">{r.receipt_no}</TableCell>
+                            <TableCell className="font-medium text-green-600">{formatCurrency(Number(r.amount))}</TableCell>
+                            <TableCell><Badge variant="outline">{r.payment_mode}</Badge></TableCell>
+                            <TableCell>
+                              <div className="space-y-1">
+                                {(r.allocations || []).map((a, i) => (
+                                  <div key={i} className="text-xs">
+                                    {a.vote_head_name}: {formatCurrency(Number(a.amount))}
+                                  </div>
+                                ))}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    {statement.credits.length === 0 && <p className="text-sm text-muted-foreground text-center py-2">No payments</p>}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Search className="h-12 w-12 mx-auto mb-4" />
+                  <p>Select a student above to view their fee statement</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Reports */}
+        <TabsContent value="reports">
+          <div className="space-y-4">
+            {reports && (
+              <>
+                {/* Summary */}
+                <div className="grid gap-4 md:grid-cols-3">
+                  <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Total Invoiced</CardTitle></CardHeader>
+                    <CardContent><div className="text-2xl font-bold">{formatCurrency(reports.total_invoiced)}</div></CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Total Collected</CardTitle></CardHeader>
+                    <CardContent><div className="text-2xl font-bold text-green-600">{formatCurrency(reports.total_collected)}</div></CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Collection Rate</CardTitle></CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{reports.collection_rate}%</div>
+                      <Progress value={reports.collection_rate} className="mt-2" />
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Trial Balance */}
+                <Card>
+                  <CardHeader><CardTitle>Trial Balance</CardTitle><CardDescription>Double-entry accounting summary</CardDescription></CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Account</TableHead>
+                          <TableHead className="text-right">Debit</TableHead>
+                          <TableHead className="text-right">Credit</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {reports.trial_balance.map((t, i) => (
+                          <TableRow key={i}>
+                            <TableCell className="font-medium">{t.account}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(t.debit)}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(t.credit)}</TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow className="font-bold border-t-2">
+                          <TableCell>TOTAL</TableCell>
+                          <TableCell className="text-right">{formatCurrency(reports.trial_balance.reduce((s, t) => s + t.debit, 0))}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(reports.trial_balance.reduce((s, t) => s + t.credit, 0))}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+
+                {/* Votehead Collections & Payment Mode */}
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Card>
+                    <CardHeader><CardTitle>Votehead Collections</CardTitle></CardHeader>
+                    <CardContent>
+                      <Table>
+                        <TableHeader>
+                          <TableRow><TableHead>Vote Head</TableHead><TableHead className="text-right">Amount</TableHead></TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {reports.votehead_collections.map((v, i) => (
+                            <TableRow key={i}>
+                              <TableCell className="font-medium">{v.votehead}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(v.amount)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                      {reports.votehead_collections.length === 0 && <p className="text-center py-4 text-muted-foreground">No collections yet</p>}
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader><CardTitle>Payment Mode Summary</CardTitle></CardHeader>
+                    <CardContent>
+                      <Table>
+                        <TableHeader>
+                          <TableRow><TableHead>Mode</TableHead><TableHead className="text-right">Count</TableHead><TableHead className="text-right">Amount</TableHead></TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {reports.payment_mode_summary.map((m, i) => (
+                            <TableRow key={i}>
+                              <TableCell className="font-medium capitalize">{m.mode}</TableCell>
+                              <TableCell className="text-right">{m.count}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(m.amount)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                      {reports.payment_mode_summary.length === 0 && <p className="text-center py-4 text-muted-foreground">No payments yet</p>}
+                    </CardContent>
+                  </Card>
+                </div>
+              </>
+            )}
+            {!reports && <p className="text-center py-8 text-muted-foreground">Loading reports...</p>}
+          </div>
         </TabsContent>
       </Tabs>
     </div>
   );
 };
 
-// Vote Heads Sub-component
+// ==================== VOTE HEADS SUB-COMPONENT ====================
 function VoteHeadsTab() {
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
@@ -476,7 +692,7 @@ function VoteHeadsTab() {
       await feesService.createVoteHead({
         name: form.name, description: form.description,
         priority: parseInt(form.priority), student_group: form.student_group,
-        fee_applicable: form.fee_applicable, school_id: 0,
+        fee_applicable: form.fee_applicable,
       });
       toast({ title: 'Vote head created' });
       setIsOpen(false);
@@ -502,7 +718,7 @@ function VoteHeadsTab() {
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <div><CardTitle>Vote Heads</CardTitle><CardDescription>Fee categories and their priorities</CardDescription></div>
+          <div><CardTitle>Vote Heads</CardTitle><CardDescription>Fee categories with allocation priority</CardDescription></div>
           <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild><Button><Plus className="mr-2 h-4 w-4" />Add Vote Head</Button></DialogTrigger>
             <DialogContent>
@@ -511,7 +727,7 @@ function VoteHeadsTab() {
                 <div><Label>Name *</Label><Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g., Tuition" /></div>
                 <div><Label>Description</Label><Textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} /></div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div><Label>Priority</Label><Input type="number" value={form.priority} onChange={e => setForm(p => ({ ...p, priority: e.target.value }))} /></div>
+                  <div><Label>Priority (lower = paid first)</Label><Input type="number" min="1" value={form.priority} onChange={e => setForm(p => ({ ...p, priority: e.target.value }))} /></div>
                   <div><Label>Student Group</Label>
                     <Select value={form.student_group} onValueChange={v => setForm(p => ({ ...p, student_group: v }))}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
@@ -532,7 +748,7 @@ function VoteHeadsTab() {
               <TableHead>Priority</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Description</TableHead>
-              <TableHead>Student Group</TableHead>
+              <TableHead>Group</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
