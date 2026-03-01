@@ -1185,6 +1185,55 @@ export type Database = {
         }
         Relationships: []
       }
+      fees_allocation: {
+        Row: {
+          amount: number
+          created_at: string
+          id: number
+          receipt_id: number
+          school_id: number
+          vote_head_id: number
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: number
+          receipt_id: number
+          school_id: number
+          vote_head_id: number
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: number
+          receipt_id?: number
+          school_id?: number
+          vote_head_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fees_allocation_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "fees_receipt"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fees_allocation_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fees_allocation_vote_head_id_fkey"
+            columns: ["vote_head_id"]
+            isOneToOne: false
+            referencedRelation: "fees_votehead"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fees_debittransaction: {
         Row: {
           amount: number
@@ -1363,6 +1412,77 @@ export type Database = {
           },
         ]
       }
+      fees_ledger_entry: {
+        Row: {
+          account_credit: string
+          account_debit: string
+          amount: number
+          created_at: string
+          description: string
+          entry_date: string
+          id: number
+          receipt_id: number | null
+          reference: string
+          school_id: number
+          student_id: number | null
+        }
+        Insert: {
+          account_credit: string
+          account_debit: string
+          amount: number
+          created_at?: string
+          description?: string
+          entry_date?: string
+          id?: number
+          receipt_id?: number | null
+          reference?: string
+          school_id: number
+          student_id?: number | null
+        }
+        Update: {
+          account_credit?: string
+          account_debit?: string
+          amount?: number
+          created_at?: string
+          description?: string
+          entry_date?: string
+          id?: number
+          receipt_id?: number | null
+          reference?: string
+          school_id?: number
+          student_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fees_ledger_entry_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "fees_receipt"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fees_ledger_entry_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fees_ledger_entry_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_summary"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "fees_ledger_entry_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fees_paymenttransaction: {
         Row: {
           amount: number
@@ -1414,6 +1534,212 @@ export type Database = {
           },
           {
             foreignKeyName: "fees_paymenttransaction_student_id_87a8fde4_fk_students_id"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fees_receipt: {
+        Row: {
+          amount: number
+          created_at: string
+          id: number
+          is_reversed: boolean
+          payment_mode: string
+          posted_by: number | null
+          receipt_no: string
+          reference: string
+          remarks: string
+          school_id: number
+          student_id: number
+          term: number
+          year: number
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: number
+          is_reversed?: boolean
+          payment_mode?: string
+          posted_by?: number | null
+          receipt_no: string
+          reference?: string
+          remarks?: string
+          school_id: number
+          student_id: number
+          term?: number
+          year?: number
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: number
+          is_reversed?: boolean
+          payment_mode?: string
+          posted_by?: number | null
+          receipt_no?: string
+          reference?: string
+          remarks?: string
+          school_id?: number
+          student_id?: number
+          term?: number
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fees_receipt_posted_by_fkey"
+            columns: ["posted_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fees_receipt_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fees_receipt_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_summary"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "fees_receipt_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fees_structure_group: {
+        Row: {
+          academic_year: number
+          created_at: string
+          id: number
+          is_active: boolean
+          name: string
+          school_id: number
+          student_group: string
+          term: number
+        }
+        Insert: {
+          academic_year?: number
+          created_at?: string
+          id?: number
+          is_active?: boolean
+          name: string
+          school_id: number
+          student_group?: string
+          term?: number
+        }
+        Update: {
+          academic_year?: number
+          created_at?: string
+          id?: number
+          is_active?: boolean
+          name?: string
+          school_id?: number
+          student_group?: string
+          term?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fees_structure_group_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fees_structure_item: {
+        Row: {
+          amount: number
+          id: number
+          structure_group_id: number
+          vote_head_id: number
+        }
+        Insert: {
+          amount: number
+          id?: number
+          structure_group_id: number
+          vote_head_id: number
+        }
+        Update: {
+          amount?: number
+          id?: number
+          structure_group_id?: number
+          vote_head_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fees_structure_item_structure_group_id_fkey"
+            columns: ["structure_group_id"]
+            isOneToOne: false
+            referencedRelation: "fees_structure_group"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fees_structure_item_vote_head_id_fkey"
+            columns: ["vote_head_id"]
+            isOneToOne: false
+            referencedRelation: "fees_votehead"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fees_student_ledger: {
+        Row: {
+          balance: number
+          credit_total: number
+          debit_total: number
+          id: number
+          last_updated: string
+          school_id: number
+          student_id: number
+        }
+        Insert: {
+          balance?: number
+          credit_total?: number
+          debit_total?: number
+          id?: number
+          last_updated?: string
+          school_id: number
+          student_id: number
+        }
+        Update: {
+          balance?: number
+          credit_total?: number
+          debit_total?: number
+          id?: number
+          last_updated?: string
+          school_id?: number
+          student_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fees_student_ledger_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fees_student_ledger_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_summary"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "fees_student_ledger_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "students"
@@ -4422,6 +4748,10 @@ export type Database = {
       }
       generate_admission_number: { Args: never; Returns: string }
       generate_employee_number: { Args: never; Returns: string }
+      generate_receipt_number: {
+        Args: { p_school_id: number }
+        Returns: string
+      }
       generate_school_code: { Args: never; Returns: string }
       get_cbc_grade: {
         Args: { p_marks: number; p_max_marks: number }
