@@ -1,4 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
+import { TermManager } from "@/utils/termManager";
 import { 
   BookOpen, 
   ClipboardList, 
@@ -186,7 +187,7 @@ export function AppSidebar() {
           <div className="mt-auto p-4">
             <div className="rounded-lg bg-muted p-3">
               <p className="text-sm font-medium">Current Term</p>
-              <p className="text-xs text-muted-foreground">Term 2, 2024</p>
+              <p className="text-xs text-muted-foreground">Term {TermManager.getCurrentTerm()}, {TermManager.getCurrentYear()}</p>
               <p className="text-xs text-muted-foreground mt-1">
                 Configure in Settings
               </p>
