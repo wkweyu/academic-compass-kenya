@@ -146,7 +146,7 @@ export const FeesManagementModule = () => {
       return;
     }
     try {
-      const filteredStudents = bulkDebitForm.class_id
+      const filteredStudents = bulkDebitForm.class_id && bulkDebitForm.class_id !== 'all'
         ? students.filter(s => s.class_id === parseInt(bulkDebitForm.class_id))
         : students;
       if (filteredStudents.length === 0) {
@@ -202,7 +202,7 @@ export const FeesManagementModule = () => {
                   <Select value={bulkDebitForm.class_id} onValueChange={v => setBulkDebitForm(p => ({ ...p, class_id: v }))}>
                     <SelectTrigger><SelectValue placeholder="All classes" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Classes</SelectItem>
+                      <SelectItem value="all">All Classes</SelectItem>
                       {classes.map((c: any) => <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
