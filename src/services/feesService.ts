@@ -530,30 +530,37 @@ export const feesService = {
 
   // ==================== STUDENT LEDGER ====================
 
-  async _updateStudentLedger(schoolId: number, studentId: number, debitAdd: number, creditAdd: number): Promise<void> {
+  async _updateStudentLedger(schoolId: number, studentId: number, _debitAdd: number, _creditAdd: number): Promise<void> {
+    // Recalculate from actual data to prevent drift from duplicate calls
+    const [debitsRes, receiptsRes] = await Promise.all([
+      supabase.from('fees_debittransaction').select('amount').eq('school_id', schoolId).eq('student_id', studentId),
+      supabase.from('fees_receipt').select('amount').eq('school_id', schoolId).eq('student_id', studentId).eq('is_reversed', false),
+    ]);
+
+    const debitTotal = (debitsRes.data || []).reduce((s, d) => s + Number((d as any).amount), 0);
+    const creditTotal = (receiptsRes.data || []).reduce((s, r) => s + Number((r as any).amount), 0);
+
     const { data: existing } = await supabase
       .from('fees_student_ledger')
-      .select('*')
+      .select('id')
       .eq('school_id', schoolId)
       .eq('student_id', studentId)
       .maybeSingle();
 
     if (existing) {
-      const newDebit = Number((existing as any).debit_total) + debitAdd;
-      const newCredit = Number((existing as any).credit_total) + creditAdd;
       await supabase.from('fees_student_ledger').update({
-        debit_total: newDebit,
-        credit_total: newCredit,
-        balance: newDebit - newCredit,
+        debit_total: debitTotal,
+        credit_total: creditTotal,
+        balance: debitTotal - creditTotal,
         last_updated: new Date().toISOString(),
       }).eq('id', (existing as any).id);
     } else {
       await supabase.from('fees_student_ledger').insert({
         school_id: schoolId,
         student_id: studentId,
-        debit_total: debitAdd,
-        credit_total: creditAdd,
-        balance: debitAdd - creditAdd,
+        debit_total: debitTotal,
+        credit_total: creditTotal,
+        balance: debitTotal - creditTotal,
       });
     }
   },
