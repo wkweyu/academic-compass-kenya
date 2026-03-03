@@ -20,6 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { feesService, VoteHead, Receipt, StudentLedger, FeesReport } from '@/services/feesService';
 import { FeeStructuresTab } from './FeeStructuresTab';
 import { supabase } from '@/integrations/supabase/client';
+import { printReceipt } from '@/components/fees/PaymentReceiptPrint';
 
 const PAYMENT_MODES = [
   { value: 'cash', label: 'Cash' },
@@ -382,7 +383,8 @@ export const FeesManagementModule = () => {
                     <TableHead>Mode</TableHead>
                     <TableHead>Reference</TableHead>
                     <TableHead>Term/Year</TableHead>
-                    <TableHead>Date</TableHead>
+                     <TableHead>Date</TableHead>
+                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -398,6 +400,11 @@ export const FeesManagementModule = () => {
                       <TableCell className="font-mono text-sm">{r.reference}</TableCell>
                       <TableCell>T{r.term}/{r.year}</TableCell>
                       <TableCell>{new Date(r.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="sm" onClick={() => printReceipt({ receipt: r })}>
+                          <Printer className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { Student, StudentFilters, StudentStats, ImportResult } from "@/types/student";
+import { toSentenceCase } from "@/utils/nameFormatter";
 
 export const getStudents = async (
   params: StudentFilters = {}
@@ -37,7 +38,7 @@ export const getStudents = async (
       id: item.id.toString(),
       admission_number: item.admission_number,
       level: item.level || 'Primary',
-      full_name: item.full_name,
+      full_name: toSentenceCase(item.full_name),
       first_name: item.first_name,
       last_name: item.last_name,
       date_of_birth: item.date_of_birth,
@@ -100,7 +101,7 @@ export const getStudentById = async (id: string): Promise<Student | null> => {
       id: data.id.toString(),
       admission_number: data.admission_number,
       level: data.level || 'Primary',
-      full_name: data.full_name,
+      full_name: toSentenceCase(data.full_name),
       first_name: data.first_name,
       last_name: data.last_name,
       date_of_birth: data.date_of_birth,

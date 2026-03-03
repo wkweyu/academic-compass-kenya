@@ -18,6 +18,7 @@ import { useState, useEffect } from 'react';
 import { Printer, Users, CheckCircle, X } from 'lucide-react';
 import { Guardian } from '@/types/guardian';
 import { toast } from 'sonner';
+import { toSentenceCase } from '@/utils/nameFormatter';
 
 const studentFormSchema = z.object({
   full_name: z.string().min(3, 'Full name must be at least 3 characters'),
@@ -215,7 +216,7 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
           
           // Transform form data to required Student format
           const studentData = {
-           full_name: data.full_name!,
+           full_name: toSentenceCase(data.full_name!),
            date_of_birth: data.date_of_birth!,
            gender: data.gender!,
            upi_number: data.upi_number,
@@ -280,7 +281,7 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
               <FormItem>
                 <FormLabel>Full Name</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g., John Doe" {...field} />
+                  <Input placeholder="e.g., John Doe" {...field} onBlur={(e) => { field.onBlur(); field.onChange(toSentenceCase(e.target.value)); }} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
