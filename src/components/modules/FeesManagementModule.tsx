@@ -175,7 +175,9 @@ export const FeesManagementModule = () => {
       toast({ title: 'Error', description: e.message, variant: 'destructive' });
     }
   };
-
+          <AdditionalDebitsDialog />
+          <TransferCreditDialog />
+          <BulkCsvImport />
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
