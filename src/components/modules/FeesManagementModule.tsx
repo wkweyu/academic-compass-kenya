@@ -380,6 +380,9 @@ export const FeesManagementModule = () => {
         {/* Fee Structures */}
         <TabsContent value="structures"><FeeStructuresTab /></TabsContent>
 
+        {/* Annual View */}
+        <TabsContent value="annual"><FeeStructureAnnualView /></TabsContent>
+
         {/* Receipts */}
         <TabsContent value="receipts">
           <Card>
