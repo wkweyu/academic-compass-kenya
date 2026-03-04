@@ -271,8 +271,10 @@ export const FeesManagementModule = () => {
               </div>
             </DialogContent>
           </Dialog>
+          <AdditionalDebitsDialog />
+          <TransferCreditDialog />
+          <BulkCsvImport />
         </div>
-      </div>
 
       {/* Stats Cards */}
       {stats && (
