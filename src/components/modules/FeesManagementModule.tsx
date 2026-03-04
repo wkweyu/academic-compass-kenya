@@ -329,6 +329,7 @@ export const FeesManagementModule = () => {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="vote-heads">Vote Heads</TabsTrigger>
           <TabsTrigger value="structures">Structures</TabsTrigger>
+          <TabsTrigger value="annual">Annual View</TabsTrigger>
           <TabsTrigger value="receipts">Receipts</TabsTrigger>
           <TabsTrigger value="balances">Ledgers</TabsTrigger>
           <TabsTrigger value="statement">Statement</TabsTrigger>
