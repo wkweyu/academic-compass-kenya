@@ -74,10 +74,13 @@ export const FeesManagementModule = () => {
     enabled: activeTab === 'balances',
   });
 
-  const { data: reports } = useQuery({
-    queryKey: ['fees-reports'],
-    queryFn: () => feesService.generateReports(),
-    enabled: activeTab === 'reports',
+  // Fetch school profile for receipt branding
+  const { data: schoolProfile } = useQuery({
+    queryKey: ['school-profile'],
+    queryFn: async () => {
+      const { data } = await supabase.rpc('get_or_create_school_profile');
+      return (data as any[])?.[0] || null;
+    },
   });
 
   const { data: statement } = useQuery({
