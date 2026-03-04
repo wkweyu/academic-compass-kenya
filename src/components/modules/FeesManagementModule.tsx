@@ -21,7 +21,11 @@ import { feesService, VoteHead, Receipt, StudentLedger, FeesReport } from '@/ser
 import { FeeStructuresTab } from './FeeStructuresTab';
 import { supabase } from '@/integrations/supabase/client';
 import { printReceipt } from '@/components/fees/PaymentReceiptPrint';
-
+import { FeeStructureAnnualView } from '@/components/fees/FeeStructureAnnualView';
+import { FeesReportsModule } from '@/components/fees/FeesReportsModule';
+import { AdditionalDebitsDialog } from '@/components/fees/AdditionalDebitsDialog';
+import { TransferCreditDialog } from '@/components/fees/TransferCreditDialog';
+import { BulkCsvImport } from '@/components/fees/BulkCsvImport';
 const PAYMENT_MODES = [
   { value: 'cash', label: 'Cash' },
   { value: 'mpesa', label: 'M-PESA' },
@@ -70,10 +74,13 @@ export const FeesManagementModule = () => {
     enabled: activeTab === 'balances',
   });
 
-  const { data: reports } = useQuery({
-    queryKey: ['fees-reports'],
-    queryFn: () => feesService.generateReports(),
-    enabled: activeTab === 'reports',
+  // Fetch school profile for receipt branding
+  const { data: schoolProfile } = useQuery({
+    queryKey: ['school-profile'],
+    queryFn: async () => {
+      const { data } = await supabase.rpc('get_or_create_school_profile');
+      return (data as any[])?.[0] || null;
+    },
   });
 
   const { data: statement } = useQuery({
@@ -169,6 +176,7 @@ export const FeesManagementModule = () => {
     }
   };
 
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -263,8 +271,10 @@ export const FeesManagementModule = () => {
               </div>
             </DialogContent>
           </Dialog>
+          <AdditionalDebitsDialog />
+          <TransferCreditDialog />
+          <BulkCsvImport />
         </div>
-      </div>
 
       {/* Stats Cards */}
       {stats && (
@@ -319,6 +329,7 @@ export const FeesManagementModule = () => {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="vote-heads">Vote Heads</TabsTrigger>
           <TabsTrigger value="structures">Structures</TabsTrigger>
+          <TabsTrigger value="annual">Annual View</TabsTrigger>
           <TabsTrigger value="receipts">Receipts</TabsTrigger>
           <TabsTrigger value="balances">Ledgers</TabsTrigger>
           <TabsTrigger value="statement">Statement</TabsTrigger>
@@ -369,6 +380,9 @@ export const FeesManagementModule = () => {
         {/* Fee Structures */}
         <TabsContent value="structures"><FeeStructuresTab /></TabsContent>
 
+        {/* Annual View */}
+        <TabsContent value="annual"><FeeStructureAnnualView /></TabsContent>
+
         {/* Receipts */}
         <TabsContent value="receipts">
           <Card>
@@ -400,8 +414,18 @@ export const FeesManagementModule = () => {
                       <TableCell className="font-mono text-sm">{r.reference}</TableCell>
                       <TableCell>T{r.term}/{r.year}</TableCell>
                       <TableCell>{new Date(r.created_at).toLocaleDateString()}</TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="sm" onClick={() => printReceipt({ receipt: r })}>
+                       <TableCell>
+                        <Button variant="ghost" size="sm" onClick={() => {
+                          const studentLedger = ledgers.find(l => l.student_id === r.student_id);
+                          printReceipt({
+                            receipt: r,
+                            schoolName: schoolProfile?.name,
+                            schoolAddress: schoolProfile?.address,
+                            schoolPhone: schoolProfile?.phone,
+                            schoolEmail: schoolProfile?.email,
+                            balance: Number(studentLedger?.balance || 0),
+                          });
+                        }}>
                           <Printer className="h-4 w-4" />
                         </Button>
                       </TableCell>
@@ -578,104 +602,7 @@ export const FeesManagementModule = () => {
 
         {/* Reports */}
         <TabsContent value="reports">
-          <div className="space-y-4">
-            {reports && (
-              <>
-                {/* Summary */}
-                <div className="grid gap-4 md:grid-cols-3">
-                  <Card>
-                    <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Total Invoiced</CardTitle></CardHeader>
-                    <CardContent><div className="text-2xl font-bold">{formatCurrency(reports.total_invoiced)}</div></CardContent>
-                  </Card>
-                  <Card>
-                    <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Total Collected</CardTitle></CardHeader>
-                    <CardContent><div className="text-2xl font-bold text-green-600">{formatCurrency(reports.total_collected)}</div></CardContent>
-                  </Card>
-                  <Card>
-                    <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Collection Rate</CardTitle></CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{reports.collection_rate}%</div>
-                      <Progress value={reports.collection_rate} className="mt-2" />
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Trial Balance */}
-                <Card>
-                  <CardHeader><CardTitle>Trial Balance</CardTitle><CardDescription>Double-entry accounting summary</CardDescription></CardHeader>
-                  <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Account</TableHead>
-                          <TableHead className="text-right">Debit</TableHead>
-                          <TableHead className="text-right">Credit</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {reports.trial_balance.map((t, i) => (
-                          <TableRow key={i}>
-                            <TableCell className="font-medium">{t.account}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(t.debit)}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(t.credit)}</TableCell>
-                          </TableRow>
-                        ))}
-                        <TableRow className="font-bold border-t-2">
-                          <TableCell>TOTAL</TableCell>
-                          <TableCell className="text-right">{formatCurrency(reports.trial_balance.reduce((s, t) => s + t.debit, 0))}</TableCell>
-                          <TableCell className="text-right">{formatCurrency(reports.trial_balance.reduce((s, t) => s + t.credit, 0))}</TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </CardContent>
-                </Card>
-
-                {/* Votehead Collections & Payment Mode */}
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Card>
-                    <CardHeader><CardTitle>Votehead Collections</CardTitle></CardHeader>
-                    <CardContent>
-                      <Table>
-                        <TableHeader>
-                          <TableRow><TableHead>Vote Head</TableHead><TableHead className="text-right">Amount</TableHead></TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {reports.votehead_collections.map((v, i) => (
-                            <TableRow key={i}>
-                              <TableCell className="font-medium">{v.votehead}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(v.amount)}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                      {reports.votehead_collections.length === 0 && <p className="text-center py-4 text-muted-foreground">No collections yet</p>}
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardHeader><CardTitle>Payment Mode Summary</CardTitle></CardHeader>
-                    <CardContent>
-                      <Table>
-                        <TableHeader>
-                          <TableRow><TableHead>Mode</TableHead><TableHead className="text-right">Count</TableHead><TableHead className="text-right">Amount</TableHead></TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {reports.payment_mode_summary.map((m, i) => (
-                            <TableRow key={i}>
-                              <TableCell className="font-medium capitalize">{m.mode}</TableCell>
-                              <TableCell className="text-right">{m.count}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(m.amount)}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                      {reports.payment_mode_summary.length === 0 && <p className="text-center py-4 text-muted-foreground">No payments yet</p>}
-                    </CardContent>
-                  </Card>
-                </div>
-              </>
-            )}
-            {!reports && <p className="text-center py-8 text-muted-foreground">Loading reports...</p>}
-          </div>
+          <FeesReportsModule />
         </TabsContent>
       </Tabs>
     </div>
