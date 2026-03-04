@@ -414,8 +414,18 @@ export const FeesManagementModule = () => {
                       <TableCell className="font-mono text-sm">{r.reference}</TableCell>
                       <TableCell>T{r.term}/{r.year}</TableCell>
                       <TableCell>{new Date(r.created_at).toLocaleDateString()}</TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="sm" onClick={() => printReceipt({ receipt: r })}>
+                       <TableCell>
+                        <Button variant="ghost" size="sm" onClick={() => {
+                          const studentLedger = ledgers.find(l => l.student_id === r.student_id);
+                          printReceipt({
+                            receipt: r,
+                            schoolName: schoolProfile?.name,
+                            schoolAddress: schoolProfile?.address,
+                            schoolPhone: schoolProfile?.phone,
+                            schoolEmail: schoolProfile?.email,
+                            balance: Number(studentLedger?.balance || 0),
+                          });
+                        }}>
                           <Printer className="h-4 w-4" />
                         </Button>
                       </TableCell>
