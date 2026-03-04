@@ -21,7 +21,11 @@ import { feesService, VoteHead, Receipt, StudentLedger, FeesReport } from '@/ser
 import { FeeStructuresTab } from './FeeStructuresTab';
 import { supabase } from '@/integrations/supabase/client';
 import { printReceipt } from '@/components/fees/PaymentReceiptPrint';
-
+import { FeeStructureAnnualView } from '@/components/fees/FeeStructureAnnualView';
+import { FeesReportsModule } from '@/components/fees/FeesReportsModule';
+import { AdditionalDebitsDialog } from '@/components/fees/AdditionalDebitsDialog';
+import { TransferCreditDialog } from '@/components/fees/TransferCreditDialog';
+import { BulkCsvImport } from '@/components/fees/BulkCsvImport';
 const PAYMENT_MODES = [
   { value: 'cash', label: 'Cash' },
   { value: 'mpesa', label: 'M-PESA' },
