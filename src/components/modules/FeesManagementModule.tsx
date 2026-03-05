@@ -275,6 +275,7 @@ export const FeesManagementModule = () => {
           <TransferCreditDialog />
           <BulkCsvImport />
         </div>
+      </div>
 
       {/* Stats Cards */}
       {stats && (
