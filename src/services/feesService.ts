@@ -612,7 +612,7 @@ export const feesService = {
   async getReceipts(filters?: { student_id?: number; term?: number; year?: number }): Promise<Receipt[]> {
     let query = supabase
       .from('fees_receipt')
-      .select('*, students(full_name, admission_number)')
+      .select('*, students(full_name, admission_number), fees_allocation(*, fees_votehead(name))')
       .order('created_at', { ascending: false });
     if (filters?.student_id) query = query.eq('student_id', filters.student_id);
     if (filters?.term) query = query.eq('term', filters.term);
@@ -623,6 +623,10 @@ export const feesService = {
       ...r,
       student_name: r.students?.full_name,
       admission_number: r.students?.admission_number,
+      allocations: (r.fees_allocation || []).map((a: any) => ({
+        ...a,
+        vote_head_name: a.fees_votehead?.name,
+      })),
     }));
   },
 
