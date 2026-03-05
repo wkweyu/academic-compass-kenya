@@ -8,6 +8,8 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import { MainLayout } from "./components/layout/MainLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AuthPage from "./pages/AuthPage";
+import SaaSLoginPage from "./pages/SaaSLoginPage";
+import SaaSDashboardPage from "./pages/SaaSDashboardPage";
 import DashboardPage from "./pages/DashboardPage";
 import ExamsPage from "./pages/ExamsPage";
 import StudentsPage from "./pages/StudentsPage";
