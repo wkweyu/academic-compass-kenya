@@ -168,6 +168,59 @@ export type Database = {
           },
         ]
       }
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          id: number
+          ip_address: string | null
+          module: string
+          new_values: Json | null
+          old_values: Json | null
+          school_id: number | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: number
+          ip_address?: string | null
+          module: string
+          new_values?: Json | null
+          old_values?: Json | null
+          school_id?: number | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: number
+          ip_address?: string | null
+          module?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          school_id?: number | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       auth_group: {
         Row: {
           id: number
@@ -2033,6 +2086,41 @@ export type Database = {
           },
         ]
       }
+      onboarding_logs: {
+        Row: {
+          created_at: string
+          details: Json | null
+          id: number
+          school_id: number
+          status: string
+          step: string
+        }
+        Insert: {
+          created_at?: string
+          details?: Json | null
+          id?: number
+          school_id: number
+          status?: string
+          step: string
+        }
+        Update: {
+          created_at?: string
+          details?: Json | null
+          id?: number
+          school_id?: number
+          status?: string
+          step?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_logs_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payroll_entries: {
         Row: {
           basic_salary: number
@@ -2647,46 +2735,132 @@ export type Database = {
           },
         ]
       }
+      school_settings: {
+        Row: {
+          academic_year_start: number | null
+          created_at: string
+          currency: string | null
+          email_notifications: boolean | null
+          grading_system: string | null
+          id: number
+          report_template: string | null
+          school_id: number
+          sms_enabled: boolean | null
+          sms_provider: string | null
+          terms_per_year: number | null
+          timezone: string | null
+          updated_at: string
+        }
+        Insert: {
+          academic_year_start?: number | null
+          created_at?: string
+          currency?: string | null
+          email_notifications?: boolean | null
+          grading_system?: string | null
+          id?: number
+          report_template?: string | null
+          school_id: number
+          sms_enabled?: boolean | null
+          sms_provider?: string | null
+          terms_per_year?: number | null
+          timezone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          academic_year_start?: number | null
+          created_at?: string
+          currency?: string | null
+          email_notifications?: boolean | null
+          grading_system?: string | null
+          id?: number
+          report_template?: string | null
+          school_id?: number
+          sms_enabled?: boolean | null
+          sms_provider?: string | null
+          terms_per_year?: number | null
+          timezone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "school_settings_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: true
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       schools_school: {
         Row: {
           active: boolean
           address: string
+          city: string | null
           code: string
+          contact_person: string | null
+          contact_phone: string | null
+          country: string | null
           created_at: string
           email: string
           id: number
           logo: string | null
+          max_students: number | null
+          max_users: number | null
           motto: string | null
           name: string
           phone: string
+          subscription_end: string | null
+          subscription_plan: string | null
+          subscription_start: string | null
+          subscription_status: string | null
           type: string | null
           website: string | null
         }
         Insert: {
           active?: boolean
           address: string
+          city?: string | null
           code?: string
+          contact_person?: string | null
+          contact_phone?: string | null
+          country?: string | null
           created_at?: string
           email: string
           id?: number
           logo?: string | null
+          max_students?: number | null
+          max_users?: number | null
           motto?: string | null
           name: string
           phone: string
+          subscription_end?: string | null
+          subscription_plan?: string | null
+          subscription_start?: string | null
+          subscription_status?: string | null
           type?: string | null
           website?: string | null
         }
         Update: {
           active?: boolean
           address?: string
+          city?: string | null
           code?: string
+          contact_person?: string | null
+          contact_phone?: string | null
+          country?: string | null
           created_at?: string
           email?: string
           id?: number
           logo?: string | null
+          max_students?: number | null
+          max_users?: number | null
           motto?: string | null
           name?: string
           phone?: string
+          subscription_end?: string | null
+          subscription_plan?: string | null
+          subscription_start?: string | null
+          subscription_status?: string | null
           type?: string | null
           website?: string | null
         }
@@ -3910,6 +4084,56 @@ export type Database = {
           },
         ]
       }
+      subscriptions: {
+        Row: {
+          amount: number
+          billing_cycle: string
+          created_at: string
+          end_date: string | null
+          id: number
+          payment_reference: string | null
+          plan_name: string
+          school_id: number
+          start_date: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          billing_cycle?: string
+          created_at?: string
+          end_date?: string | null
+          id?: number
+          payment_reference?: string | null
+          plan_name?: string
+          school_id: number
+          start_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          billing_cycle?: string
+          created_at?: string
+          end_date?: string | null
+          id?: number
+          payment_reference?: string | null
+          plan_name?: string
+          school_id?: number
+          start_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teacher_availability: {
         Row: {
           created_at: string | null
@@ -4753,6 +4977,25 @@ export type Database = {
         Returns: string
       }
       generate_school_code: { Args: never; Returns: string }
+      get_all_schools: {
+        Args: never
+        Returns: {
+          active: boolean
+          city: string
+          code: string
+          country: string
+          created_at: string
+          email: string
+          id: number
+          name: string
+          phone: string
+          student_count: number
+          subscription_end: string
+          subscription_plan: string
+          subscription_status: string
+          teacher_count: number
+        }[]
+      }
       get_cbc_grade: {
         Args: { p_marks: number; p_max_marks: number }
         Returns: {
@@ -4798,6 +5041,19 @@ export type Database = {
           website: string
         }[]
       }
+      get_saas_analytics: {
+        Args: never
+        Returns: {
+          active_schools: number
+          inactive_schools: number
+          schools_on_enterprise: number
+          schools_on_standard: number
+          schools_on_starter: number
+          total_schools: number
+          total_students: number
+          total_teachers: number
+        }[]
+      }
       get_school_users: {
         Args: never
         Returns: {
@@ -4835,6 +5091,44 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      log_audit_event: {
+        Args: {
+          p_action: string
+          p_entity_id?: string
+          p_entity_type?: string
+          p_module: string
+          p_new_values?: Json
+          p_old_values?: Json
+        }
+        Returns: undefined
+      }
+      lookup_school_by_code: {
+        Args: { p_code: string }
+        Returns: {
+          active: boolean
+          code: string
+          id: number
+          logo: string
+          name: string
+        }[]
+      }
+      onboard_new_school: {
+        Args: {
+          p_address?: string
+          p_city?: string
+          p_contact_person?: string
+          p_contact_phone?: string
+          p_country?: string
+          p_email: string
+          p_name: string
+          p_phone?: string
+          p_plan?: string
+        }
+        Returns: {
+          school_code: string
+          school_id: number
+        }[]
+      }
       user_can_create_school: { Args: never; Returns: boolean }
     }
     Enums: {
@@ -4845,6 +5139,7 @@ export type Database = {
         | "transport"
         | "teacher"
         | "parent"
+        | "platform_admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -4979,6 +5274,7 @@ export const Constants = {
         "transport",
         "teacher",
         "parent",
+        "platform_admin",
       ],
     },
   },
