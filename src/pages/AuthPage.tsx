@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { saasService } from "@/services/saasService";
-import { Building2, ArrowLeft, LogIn, UserPlus } from "lucide-react";
+import { useRateLimit } from "@/hooks/useRateLimit";
+import { Building2, ArrowLeft, LogIn, UserPlus, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -10,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 const AuthPage = () => {
   const navigate = useNavigate();
   const { user, login, register, loading } = useAuth();
+  const { rateLimited, retryAfter, attemptsRemaining, checkLimit, recordAttempt } = useRateLimit();
 
   const [step, setStep] = useState<"school_code" | "credentials">("school_code");
   const [schoolCode, setSchoolCode] = useState("");
@@ -19,12 +21,25 @@ const AuthPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<"login" | "register">("login");
   const [lookingUp, setLookingUp] = useState(false);
+  const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) {
+    if (!loading && user && school) {
+      // Verify user belongs to the looked-up school
+      setVerifying(true);
+      saasService.verifyUserSchool(school.id).then((belongs) => {
+        if (belongs) {
+          navigate("/dashboard", { replace: true });
+        } else {
+          setError("Your account is not associated with this school. Please check the school code.");
+          setVerifying(false);
+        }
+      });
+    } else if (!loading && user && !school) {
+      // User is logged in but no school selected (direct nav)
       navigate("/dashboard", { replace: true });
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, school]);
 
   const handleSchoolLookup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,19 +69,23 @@ const AuthPage = () => {
     e.preventDefault();
     setError(null);
 
+    // Rate limit check
+    const identifier = `${email.toLowerCase()}:${school?.code || ""}`;
+    const allowed = await checkLimit(identifier);
+    if (!allowed) return;
+
     try {
       if (mode === "login") {
         await login(email, password);
+        await recordAttempt(identifier, true);
       } else {
         await register(email, password, password);
+        await recordAttempt(identifier, true);
       }
     } catch (err: any) {
+      await recordAttempt(identifier, false);
       setError(err.message || "Authentication failed");
     }
-  };
-
-  const handleSaasLogin = () => {
-    navigate("/saas/login");
   };
 
   return (
@@ -93,7 +112,16 @@ const AuthPage = () => {
               </div>
             )}
 
-            {step === "school_code" ? (
+            {rateLimited && (
+              <div className="mb-4 p-3 text-sm text-destructive bg-destructive/10 rounded-lg border border-destructive/20 flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 shrink-0" />
+                <span>Too many login attempts. Try again in {retryAfter} seconds.</span>
+              </div>
+            )}
+
+            {verifying ? (
+              <p className="text-center text-muted-foreground">Verifying school access...</p>
+            ) : step === "school_code" ? (
               <form onSubmit={handleSchoolLookup} className="space-y-4">
                 <div>
                   <label className="text-sm font-medium text-foreground mb-1.5 block">
@@ -155,7 +183,14 @@ const AuthPage = () => {
                     required
                   />
                 </div>
-                <Button type="submit" className="w-full gap-2">
+
+                {attemptsRemaining <= 2 && !rateLimited && (
+                  <p className="text-xs text-amber-600">
+                    {attemptsRemaining} login attempt{attemptsRemaining !== 1 ? "s" : ""} remaining
+                  </p>
+                )}
+
+                <Button type="submit" className="w-full gap-2" disabled={rateLimited}>
                   {mode === "login" ? <LogIn className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
                   {mode === "login" ? "Sign In" : "Create Account"}
                 </Button>
@@ -185,7 +220,7 @@ const AuthPage = () => {
         <div className="text-center">
           <button
             type="button"
-            onClick={handleSaasLogin}
+            onClick={() => navigate("/saas/login")}
             className="text-xs text-muted-foreground hover:text-foreground underline"
           >
             Platform Administrator Login →

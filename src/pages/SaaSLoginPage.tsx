@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { saasService } from "@/services/saasService";
-import { Shield, ArrowLeft } from "lucide-react";
+import { useRateLimit } from "@/hooks/useRateLimit";
+import { Shield, ArrowLeft, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -10,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 const SaaSLoginPage = () => {
   const navigate = useNavigate();
   const { user, login, loading } = useAuth();
+  const { rateLimited, retryAfter, attemptsRemaining, checkLimit, recordAttempt } = useRateLimit();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -17,15 +19,19 @@ const SaaSLoginPage = () => {
 
   useEffect(() => {
     if (!loading && user) {
-      // Check if platform admin
       setChecking(true);
+      setError(null);
       saasService.isPlatformAdmin().then((isAdmin) => {
         if (isAdmin) {
           navigate("/saas/dashboard", { replace: true });
         } else {
-          setError("You do not have platform administrator access.");
+          setError("You do not have platform administrator access. Ensure the 'platform_admin' role is assigned to your account in the user_roles table.");
           setChecking(false);
         }
+      }).catch((err) => {
+        console.error("Platform admin check failed:", err);
+        setError("Failed to verify admin access. Please try again.");
+        setChecking(false);
       });
     }
   }, [user, loading, navigate]);
@@ -33,9 +39,16 @@ const SaaSLoginPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    const identifier = `saas:${email.toLowerCase()}`;
+    const allowed = await checkLimit(identifier);
+    if (!allowed) return;
+
     try {
       await login(email, password);
+      await recordAttempt(identifier, true);
     } catch (err: any) {
+      await recordAttempt(identifier, false);
       setError(err.message || "Authentication failed");
     }
   };
@@ -57,8 +70,16 @@ const SaaSLoginPage = () => {
                 {error}
               </div>
             )}
+
+            {rateLimited && (
+              <div className="mb-4 p-3 text-sm text-destructive bg-destructive/10 rounded-lg border border-destructive/20 flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 shrink-0" />
+                <span>Too many login attempts. Try again in {retryAfter} seconds.</span>
+              </div>
+            )}
+
             {checking ? (
-              <p className="text-center text-muted-foreground">Verifying access...</p>
+              <p className="text-center text-muted-foreground">Verifying admin access...</p>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
@@ -69,7 +90,14 @@ const SaaSLoginPage = () => {
                   <label className="text-sm font-medium text-foreground mb-1.5 block">Password</label>
                   <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
                 </div>
-                <Button type="submit" className="w-full">Sign In</Button>
+
+                {attemptsRemaining <= 2 && !rateLimited && (
+                  <p className="text-xs text-amber-600">
+                    {attemptsRemaining} attempt{attemptsRemaining !== 1 ? "s" : ""} remaining
+                  </p>
+                )}
+
+                <Button type="submit" className="w-full" disabled={rateLimited}>Sign In</Button>
               </form>
             )}
           </CardContent>
