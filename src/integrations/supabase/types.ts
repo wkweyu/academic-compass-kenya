@@ -2086,6 +2086,27 @@ export type Database = {
           },
         ]
       }
+      login_attempts: {
+        Row: {
+          attempted_at: string | null
+          id: number
+          identifier: string
+          success: boolean | null
+        }
+        Insert: {
+          attempted_at?: string | null
+          id?: number
+          identifier: string
+          success?: boolean | null
+        }
+        Update: {
+          attempted_at?: string | null
+          id?: number
+          identifier?: string
+          success?: boolean | null
+        }
+        Relationships: []
+      }
       onboarding_logs: {
         Row: {
           created_at: string
@@ -4892,6 +4913,14 @@ export type Database = {
         Args: { p_subject_id: number; p_teacher_id: number }
         Returns: boolean
       }
+      check_login_rate_limit: {
+        Args: { p_identifier: string }
+        Returns: {
+          allowed: boolean
+          attempts_remaining: number
+          retry_after_seconds: number
+        }[]
+      }
       check_subject_dependencies: {
         Args: { p_subject_id: number }
         Returns: {
@@ -4899,6 +4928,16 @@ export type Database = {
           exam_count: number
           has_dependencies: boolean
           teacher_count: number
+        }[]
+      }
+      check_subscription_status: {
+        Args: never
+        Returns: {
+          days_remaining: number
+          is_valid: boolean
+          plan: string
+          school_name: string
+          status: string
         }[]
       }
       clear_orphaned_school_reference: { Args: never; Returns: undefined }
@@ -5129,7 +5168,12 @@ export type Database = {
           school_id: number
         }[]
       }
+      record_login_attempt: {
+        Args: { p_identifier: string; p_success: boolean }
+        Returns: undefined
+      }
       user_can_create_school: { Args: never; Returns: boolean }
+      verify_user_school: { Args: { p_school_id: number }; Returns: boolean }
     }
     Enums: {
       app_role:
