@@ -41,6 +41,14 @@ export interface AuditLog {
   created_at: string;
 }
 
+export interface SubscriptionStatus {
+  is_valid: boolean;
+  plan: string;
+  status: string;
+  days_remaining: number;
+  school_name: string;
+}
+
 export const saasService = {
   async lookupSchoolByCode(code: string) {
     const { data, error } = await supabase.rpc("lookup_school_by_code", { p_code: code });
@@ -126,7 +134,53 @@ export const saasService = {
   async isPlatformAdmin(): Promise<boolean> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return false;
-    const { data } = await supabase.rpc("has_role", { _user_id: user.id, _role: "platform_admin" });
-    return !!data;
+    const { data, error } = await supabase.rpc("has_role", { _user_id: user.id, _role: "platform_admin" });
+    if (error) {
+      console.error("isPlatformAdmin RPC error:", error);
+      return false;
+    }
+    return data === true;
+  },
+
+  async verifyUserSchool(schoolId: number): Promise<boolean> {
+    const { data, error } = await supabase.rpc("verify_user_school", { p_school_id: schoolId });
+    if (error) {
+      console.error("verifyUserSchool error:", error);
+      return false;
+    }
+    return data === true;
+  },
+
+  async checkSubscription(): Promise<SubscriptionStatus | null> {
+    const { data, error } = await supabase.rpc("check_subscription_status");
+    if (error) {
+      console.error("checkSubscription error:", error);
+      return null;
+    }
+    return (data?.[0] as SubscriptionStatus) || null;
+  },
+
+  async checkRateLimit(identifier: string): Promise<{ allowed: boolean; attempts_remaining: number; retry_after_seconds: number }> {
+    const { data, error } = await supabase.rpc("check_login_rate_limit", { p_identifier: identifier });
+    if (error) {
+      console.error("checkRateLimit error:", error);
+      return { allowed: true, attempts_remaining: 5, retry_after_seconds: 0 };
+    }
+    return data?.[0] || { allowed: true, attempts_remaining: 5, retry_after_seconds: 0 };
+  },
+
+  async recordLoginAttempt(identifier: string, success: boolean) {
+    await supabase.rpc("record_login_attempt", { p_identifier: identifier, p_success: success });
+  },
+
+  async sendOnboardingNotification(schoolId: number, schoolCode: string, schoolName: string, email: string, contactPerson: string) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error("Not authenticated");
+    
+    const { data, error } = await supabase.functions.invoke("onboarding-notification", {
+      body: { school_id: schoolId, school_code: schoolCode, school_name: schoolName, email, contact_person: contactPerson },
+    });
+    if (error) throw error;
+    return data;
   },
 };

@@ -4,8 +4,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { saasService, SaaSSchool } from "@/services/saasService";
 import { useAuth } from "@/hooks/useAuth";
 import {
-  Building2, Users, GraduationCap, BarChart3, Plus, Power, PowerOff,
-  Shield, LogOut, Clock, CheckCircle, XCircle, Search, ChevronDown
+  Building2, Users, GraduationCap, Plus, Power, PowerOff,
+  Shield, LogOut, Clock, CheckCircle, Search, Mail
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,14 +27,13 @@ const SaaSDashboardPage = () => {
   const [search, setSearch] = useState("");
   const [onboardOpen, setOnboardOpen] = useState(false);
 
-  // Check platform admin access
   useEffect(() => {
     saasService.isPlatformAdmin().then((isAdmin) => {
       if (!isAdmin) navigate("/auth", { replace: true });
     });
   }, [navigate]);
 
-  const { data: analytics, isLoading: analyticsLoading } = useQuery({
+  const { data: analytics } = useQuery({
     queryKey: ["saas-analytics"],
     queryFn: () => saasService.getAnalytics(),
   });
@@ -90,7 +89,6 @@ const SaaSDashboardPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b border-border bg-card px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-primary rounded-lg flex items-center justify-center">
@@ -107,55 +105,27 @@ const SaaSDashboardPage = () => {
       </header>
 
       <main className="max-w-7xl mx-auto p-6 space-y-6">
-        {/* Analytics Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <Building2 className="w-8 h-8 text-primary" />
-                <div>
-                  <p className="text-2xl font-bold">{analytics?.total_schools ?? "—"}</p>
-                  <p className="text-xs text-muted-foreground">Total Schools</p>
+          {[
+            { icon: Building2, value: analytics?.total_schools, label: "Total Schools", color: "text-primary" },
+            { icon: CheckCircle, value: analytics?.active_schools, label: "Active Schools", color: "text-green-600" },
+            { icon: GraduationCap, value: analytics?.total_students, label: "Total Students", color: "text-blue-600" },
+            { icon: Users, value: analytics?.total_teachers, label: "Total Teachers", color: "text-purple-600" },
+          ].map((stat) => (
+            <Card key={stat.label}>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <stat.icon className={`w-8 h-8 ${stat.color}`} />
+                  <div>
+                    <p className="text-2xl font-bold">{stat.value ?? "—"}</p>
+                    <p className="text-xs text-muted-foreground">{stat.label}</p>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <CheckCircle className="w-8 h-8 text-green-600" />
-                <div>
-                  <p className="text-2xl font-bold">{analytics?.active_schools ?? "—"}</p>
-                  <p className="text-xs text-muted-foreground">Active Schools</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <GraduationCap className="w-8 h-8 text-blue-600" />
-                <div>
-                  <p className="text-2xl font-bold">{analytics?.total_students ?? "—"}</p>
-                  <p className="text-xs text-muted-foreground">Total Students</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <Users className="w-8 h-8 text-purple-600" />
-                <div>
-                  <p className="text-2xl font-bold">{analytics?.total_teachers ?? "—"}</p>
-                  <p className="text-xs text-muted-foreground">Total Teachers</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          ))}
         </div>
 
-        {/* Plan Distribution */}
         <div className="grid grid-cols-3 gap-4">
           {[
             { label: "Starter", count: analytics?.schools_on_starter ?? 0, color: "text-muted-foreground" },
@@ -178,7 +148,6 @@ const SaaSDashboardPage = () => {
           </TabsList>
 
           <TabsContent value="schools" className="space-y-4">
-            {/* Schools toolbar */}
             <div className="flex items-center gap-3">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -207,7 +176,6 @@ const SaaSDashboardPage = () => {
               </Dialog>
             </div>
 
-            {/* Schools list */}
             <div className="space-y-3">
               {schoolsLoading ? (
                 <p className="text-muted-foreground text-center py-8">Loading schools...</p>
@@ -231,7 +199,6 @@ const SaaSDashboardPage = () => {
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           {statusBadge(school.subscription_status)}
-                          <Badge variant="outline">{school.subscription_plan}</Badge>
                           <Select
                             value={school.subscription_plan}
                             onValueChange={(plan) =>
@@ -298,7 +265,7 @@ const SaaSDashboardPage = () => {
   );
 };
 
-// Onboard form component
+// Onboard form with email notification trigger
 const OnboardForm = ({ onSuccess }: { onSuccess: () => void }) => {
   const [form, setForm] = useState({
     name: "", email: "", phone: "", address: "", city: "", country: "Kenya",
@@ -306,6 +273,7 @@ const OnboardForm = ({ onSuccess }: { onSuccess: () => void }) => {
   });
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ school_id: number; school_code: string } | null>(null);
+  const [notificationSent, setNotificationSent] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -314,6 +282,18 @@ const OnboardForm = ({ onSuccess }: { onSuccess: () => void }) => {
       const res = await saasService.onboardSchool(form);
       setResult(res);
       toast.success(`School onboarded! Code: ${res.school_code}`);
+
+      // Send onboarding notification
+      try {
+        await saasService.sendOnboardingNotification(
+          res.school_id, res.school_code, form.name, form.email, form.contact_person
+        );
+        setNotificationSent(true);
+        toast.success("Onboarding email sent");
+      } catch {
+        toast.error("School created, but notification email failed");
+      }
+
       onSuccess();
     } catch (err: any) {
       toast.error(err.message || "Failed to onboard school");
@@ -331,8 +311,13 @@ const OnboardForm = ({ onSuccess }: { onSuccess: () => void }) => {
           <p className="text-sm text-muted-foreground">School Code</p>
           <p className="text-2xl font-mono font-bold text-foreground">{result.school_code}</p>
         </div>
+        {notificationSent && (
+          <div className="flex items-center justify-center gap-2 text-sm text-green-700">
+            <Mail className="w-4 h-4" /> Onboarding email sent to {form.email}
+          </div>
+        )}
         <p className="text-xs text-muted-foreground">
-          Share this code with the school admin to begin login. Create a user account for the school admin and assign them the <strong>schooladmin</strong> role.
+          Share this code with the school admin. Create user accounts and assign the <strong>schooladmin</strong> role.
         </p>
       </div>
     );
