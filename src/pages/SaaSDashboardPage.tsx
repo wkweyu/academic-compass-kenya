@@ -27,11 +27,21 @@ const SaaSDashboardPage = () => {
   const [search, setSearch] = useState("");
   const [onboardOpen, setOnboardOpen] = useState(false);
 
+  const { user, loading: authLoading } = useAuth();
+  const [authorized, setAuthorized] = useState<boolean | null>(null);
+
   useEffect(() => {
-    saasService.isPlatformAdmin().then((isAdmin) => {
-      if (!isAdmin) navigate("/auth", { replace: true });
-    });
-  }, [navigate]);
+    if (authLoading) return;
+    if (!user) { navigate("/saas/login", { replace: true }); return; }
+    
+    const timer = setTimeout(() => {
+      saasService.isPlatformAdmin().then((isAdmin) => {
+        if (!isAdmin) navigate("/saas/login", { replace: true });
+        else setAuthorized(true);
+      });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [user, authLoading, navigate]);
 
   const { data: analytics } = useQuery({
     queryKey: ["saas-analytics"],
