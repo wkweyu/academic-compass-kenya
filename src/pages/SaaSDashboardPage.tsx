@@ -22,7 +22,7 @@ import { toast } from "sonner";
 
 const SaaSDashboardPage = () => {
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [onboardOpen, setOnboardOpen] = useState(false);
