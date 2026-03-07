@@ -26,8 +26,6 @@ const SaaSDashboardPage = () => {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [onboardOpen, setOnboardOpen] = useState(false);
-
-  const { user, loading: authLoading } = useAuth();
   const [authorized, setAuthorized] = useState<boolean | null>(null);
 
   useEffect(() => {
