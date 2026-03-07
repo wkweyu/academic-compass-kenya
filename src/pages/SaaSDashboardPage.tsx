@@ -44,16 +44,19 @@ const SaaSDashboardPage = () => {
   const { data: analytics } = useQuery({
     queryKey: ["saas-analytics"],
     queryFn: () => saasService.getAnalytics(),
+    enabled: authorized === true,
   });
 
   const { data: schools = [], isLoading: schoolsLoading } = useQuery({
     queryKey: ["saas-schools"],
     queryFn: () => saasService.getAllSchools(),
+    enabled: authorized === true,
   });
 
   const { data: auditLogs = [] } = useQuery({
     queryKey: ["saas-audit-logs"],
     queryFn: () => saasService.getAuditLogs(50),
+    enabled: authorized === true,
   });
 
   const filteredSchools = schools.filter(
