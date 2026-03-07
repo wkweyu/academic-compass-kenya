@@ -5,7 +5,7 @@ import { saasService, SaaSSchool } from "@/services/saasService";
 import { useAuth } from "@/hooks/useAuth";
 import {
   Building2, Users, GraduationCap, Plus, Power, PowerOff,
-  Shield, LogOut, Clock, CheckCircle, Search, Mail
+  Shield, LogOut, Clock, CheckCircle, Search, Mail, Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
