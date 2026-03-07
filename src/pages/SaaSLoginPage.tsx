@@ -18,9 +18,16 @@ const SaaSLoginPage = () => {
   const [checking, setChecking] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) {
-      setChecking(true);
-      setError(null);
+    if (loading) return;
+    if (!user) {
+      setChecking(false);
+      return;
+    }
+    setChecking(true);
+    setError(null);
+    
+    // Small delay to ensure session is fully propagated
+    const timer = setTimeout(() => {
       saasService.isPlatformAdmin().then((isAdmin) => {
         if (isAdmin) {
           navigate("/saas/dashboard", { replace: true });
@@ -30,10 +37,12 @@ const SaaSLoginPage = () => {
         }
       }).catch((err) => {
         console.error("Platform admin check failed:", err);
-        setError("Failed to verify admin access. Please try again.");
+        setError(`Failed to verify admin access: ${err.message}`);
         setChecking(false);
       });
-    }
+    }, 300);
+    
+    return () => clearTimeout(timer);
   }, [user, loading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {

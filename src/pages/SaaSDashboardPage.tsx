@@ -5,7 +5,7 @@ import { saasService, SaaSSchool } from "@/services/saasService";
 import { useAuth } from "@/hooks/useAuth";
 import {
   Building2, Users, GraduationCap, Plus, Power, PowerOff,
-  Shield, LogOut, Clock, CheckCircle, Search, Mail
+  Shield, LogOut, Clock, CheckCircle, Search, Mail, Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,30 +22,41 @@ import { toast } from "sonner";
 
 const SaaSDashboardPage = () => {
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [onboardOpen, setOnboardOpen] = useState(false);
+  const [authorized, setAuthorized] = useState<boolean | null>(null);
 
   useEffect(() => {
-    saasService.isPlatformAdmin().then((isAdmin) => {
-      if (!isAdmin) navigate("/auth", { replace: true });
-    });
-  }, [navigate]);
+    if (authLoading) return;
+    if (!user) { navigate("/saas/login", { replace: true }); return; }
+    
+    const timer = setTimeout(() => {
+      saasService.isPlatformAdmin().then((isAdmin) => {
+        if (!isAdmin) navigate("/saas/login", { replace: true });
+        else setAuthorized(true);
+      });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [user, authLoading, navigate]);
 
   const { data: analytics } = useQuery({
     queryKey: ["saas-analytics"],
     queryFn: () => saasService.getAnalytics(),
+    enabled: authorized === true,
   });
 
   const { data: schools = [], isLoading: schoolsLoading } = useQuery({
     queryKey: ["saas-schools"],
     queryFn: () => saasService.getAllSchools(),
+    enabled: authorized === true,
   });
 
   const { data: auditLogs = [] } = useQuery({
     queryKey: ["saas-audit-logs"],
     queryFn: () => saasService.getAuditLogs(50),
+    enabled: authorized === true,
   });
 
   const filteredSchools = schools.filter(
@@ -86,6 +97,14 @@ const SaaSDashboardPage = () => {
       </Badge>
     );
   };
+
+  if (authLoading || authorized === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
