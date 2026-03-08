@@ -163,7 +163,7 @@ export function ClassMeritListModule() {
                 <SelectValue placeholder="All streams" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Streams</SelectItem>
+                <SelectItem value="__all__">All Streams</SelectItem>
                 {streams.map((stream) => (
                   <SelectItem key={stream.id} value={stream.id.toString()}>{stream.name}</SelectItem>
                 ))}
