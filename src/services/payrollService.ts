@@ -221,7 +221,7 @@ export const payrollService = {
         paye_deduction: paye,
         loan_deduction: loan,
         other_deductions: otherDed,
-        net_salary: gross - totalDed,
+        // net_salary is a generated column — do not insert
         effective_from: structure.effective_from || new Date().toISOString().split('T')[0],
         is_active: true,
         school_id: schoolId,
