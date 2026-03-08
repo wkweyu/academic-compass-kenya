@@ -27,6 +27,7 @@ import { AdditionalDebitsDialog } from '@/components/fees/AdditionalDebitsDialog
 import { TransferCreditDialog } from '@/components/fees/TransferCreditDialog';
 import { BulkCsvImport } from '@/components/fees/BulkCsvImport';
 import { TermManager } from '@/utils/termManager';
+import { UniformPOS } from '@/components/fees/UniformPOS';
 import { Checkbox } from '@/components/ui/checkbox';
 const PAYMENT_MODES = [
   { value: 'cash', label: 'Cash' },
