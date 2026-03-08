@@ -62,7 +62,7 @@ export function FeesReportsModule() {
 
       const { data: balances } = await supabase
         .from('fees_feebalance')
-        .select('student_id, vote_head_id, amount_invoiced, amount_paid, closing_balance')
+        .select('student_id, vote_head_id, opening_balance, amount_invoiced, amount_paid, closing_balance')
         .in('student_id', studentIds)
         .eq('term', term)
         .eq('year', year);
@@ -73,14 +73,17 @@ export function FeesReportsModule() {
       });
 
       const rows = students.map(s => {
-        const vhData: Record<number, { invoiced: number; paid: number; balance: number }> = {};
-        let totalInvoiced = 0, totalPaid = 0, totalBalance = 0;
+        const vhData: Record<number, { opening: number; invoiced: number; paid: number; balance: number }> = {};
+        let totalOpening = 0, totalInvoiced = 0, totalPaid = 0, totalBalance = 0;
         (voteheads || []).forEach(vh => {
           const b = balanceMap[`${s.id}-${vh.id}`];
+          const opening = b ? Number(b.opening_balance) : 0;
           const invoiced = b ? Number(b.amount_invoiced) : 0;
           const paid = b ? Number(b.amount_paid) : 0;
-          const balance = b ? Number(b.closing_balance) : 0;
-          vhData[vh.id] = { invoiced, paid, balance };
+          // Correct balance = opening + invoiced - paid
+          const balance = opening + invoiced - paid;
+          vhData[vh.id] = { opening, invoiced, paid, balance };
+          totalOpening += opening;
           totalInvoiced += invoiced;
           totalPaid += paid;
           totalBalance += balance;
@@ -90,6 +93,7 @@ export function FeesReportsModule() {
           full_name: s.full_name,
           admission_number: s.admission_number,
           voteheads: vhData,
+          totalOpening,
           totalInvoiced,
           totalPaid,
           totalBalance,
