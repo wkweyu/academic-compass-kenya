@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { escapeHtml } from '@/utils/escapeHtml';
 import { useQuery } from '@tanstack/react-query';
 import { Download, Loader2, Printer, Users, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
