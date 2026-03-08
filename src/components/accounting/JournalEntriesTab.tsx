@@ -149,7 +149,7 @@ export default function JournalEntriesTab() {
                         <Select value={journalForm.fiscal_year_id} onValueChange={v => setJournalForm(p => ({ ...p, fiscal_year_id: v }))}>
                           <SelectTrigger><SelectValue placeholder="Auto-detect" /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">Auto</SelectItem>
+                            <SelectItem value="__none__">Auto</SelectItem>
                             {fiscalYears.map(fy => <SelectItem key={fy.id} value={fy.id.toString()}>{fy.name}</SelectItem>)}
                           </SelectContent>
                         </Select>
