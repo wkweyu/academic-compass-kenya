@@ -495,7 +495,7 @@ export function TermReportCard({ classId, termId, academicYear }: TermReportCard
           <tbody>
             ${student.subjects.map(subject => `
               <tr>
-                <td>${subject.subject_name}</td>
+                <td>${escapeHtml(subject.subject_name)}</td>
                 ${student.exams.map(exam => {
                   const subjectExam = subject.exams.find(se => se.session_id === exam.session_id);
                   return `<td class="center">${subjectExam ? `${subjectExam.percentage.toFixed(0)}%` : '-'}</td>`;
