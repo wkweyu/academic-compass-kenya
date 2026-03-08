@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import { Printer, Download, Calendar, Users, AlertTriangle, BarChart3 } from 'lucide-react';
+import { Printer, Download, Calendar, Users, AlertTriangle, BarChart3, ClipboardList } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { feesService } from '@/services/feesService';
 
@@ -24,6 +24,82 @@ export function FeesReportsModule() {
   const [dateTo, setDateTo] = useState('');
   const [selectedTerm, setSelectedTerm] = useState('1');
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+  const [registerClassId, setRegisterClassId] = useState('');
+
+  // Classes list for register filter
+  const { data: classes = [] } = useQuery({
+    queryKey: ['classes-list'],
+    queryFn: async () => {
+      const { data } = await supabase.from('classes').select('id, name').order('name');
+      return data || [];
+    },
+  });
+
+  // Fees Register: per-student votehead breakdown for a class/term/year
+  const { data: registerData, isLoading: registerLoading } = useQuery({
+    queryKey: ['fees-register', registerClassId, selectedTerm, selectedYear],
+    queryFn: async () => {
+      const term = parseInt(selectedTerm);
+      const year = parseInt(selectedYear);
+      const classId = parseInt(registerClassId);
+
+      const { data: students } = await supabase
+        .from('students')
+        .select('id, full_name, admission_number')
+        .eq('current_class_id', classId)
+        .eq('is_active', true)
+        .order('full_name');
+
+      if (!students?.length) return { students: [], voteheads: [], rows: [] };
+
+      const studentIds = students.map(s => s.id);
+
+      const { data: voteheads } = await supabase
+        .from('fees_votehead')
+        .select('id, name, priority')
+        .eq('fee_applicable', true)
+        .order('priority');
+
+      const { data: balances } = await supabase
+        .from('fees_feebalance')
+        .select('student_id, vote_head_id, amount_invoiced, amount_paid, closing_balance')
+        .in('student_id', studentIds)
+        .eq('term', term)
+        .eq('year', year);
+
+      const balanceMap: Record<string, any> = {};
+      (balances || []).forEach(b => {
+        balanceMap[`${b.student_id}-${b.vote_head_id}`] = b;
+      });
+
+      const rows = students.map(s => {
+        const vhData: Record<number, { invoiced: number; paid: number; balance: number }> = {};
+        let totalInvoiced = 0, totalPaid = 0, totalBalance = 0;
+        (voteheads || []).forEach(vh => {
+          const b = balanceMap[`${s.id}-${vh.id}`];
+          const invoiced = b ? Number(b.amount_invoiced) : 0;
+          const paid = b ? Number(b.amount_paid) : 0;
+          const balance = b ? Number(b.closing_balance) : 0;
+          vhData[vh.id] = { invoiced, paid, balance };
+          totalInvoiced += invoiced;
+          totalPaid += paid;
+          totalBalance += balance;
+        });
+        return {
+          student_id: s.id,
+          full_name: s.full_name,
+          admission_number: s.admission_number,
+          voteheads: vhData,
+          totalInvoiced,
+          totalPaid,
+          totalBalance,
+        };
+      });
+
+      return { voteheads: voteheads || [], rows };
+    },
+    enabled: reportTab === 'register' && !!registerClassId,
+  });
 
   // Daily Collection Report
   const { data: dailyData } = useQuery({
@@ -165,6 +241,7 @@ export function FeesReportsModule() {
           <TabsTrigger value="defaulters"><AlertTriangle className="h-3 w-3 mr-1" />Fee Defaulters</TabsTrigger>
           <TabsTrigger value="class-wise"><Users className="h-3 w-3 mr-1" />Class-wise</TabsTrigger>
           <TabsTrigger value="term-wise"><BarChart3 className="h-3 w-3 mr-1" />Term-wise</TabsTrigger>
+          <TabsTrigger value="register"><ClipboardList className="h-3 w-3 mr-1" />Fees Register</TabsTrigger>
         </TabsList>
 
         {/* Daily Collection */}
@@ -421,6 +498,113 @@ export function FeesReportsModule() {
                     </TableRow>
                   </TableBody>
                 </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Fees Register */}
+        <TabsContent value="register">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <CardTitle>Fees Register</CardTitle>
+                  <CardDescription>Votehead-wise fee breakdown per student for a class</CardDescription>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Select value={registerClassId} onValueChange={setRegisterClassId}>
+                    <SelectTrigger className="w-40"><SelectValue placeholder="Select class" /></SelectTrigger>
+                    <SelectContent>
+                      {classes.map((c: any) => (
+                        <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={selectedTerm} onValueChange={setSelectedTerm}>
+                    <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">Term 1</SelectItem>
+                      <SelectItem value="2">Term 2</SelectItem>
+                      <SelectItem value="3">Term 3</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input type="number" value={selectedYear} onChange={e => setSelectedYear(e.target.value)} className="w-24" />
+                  <Button variant="outline" size="sm" onClick={() => printReport('Fees Register - ' + (classes.find((c: any) => String(c.id) === registerClassId) as any)?.name + ' Term ' + selectedTerm + ' ' + selectedYear)}>
+                    <Printer className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {!registerClassId && (
+                <p className="text-center py-8 text-muted-foreground">Select a class to view the fees register</p>
+              )}
+              {registerClassId && registerLoading && (
+                <p className="text-center py-8 text-muted-foreground">Loading...</p>
+              )}
+              {registerData && registerData.rows.length > 0 && (
+                <div id="report-print-area" className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="sticky left-0 bg-background z-10">#</TableHead>
+                        <TableHead className="sticky left-8 bg-background z-10 min-w-[180px]">Student</TableHead>
+                        {registerData.voteheads.map((vh: any) => (
+                          <TableHead key={vh.id} className="text-right min-w-[100px]">{vh.name}</TableHead>
+                        ))}
+                        <TableHead className="text-right min-w-[100px] font-bold">Total Invoiced</TableHead>
+                        <TableHead className="text-right min-w-[100px] font-bold">Total Paid</TableHead>
+                        <TableHead className="text-right min-w-[100px] font-bold">Balance</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {registerData.rows.map((row: any, idx: number) => (
+                        <TableRow key={row.student_id}>
+                          <TableCell className="sticky left-0 bg-background">{idx + 1}</TableCell>
+                          <TableCell className="sticky left-8 bg-background">
+                            <div className="font-medium text-sm">{row.full_name}</div>
+                            <div className="text-xs text-muted-foreground">{row.admission_number}</div>
+                          </TableCell>
+                          {registerData.voteheads.map((vh: any) => {
+                            const vd = row.voteheads[vh.id];
+                            return (
+                              <TableCell key={vh.id} className="text-right text-sm">
+                                {vd && vd.invoiced > 0 ? (
+                                  <div>
+                                    <div>{formatCurrency(vd.invoiced)}</div>
+                                    {vd.paid > 0 && <div className="text-xs text-green-600">-{formatCurrency(vd.paid)}</div>}
+                                    {vd.balance > 0 && <div className="text-xs font-semibold text-destructive">{formatCurrency(vd.balance)}</div>}
+                                  </div>
+                                ) : '-'}
+                              </TableCell>
+                            );
+                          })}
+                          <TableCell className="text-right font-medium">{formatCurrency(row.totalInvoiced)}</TableCell>
+                          <TableCell className="text-right font-medium text-green-600">{formatCurrency(row.totalPaid)}</TableCell>
+                          <TableCell className={`text-right font-bold ${row.totalBalance > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                            {formatCurrency(row.totalBalance)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {/* Totals row */}
+                      <TableRow className="font-bold border-t-2 bg-muted/30">
+                        <TableCell className="sticky left-0 bg-muted/30"></TableCell>
+                        <TableCell className="sticky left-8 bg-muted/30">TOTALS ({registerData.rows.length} students)</TableCell>
+                        {registerData.voteheads.map((vh: any) => {
+                          const totalVh = (registerData.rows as any[]).reduce((s: number, r: any) => s + (r.voteheads[vh.id]?.balance || 0), 0);
+                          return <TableCell key={vh.id} className="text-right">{formatCurrency(totalVh)}</TableCell>;
+                        })}
+                        <TableCell className="text-right">{formatCurrency((registerData.rows as any[]).reduce((s: number, r: any) => s + r.totalInvoiced, 0))}</TableCell>
+                        <TableCell className="text-right text-green-600">{formatCurrency((registerData.rows as any[]).reduce((s: number, r: any) => s + r.totalPaid, 0))}</TableCell>
+                        <TableCell className="text-right text-destructive">{formatCurrency((registerData.rows as any[]).reduce((s: number, r: any) => s + r.totalBalance, 0))}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+              {registerData && registerData.rows.length === 0 && registerClassId && (
+                <p className="text-center py-8 text-muted-foreground">No fee data found for the selected class/term/year</p>
               )}
             </CardContent>
           </Card>
