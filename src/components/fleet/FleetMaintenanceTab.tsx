@@ -54,7 +54,7 @@ function ServiceHistoryView() {
   const { data: records = [], isLoading } = useQuery({
     queryKey: ['fleet-maintenance', filters],
     queryFn: () => getMaintenanceRecords({
-      vehicleId: filters.vehicleId ? parseInt(filters.vehicleId) : undefined,
+      vehicleId: filters.vehicleId && filters.vehicleId !== '__all__' ? parseInt(filters.vehicleId) : undefined,
       dateFrom: filters.dateFrom || undefined,
       dateTo: filters.dateTo || undefined,
     }),

@@ -57,7 +57,7 @@ function TripLogView() {
   const { data: trips = [], isLoading } = useQuery({
     queryKey: ['fleet-trips', filters],
     queryFn: () => getTripLogs({
-      vehicleId: filters.vehicleId ? parseInt(filters.vehicleId) : undefined,
+      vehicleId: filters.vehicleId && filters.vehicleId !== '__all__' ? parseInt(filters.vehicleId) : undefined,
       dateFrom: filters.dateFrom || undefined,
       dateTo: filters.dateTo || undefined,
       tripType: filters.tripType !== 'all' ? filters.tripType : undefined,
