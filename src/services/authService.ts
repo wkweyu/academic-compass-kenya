@@ -8,7 +8,9 @@ export const authService = {
       const response = await api.get("/api/auth/user/");
       return { success: true, user: response.data };
     } catch (error: any) {
-      console.error('Auth test failed:', error);
+      if (import.meta.env.DEV) {
+        console.error('Auth test failed:', error);
+      }
       return { 
         success: false, 
         error: error.response?.data?.detail || error.message || 'Authentication failed' 
@@ -21,9 +23,11 @@ export const authService = {
     return localStorage.getItem('authToken');
   },
 
-  // Set token manually (for debugging)
+  // Set token - restricted to development only to prevent token injection
   setToken(token: string): void {
-    localStorage.setItem('authToken', token);
+    if (import.meta.env.DEV) {
+      localStorage.setItem('authToken', token);
+    }
   },
 
   // Clear token
@@ -37,7 +41,9 @@ export const authService = {
       const response = await api.get("/api/auth/user/");
       return response.data;
     } catch (error) {
-      console.error('Failed to get current user:', error);
+      if (import.meta.env.DEV) {
+        console.error('Failed to get current user:', error);
+      }
       throw error;
     }
   }

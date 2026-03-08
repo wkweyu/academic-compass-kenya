@@ -303,11 +303,13 @@ const OnboardForm = ({ onSuccess }: { onSuccess: () => void }) => {
     }));
   };
 
-  // Generate random password
+  // Generate cryptographically secure random password
   const generatePassword = () => {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$";
+    const array = new Uint8Array(12);
+    crypto.getRandomValues(array);
     let pass = "";
-    for (let i = 0; i < 12; i++) pass += chars.charAt(Math.floor(Math.random() * chars.length));
+    for (let i = 0; i < 12; i++) pass += chars.charAt(array[i] % chars.length);
     setForm({ ...form, admin_password: pass });
   };
 

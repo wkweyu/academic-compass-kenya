@@ -4,32 +4,28 @@ import { SchoolProfile, TermSetting, AcademicYearSetting, SystemSettings, Gradin
 export const settingsService = {
   getSchoolProfile: async (): Promise<SchoolProfile | null> => {
     try {
-      console.log('Fetching school profile...');
       const { data, error } = await supabase.rpc('get_or_create_school_profile');
       
       if (error) {
-        console.error('RPC error:', error);
         throw error;
       }
       
-      console.log('School profile data:', data);
       if (!data || data.length === 0) {
-        console.log('No school profile found');
         return null;
       }
       
       return data[0] as SchoolProfile;
     } catch (error: any) {
-      console.error('Error fetching school profile:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error fetching school profile:', error);
+      }
       throw error;
     }
   },
 
   createSchoolProfile: async (profile: Omit<SchoolProfile, "id" | "code" | "created_at" | "active">): Promise<SchoolProfile> => {
     try {
-      console.log('Creating school profile via RPC:', profile);
       const { data: userData, error: userError } = await supabase.auth.getUser();
-      console.log('Current user:', userData?.user?.id);
       
       if (userError || !userData?.user) {
         throw new Error('User not authenticated');
@@ -48,12 +44,8 @@ export const settingsService = {
       });
 
       if (error) {
-        console.error('Create school RPC error:', error);
-        console.error('Error details:', JSON.stringify(error, null, 2));
         throw error;
       }
-      
-      console.log('School created successfully via RPC:', data);
       
       // RPC returns an array, get the first item
       if (!data || data.length === 0) {
@@ -62,7 +54,9 @@ export const settingsService = {
       
       return data[0] as SchoolProfile;
     } catch (error) {
-      console.error('Failed to create school:', error);
+      if (import.meta.env.DEV) {
+        console.error('Failed to create school:', error);
+      }
       throw error;
     }
   },
