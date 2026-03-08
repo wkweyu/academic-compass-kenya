@@ -1,22 +1,23 @@
-import { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState, useRef } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ShoppingCart, Plus, Minus, Trash2, Search, Shirt, Receipt,
-  Package, History
+  Package, History, ChevronDown, ChevronRight, Printer, Settings,
+  FileText, CheckCircle2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { uniformService, CartItem, UniformItem } from '@/services/uniformService';
+import { uniformService, CartItem, UniformItem, UniformIssue, ClassGroup } from '@/services/uniformService';
 import { TermManager } from '@/utils/termManager';
 
 const formatCurrency = (amount: number) =>
@@ -31,16 +32,29 @@ export function UniformPOS() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [remarks, setRemarks] = useState('');
   const [isPosting, setIsPosting] = useState(false);
+  const [expandedIssueId, setExpandedIssueId] = useState<number | null>(null);
+  const [lastIssue, setLastIssue] = useState<UniformIssue | null>(null);
+  const [showIssuanceForm, setShowIssuanceForm] = useState(false);
+  // Pricing config
+  const [showPricingConfig, setShowPricingConfig] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupMin, setNewGroupMin] = useState('');
+  const [newGroupMax, setNewGroupMax] = useState('');
+  const [pricingItemId, setPricingItemId] = useState<number | null>(null);
+  const [priceInputs, setPriceInputs] = useState<Record<number, string>>({});
+
+  const printRef = useRef<HTMLDivElement>(null);
 
   const currentTerm = TermManager.getCurrentTerm();
   const currentYear = TermManager.getCurrentYear();
 
+  // Students with grade level info
   const { data: students = [] } = useQuery({
     queryKey: ['students-for-uniform'],
     queryFn: async () => {
       const { data } = await supabase
         .from('students')
-        .select('id, full_name, admission_number, current_class_id, classes(name)')
+        .select('id, full_name, admission_number, current_class_id, classes(name, grade_level)')
         .eq('is_active', true)
         .order('full_name');
       return (data || []).map((s: any) => ({
@@ -48,6 +62,7 @@ export function UniformPOS() {
         name: s.full_name,
         admission_number: s.admission_number,
         class_name: s.classes?.name,
+        grade_level: s.classes?.grade_level ?? 0,
       }));
     },
   });
@@ -63,6 +78,16 @@ export function UniformPOS() {
     enabled: activeSubTab === 'history',
   });
 
+  const { data: classGroups = [] } = useQuery({
+    queryKey: ['uniform-class-groups'],
+    queryFn: () => uniformService.getClassGroups(),
+  });
+
+  const { data: allItemPrices = [] } = useQuery({
+    queryKey: ['uniform-item-prices'],
+    queryFn: () => uniformService.getItemPrices(),
+  });
+
   const filteredStudents = studentSearch.length >= 2
     ? students.filter(s =>
         s.name.toLowerCase().includes(studentSearch.toLowerCase()) ||
@@ -73,7 +98,26 @@ export function UniformPOS() {
   const selectedStudent = students.find(s => s.id.toString() === selectedStudentId);
   const cartTotal = cart.reduce((s, i) => s + i.total, 0);
 
+  // Resolve price for item based on selected student's grade level
+  const getResolvedPrice = (item: UniformItem): { price: number; groupName: string } => {
+    if (!selectedStudent) return { price: item.unit_price, groupName: 'Default' };
+    const gradeLevel = selectedStudent.grade_level;
+    const itemPrices = allItemPrices.filter(p => p.item_id === item.id);
+    if (itemPrices.length > 0) {
+      const matchGroup = classGroups.find(g =>
+        gradeLevel >= g.min_grade_level && gradeLevel <= g.max_grade_level &&
+        itemPrices.some(p => p.class_group_id === g.id)
+      );
+      if (matchGroup) {
+        const matched = itemPrices.find(p => p.class_group_id === matchGroup.id);
+        if (matched) return { price: matched.price, groupName: matchGroup.name };
+      }
+    }
+    return { price: item.unit_price, groupName: 'Default' };
+  };
+
   const addToCart = (item: UniformItem) => {
+    const { price, groupName } = getResolvedPrice(item);
     setCart(prev => {
       const existing = prev.find(c => c.item_id === item.id);
       if (existing) {
@@ -86,9 +130,10 @@ export function UniformPOS() {
       return [...prev, {
         item_id: item.id,
         item_name: item.name,
-        unit_price: item.unit_price,
+        unit_price: price,
         quantity: 1,
-        total: item.unit_price,
+        total: price,
+        class_group_name: groupName,
       }];
     });
   };
@@ -127,18 +172,23 @@ export function UniformPOS() {
         remarks,
       });
 
+      // Attach student info for the issuance form
+      result.student_name = selectedStudent?.name;
+      result.admission_number = selectedStudent?.admission_number;
+      result.class_name = selectedStudent?.class_name;
+      setLastIssue(result);
+      setShowIssuanceForm(true);
+
       toast({
         title: 'Uniform issued & charged',
         description: `${formatCurrency(result.total_amount)} debited to ${selectedStudent?.name}`,
       });
 
-      // Reset
       setCart([]);
       setRemarks('');
       setSelectedStudentId('');
       setStudentSearch('');
 
-      // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ['fees-stats'] });
       queryClient.invalidateQueries({ queryKey: ['student-ledgers'] });
       queryClient.invalidateQueries({ queryKey: ['student-statement'] });
@@ -150,12 +200,80 @@ export function UniformPOS() {
     }
   };
 
+  // Print stores issuance form
+  const handlePrintIssuance = () => {
+    if (!printRef.current) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <html><head><title>Stores Issuance Form</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 20px; color: #000; }
+        h2 { text-align: center; margin-bottom: 4px; }
+        .subtitle { text-align: center; color: #555; margin-bottom: 20px; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+        th, td { border: 1px solid #333; padding: 8px 12px; text-align: left; font-size: 13px; }
+        th { background: #f0f0f0; font-weight: bold; }
+        .total-row td { font-weight: bold; }
+        .meta { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 13px; }
+        .signature { margin-top: 40px; display: flex; justify-content: space-between; }
+        .sig-line { width: 200px; border-top: 1px solid #000; padding-top: 4px; text-align: center; font-size: 12px; }
+        @media print { body { padding: 0; } }
+      </style></head><body>
+      ${printRef.current.innerHTML}
+      <script>window.print(); window.close();</script>
+      </body></html>
+    `);
+    printWindow.document.close();
+  };
+
+  // Mark as issued by stores
+  const markStoreMutation = useMutation({
+    mutationFn: (issueId: number) => uniformService.markStoreIssued(issueId),
+    onSuccess: () => {
+      toast({ title: 'Marked as issued by stores' });
+      queryClient.invalidateQueries({ queryKey: ['uniform-issue-history'] });
+    },
+  });
+
+  // Pricing config handlers
+  const handleAddGroup = async () => {
+    if (!newGroupName || !newGroupMin || !newGroupMax) return;
+    try {
+      await uniformService.createClassGroup({
+        school_id: 0,
+        name: newGroupName,
+        min_grade_level: parseInt(newGroupMin),
+        max_grade_level: parseInt(newGroupMax),
+      });
+      setNewGroupName(''); setNewGroupMin(''); setNewGroupMax('');
+      queryClient.invalidateQueries({ queryKey: ['uniform-class-groups'] });
+      toast({ title: 'Class group added' });
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    }
+  };
+
+  const handleSavePrice = async (classGroupId: number) => {
+    if (!pricingItemId) return;
+    const val = parseFloat(priceInputs[classGroupId] || '0');
+    if (val <= 0) return;
+    try {
+      await uniformService.upsertItemPrice({ item_id: pricingItemId, class_group_id: classGroupId, price: val });
+      queryClient.invalidateQueries({ queryKey: ['uniform-item-prices'] });
+      toast({ title: 'Price saved' });
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    }
+  };
+
   return (
     <div className="space-y-4">
       <Tabs value={activeSubTab} onValueChange={setActiveSubTab}>
         <TabsList>
           <TabsTrigger value="pos"><ShoppingCart className="mr-1.5 h-4 w-4" />Issue Uniform</TabsTrigger>
           <TabsTrigger value="history"><History className="mr-1.5 h-4 w-4" />Issue History</TabsTrigger>
+          <TabsTrigger value="pricing"><Settings className="mr-1.5 h-4 w-4" />Pricing</TabsTrigger>
         </TabsList>
 
         {/* ===== POS TAB ===== */}
@@ -175,9 +293,10 @@ export function UniformPOS() {
                         <p className="font-semibold">{selectedStudent.name}</p>
                         <p className="text-sm text-muted-foreground">
                           {selectedStudent.admission_number} • {selectedStudent.class_name}
+                          <span className="ml-2 text-xs">(Grade Level: {selectedStudent.grade_level})</span>
                         </p>
                       </div>
-                      <Button variant="ghost" size="sm" onClick={() => { setSelectedStudentId(''); setStudentSearch(''); }}>
+                      <Button variant="ghost" size="sm" onClick={() => { setSelectedStudentId(''); setStudentSearch(''); setCart([]); }}>
                         Change
                       </Button>
                     </div>
@@ -198,7 +317,7 @@ export function UniformPOS() {
                             <button
                               key={s.id}
                               className="w-full text-left px-3 py-2 hover:bg-muted/50 text-sm border-b last:border-0"
-                              onClick={() => { setSelectedStudentId(s.id.toString()); setStudentSearch(''); }}
+                              onClick={() => { setSelectedStudentId(s.id.toString()); setStudentSearch(''); setCart([]); }}
                             >
                               <span className="font-medium">{s.name}</span>
                               <span className="text-muted-foreground ml-2">{s.admission_number} • {s.class_name}</span>
@@ -217,7 +336,11 @@ export function UniformPOS() {
                   <CardTitle className="text-base flex items-center gap-2">
                     <Shirt className="h-4 w-4" /> Uniform Items
                   </CardTitle>
-                  <CardDescription>Click an item to add it to the cart</CardDescription>
+                  <CardDescription>
+                    {selectedStudent
+                      ? `Prices shown for ${selectedStudent.class_name} (Grade ${selectedStudent.grade_level})`
+                      : 'Select a student first to see class-specific prices'}
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   {itemsLoading ? (
@@ -233,15 +356,20 @@ export function UniformPOS() {
                   ) : (
                     <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
                       {uniformItems.map(item => {
+                        const { price, groupName } = getResolvedPrice(item);
                         const inCart = cart.find(c => c.item_id === item.id);
                         return (
                           <button
                             key={item.id}
                             onClick={() => addToCart(item)}
-                            className="relative text-left p-3 rounded-lg border hover:border-primary hover:bg-primary/5 transition-colors"
+                            disabled={!selectedStudent}
+                            className="relative text-left p-3 rounded-lg border hover:border-primary hover:bg-primary/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <p className="font-medium text-sm truncate">{item.name}</p>
-                            <p className="text-primary font-bold mt-1">{formatCurrency(item.unit_price)}</p>
+                            <p className="text-primary font-bold mt-1">{formatCurrency(price)}</p>
+                            {groupName !== 'Default' && (
+                              <p className="text-xs text-muted-foreground">{groupName}</p>
+                            )}
                             {inCart && (
                               <Badge className="absolute top-2 right-2" variant="default">
                                 {inCart.quantity}
@@ -280,6 +408,9 @@ export function UniformPOS() {
                             <p className="font-medium truncate">{item.item_name}</p>
                             <p className="text-muted-foreground text-xs">
                               {formatCurrency(item.unit_price)} × {item.quantity}
+                              {item.class_group_name && item.class_group_name !== 'Default' && (
+                                <span className="ml-1">({item.class_group_name})</span>
+                              )}
                             </p>
                           </div>
                           <div className="flex items-center gap-1">
@@ -343,7 +474,7 @@ export function UniformPOS() {
           <Card>
             <CardHeader>
               <CardTitle>Uniform Issue History</CardTitle>
-              <CardDescription>All uniform items issued to students</CardDescription>
+              <CardDescription>Click a row to see individual items billed</CardDescription>
             </CardHeader>
             <CardContent>
               {historyLoading ? (
@@ -354,35 +485,111 @@ export function UniformPOS() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-8"></TableHead>
                       <TableHead>Date</TableHead>
                       <TableHead>Student</TableHead>
                       <TableHead>Items</TableHead>
                       <TableHead>Amount</TableHead>
                       <TableHead>Term</TableHead>
+                      <TableHead>Store Status</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {issueHistory.map(issue => (
-                      <TableRow key={issue.id}>
-                        <TableCell className="text-sm">
-                          {new Date(issue.created_at).toLocaleDateString('en-KE')}
-                        </TableCell>
-                        <TableCell>
-                          <p className="font-medium text-sm">{issue.student_name}</p>
-                          <p className="text-xs text-muted-foreground">{issue.admission_number}</p>
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {(issue.items || []).map(i =>
-                            `${i.item_name} ×${i.quantity}`
-                          ).join(', ') || '—'}
-                        </TableCell>
-                        <TableCell className="font-semibold">
-                          {formatCurrency(Number(issue.total_amount))}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">T{issue.term}/{issue.year}</Badge>
-                        </TableCell>
-                      </TableRow>
+                      <>
+                        <TableRow
+                          key={issue.id}
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => setExpandedIssueId(expandedIssueId === issue.id ? null : issue.id)}
+                        >
+                          <TableCell>
+                            {expandedIssueId === issue.id
+                              ? <ChevronDown className="h-4 w-4" />
+                              : <ChevronRight className="h-4 w-4" />
+                            }
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {new Date(issue.created_at).toLocaleDateString('en-KE')}
+                          </TableCell>
+                          <TableCell>
+                            <p className="font-medium text-sm">{issue.student_name}</p>
+                            <p className="text-xs text-muted-foreground">{issue.admission_number}</p>
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {(issue.items || []).length} item{(issue.items || []).length !== 1 ? 's' : ''}
+                          </TableCell>
+                          <TableCell className="font-semibold">
+                            {formatCurrency(Number(issue.total_amount))}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">T{issue.term}/{issue.year}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            {issue.store_issued ? (
+                              <Badge variant="default" className="bg-primary text-primary-foreground">
+                                <CheckCircle2 className="h-3 w-3 mr-1" /> Issued
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary">Pending</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-1" onClick={e => e.stopPropagation()}>
+                              <Button
+                                variant="outline" size="sm"
+                                onClick={() => { setLastIssue(issue); setShowIssuanceForm(true); }}
+                              >
+                                <Printer className="h-3 w-3 mr-1" /> Form
+                              </Button>
+                              {!issue.store_issued && (
+                                <Button
+                                  variant="outline" size="sm"
+                                  onClick={() => markStoreMutation.mutate(issue.id)}
+                                >
+                                  <CheckCircle2 className="h-3 w-3 mr-1" /> Mark Issued
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        {expandedIssueId === issue.id && (
+                          <TableRow key={`${issue.id}-detail`}>
+                            <TableCell colSpan={8} className="bg-muted/30 p-0">
+                              <div className="p-4">
+                                <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Items Billed</p>
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead>Item</TableHead>
+                                      <TableHead>Price Tier</TableHead>
+                                      <TableHead className="text-right">Unit Price</TableHead>
+                                      <TableHead className="text-right">Qty</TableHead>
+                                      <TableHead className="text-right">Total</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {(issue.items || []).map((item, idx) => (
+                                      <TableRow key={idx}>
+                                        <TableCell className="font-medium">{item.item_name}</TableCell>
+                                        <TableCell className="text-muted-foreground text-sm">
+                                          {item.class_group_name || '—'}
+                                        </TableCell>
+                                        <TableCell className="text-right">{formatCurrency(Number(item.unit_price))}</TableCell>
+                                        <TableCell className="text-right">{item.quantity}</TableCell>
+                                        <TableCell className="text-right font-semibold">{formatCurrency(Number(item.total))}</TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                                {issue.remarks && (
+                                  <p className="text-xs text-muted-foreground mt-2"><strong>Remarks:</strong> {issue.remarks}</p>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </>
                     ))}
                   </TableBody>
                 </Table>
@@ -390,7 +597,211 @@ export function UniformPOS() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* ===== PRICING TAB ===== */}
+        <TabsContent value="pricing" className="space-y-4">
+          {/* Class Groups */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Class Groups (Price Tiers)</CardTitle>
+              <CardDescription>
+                Define grade-level ranges for pricing tiers, e.g. "PG-PP2" = grade 0–2
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex gap-2 flex-wrap items-end">
+                <div>
+                  <Label className="text-xs">Group Name</Label>
+                  <Input value={newGroupName} onChange={e => setNewGroupName(e.target.value)}
+                    placeholder="e.g. PG-PP2" className="w-40 mt-1" />
+                </div>
+                <div>
+                  <Label className="text-xs">Min Grade</Label>
+                  <Input type="number" value={newGroupMin} onChange={e => setNewGroupMin(e.target.value)}
+                    placeholder="0" className="w-24 mt-1" />
+                </div>
+                <div>
+                  <Label className="text-xs">Max Grade</Label>
+                  <Input type="number" value={newGroupMax} onChange={e => setNewGroupMax(e.target.value)}
+                    placeholder="2" className="w-24 mt-1" />
+                </div>
+                <Button onClick={handleAddGroup} size="sm">
+                  <Plus className="h-3 w-3 mr-1" /> Add Group
+                </Button>
+              </div>
+              {classGroups.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {classGroups.map(g => (
+                    <Badge key={g.id} variant="outline" className="text-sm py-1 px-3">
+                      {g.name} (Grade {g.min_grade_level}–{g.max_grade_level})
+                      <button
+                        className="ml-2 text-destructive hover:text-destructive/80"
+                        onClick={async () => {
+                          await uniformService.deleteClassGroup(g.id);
+                          queryClient.invalidateQueries({ queryKey: ['uniform-class-groups'] });
+                        }}
+                      >×</button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Item-level Pricing */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Item Prices per Class Group</CardTitle>
+              <CardDescription>Set different prices for each uniform item per class group</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {uniformItems.length === 0 ? (
+                <p className="text-muted-foreground text-sm">No uniform items found. Add them under Procurement first.</p>
+              ) : (
+                <div className="space-y-4">
+                  {uniformItems.map(item => {
+                    const isOpen = pricingItemId === item.id;
+                    const itemPrices = allItemPrices.filter(p => p.item_id === item.id);
+                    return (
+                      <div key={item.id} className="border rounded-lg">
+                        <button
+                          className="w-full flex items-center justify-between p-3 text-left hover:bg-muted/30"
+                          onClick={() => {
+                            setPricingItemId(isOpen ? null : item.id);
+                            // Pre-fill existing prices
+                            const inputs: Record<number, string> = {};
+                            for (const ip of itemPrices) {
+                              inputs[ip.class_group_id] = ip.price.toString();
+                            }
+                            setPriceInputs(inputs);
+                          }}
+                        >
+                          <div>
+                            <p className="font-medium text-sm">{item.name}</p>
+                            <p className="text-xs text-muted-foreground">Default: {formatCurrency(item.unit_price)}</p>
+                          </div>
+                          {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        </button>
+                        {isOpen && (
+                          <div className="px-3 pb-3 space-y-2">
+                            {classGroups.length === 0 ? (
+                              <p className="text-xs text-muted-foreground">Add class groups above first.</p>
+                            ) : (
+                              classGroups.map(g => (
+                                <div key={g.id} className="flex items-center gap-2">
+                                  <span className="text-sm w-36">{g.name}</span>
+                                  <Input
+                                    type="number"
+                                    className="w-28"
+                                    placeholder={item.unit_price.toString()}
+                                    value={priceInputs[g.id] || ''}
+                                    onChange={e => setPriceInputs(prev => ({ ...prev, [g.id]: e.target.value }))}
+                                  />
+                                  <Button variant="outline" size="sm" onClick={() => handleSavePrice(g.id)}>
+                                    Save
+                                  </Button>
+                                  {itemPrices.find(p => p.class_group_id === g.id) && (
+                                    <Badge variant="secondary" className="text-xs">
+                                      {formatCurrency(itemPrices.find(p => p.class_group_id === g.id)!.price)}
+                                    </Badge>
+                                  )}
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      {/* ===== STORES ISSUANCE FORM DIALOG ===== */}
+      <Dialog open={showIssuanceForm} onOpenChange={setShowIssuanceForm}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" /> Stores Issuance Form
+            </DialogTitle>
+          </DialogHeader>
+
+          <div ref={printRef}>
+            <h2 style={{ fontSize: 18, fontWeight: 'bold' }}>UNIFORM STORES ISSUANCE FORM</h2>
+            <p className="subtitle" style={{ textAlign: 'center', color: '#666', marginBottom: 16, fontSize: 13 }}>
+              Date: {lastIssue ? new Date(lastIssue.created_at).toLocaleDateString('en-KE', { year: 'numeric', month: 'long', day: 'numeric' }) : ''}
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 12 }}>
+              <div>
+                <p><strong>Student:</strong> {lastIssue?.student_name}</p>
+                <p><strong>Adm No:</strong> {lastIssue?.admission_number}</p>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <p><strong>Class:</strong> {lastIssue?.class_name}</p>
+                <p><strong>Term:</strong> {lastIssue?.term} / {lastIssue?.year}</p>
+              </div>
+            </div>
+
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 8 }}>
+              <thead>
+                <tr>
+                  <th style={{ border: '1px solid #333', padding: '6px 10px', background: '#f0f0f0', textAlign: 'left', fontSize: 12 }}>#</th>
+                  <th style={{ border: '1px solid #333', padding: '6px 10px', background: '#f0f0f0', textAlign: 'left', fontSize: 12 }}>Item</th>
+                  <th style={{ border: '1px solid #333', padding: '6px 10px', background: '#f0f0f0', textAlign: 'right', fontSize: 12 }}>Qty</th>
+                  <th style={{ border: '1px solid #333', padding: '6px 10px', background: '#f0f0f0', textAlign: 'right', fontSize: 12 }}>Unit Price</th>
+                  <th style={{ border: '1px solid #333', padding: '6px 10px', background: '#f0f0f0', textAlign: 'right', fontSize: 12 }}>Total</th>
+                  <th style={{ border: '1px solid #333', padding: '6px 10px', background: '#f0f0f0', textAlign: 'center', fontSize: 12 }}>Issued ✓</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(lastIssue?.items || []).map((item, idx) => (
+                  <tr key={idx}>
+                    <td style={{ border: '1px solid #333', padding: '6px 10px', fontSize: 12 }}>{idx + 1}</td>
+                    <td style={{ border: '1px solid #333', padding: '6px 10px', fontSize: 12 }}>{item.item_name}</td>
+                    <td style={{ border: '1px solid #333', padding: '6px 10px', textAlign: 'right', fontSize: 12 }}>{item.quantity}</td>
+                    <td style={{ border: '1px solid #333', padding: '6px 10px', textAlign: 'right', fontSize: 12 }}>{formatCurrency(Number(item.unit_price))}</td>
+                    <td style={{ border: '1px solid #333', padding: '6px 10px', textAlign: 'right', fontSize: 12 }}>{formatCurrency(Number(item.total))}</td>
+                    <td style={{ border: '1px solid #333', padding: '6px 10px', textAlign: 'center', fontSize: 12 }}>☐</td>
+                  </tr>
+                ))}
+                <tr>
+                  <td colSpan={4} style={{ border: '1px solid #333', padding: '6px 10px', fontWeight: 'bold', textAlign: 'right', fontSize: 12 }}>TOTAL</td>
+                  <td style={{ border: '1px solid #333', padding: '6px 10px', fontWeight: 'bold', textAlign: 'right', fontSize: 12 }}>
+                    {formatCurrency(Number(lastIssue?.total_amount || 0))}
+                  </td>
+                  <td style={{ border: '1px solid #333', padding: '6px 10px', fontSize: 12 }}></td>
+                </tr>
+              </tbody>
+            </table>
+
+            {lastIssue?.remarks && (
+              <p style={{ fontSize: 12, marginTop: 8 }}><strong>Remarks:</strong> {lastIssue.remarks}</p>
+            )}
+
+            <div style={{ marginTop: 50, display: 'flex', justifyContent: 'space-between' }}>
+              <div style={{ width: 180, borderTop: '1px solid #000', paddingTop: 4, textAlign: 'center', fontSize: 11 }}>
+                Accounts Officer
+              </div>
+              <div style={{ width: 180, borderTop: '1px solid #000', paddingTop: 4, textAlign: 'center', fontSize: 11 }}>
+                Stores Officer
+              </div>
+              <div style={{ width: 180, borderTop: '1px solid #000', paddingTop: 4, textAlign: 'center', fontSize: 11 }}>
+                Student/Parent
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowIssuanceForm(false)}>Close</Button>
+            <Button onClick={handlePrintIssuance}>
+              <Printer className="h-4 w-4 mr-2" /> Print Form
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

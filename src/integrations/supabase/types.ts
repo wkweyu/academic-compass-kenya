@@ -4842,8 +4842,44 @@ export type Database = {
           },
         ]
       }
+      uniform_class_groups: {
+        Row: {
+          created_at: string
+          id: number
+          max_grade_level: number
+          min_grade_level: number
+          name: string
+          school_id: number
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          max_grade_level: number
+          min_grade_level: number
+          name: string
+          school_id: number
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          max_grade_level?: number
+          min_grade_level?: number
+          name?: string
+          school_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "uniform_class_groups_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       uniform_issue_items: {
         Row: {
+          class_group_name: string | null
           id: number
           issue_id: number
           item_id: number | null
@@ -4853,6 +4889,7 @@ export type Database = {
           unit_price: number
         }
         Insert: {
+          class_group_name?: string | null
           id?: number
           issue_id: number
           item_id?: number | null
@@ -4862,6 +4899,7 @@ export type Database = {
           unit_price?: number
         }
         Update: {
+          class_group_name?: string | null
           id?: number
           issue_id?: number
           item_id?: number | null
@@ -4894,6 +4932,9 @@ export type Database = {
           issued_by: number | null
           remarks: string | null
           school_id: number
+          store_issued: boolean
+          store_issued_at: string | null
+          store_issued_by: number | null
           student_id: number
           term: number
           total_amount: number
@@ -4905,6 +4946,9 @@ export type Database = {
           issued_by?: number | null
           remarks?: string | null
           school_id: number
+          store_issued?: boolean
+          store_issued_at?: string | null
+          store_issued_by?: number | null
           student_id: number
           term: number
           total_amount?: number
@@ -4916,6 +4960,9 @@ export type Database = {
           issued_by?: number | null
           remarks?: string | null
           school_id?: number
+          store_issued?: boolean
+          store_issued_at?: string | null
+          store_issued_by?: number | null
           student_id?: number
           term?: number
           total_amount?: number
@@ -4955,6 +5002,55 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      uniform_item_prices: {
+        Row: {
+          class_group_id: number
+          created_at: string
+          id: number
+          item_id: number
+          price: number
+          school_id: number
+        }
+        Insert: {
+          class_group_id: number
+          created_at?: string
+          id?: number
+          item_id: number
+          price: number
+          school_id: number
+        }
+        Update: {
+          class_group_id?: number
+          created_at?: string
+          id?: number
+          item_id?: number
+          price?: number
+          school_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "uniform_item_prices_class_group_id_fkey"
+            columns: ["class_group_id"]
+            isOneToOne: false
+            referencedRelation: "uniform_class_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "uniform_item_prices_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_item"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "uniform_item_prices_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
             referencedColumns: ["id"]
           },
         ]
