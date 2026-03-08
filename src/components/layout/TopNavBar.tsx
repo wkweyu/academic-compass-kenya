@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { TermManager } from '@/utils/termManager';
 import { useAuth } from '@/hooks/useAuth';
+import skooltrackLogo from '@/assets/skooltrack-logo.png';
 import {
   BarChart3,
   Users,
