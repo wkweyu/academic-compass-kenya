@@ -181,12 +181,14 @@ Deno.serve(async (req) => {
         }),
       });
 
+      const brevoStatus = brevoRes.status;
+      const brevoBody = await brevoRes.text();
+      console.log("onboarding-notification: Brevo response status =", brevoStatus, "body =", brevoBody);
       if (brevoRes.ok) {
         results.email_sent = true;
       } else {
-        const errBody = await brevoRes.text();
-        console.error("Brevo API error:", errBody);
-        results.email_error = errBody;
+        console.error("Brevo API error:", brevoBody);
+        results.email_error = brevoBody;
       }
     } catch (e: any) {
       console.error("Email send error:", e);
