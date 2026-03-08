@@ -148,9 +148,9 @@ export default function BankAdviceTab({ runs, schoolName }: BankAdviceTabProps) 
           <p className="text-center py-8 text-muted-foreground">Select an approved payroll run to generate bank advice</p>
         )}
 
-        {bankGroups.length > 0 && (
+        {filteredGroups.length > 0 && (
           <div className="grid gap-3 md:grid-cols-3 mb-4">
-            <Card className="p-3"><p className="text-sm text-muted-foreground">Total Banks/SACCOs</p><p className="text-2xl font-bold">{bankGroups.length}</p></Card>
+            <Card className="p-3"><p className="text-sm text-muted-foreground">Total Banks/SACCOs</p><p className="text-2xl font-bold">{filteredGroups.length}</p></Card>
             <Card className="p-3"><p className="text-sm text-muted-foreground">Total Staff</p><p className="text-2xl font-bold">{totalStaff}</p></Card>
             <Card className="p-3"><p className="text-sm text-muted-foreground">Grand Total</p><p className="text-2xl font-bold">{formatCurrency(grandTotal)}</p></Card>
           </div>
