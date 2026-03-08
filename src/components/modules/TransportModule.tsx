@@ -234,6 +234,9 @@ function StudentsTab() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['transport-students'] });
       qc.invalidateQueries({ queryKey: ['transport-billing'] });
+      qc.invalidateQueries({ queryKey: ['student-statement'] });
+      qc.invalidateQueries({ queryKey: ['student-ledgers'] });
+      qc.invalidateQueries({ queryKey: ['fees-stats'] });
       toast.success('Student assigned to transport and invoiced');
       closeAssign();
     },
