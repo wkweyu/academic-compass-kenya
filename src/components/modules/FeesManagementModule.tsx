@@ -97,6 +97,9 @@ export const FeesManagementModule = () => {
     queryKey: ['student-statement', statementStudentId],
     queryFn: () => feesService.getStudentStatement(statementStudentId!),
     enabled: !!statementStudentId,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 
   const { data: structureGroups = [] } = useQuery({

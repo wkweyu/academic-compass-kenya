@@ -36,6 +36,9 @@ export function StudentFeesTab({ studentId, studentName, admissionNumber, classN
     queryKey: ['student-statement', studentId],
     queryFn: () => feesService.getStudentStatement(studentId),
     enabled: !!studentId,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 
   if (isLoading) {
