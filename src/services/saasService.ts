@@ -177,12 +177,27 @@ export const saasService = {
     await supabase.rpc("record_login_attempt", { p_identifier: identifier, p_success: success });
   },
 
-  async sendOnboardingNotification(schoolId: number, schoolCode: string, schoolName: string, email: string, contactPerson: string) {
+  async sendOnboardingNotification(
+    schoolId: number, schoolCode: string, schoolName: string, email: string, contactPerson: string,
+    adminEmail?: string, adminPassword?: string
+  ) {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error("Not authenticated");
     
     const { data, error } = await supabase.functions.invoke("onboarding-notification", {
-      body: { school_id: schoolId, school_code: schoolCode, school_name: schoolName, email, contact_person: contactPerson },
+      body: {
+        school_id: schoolId, school_code: schoolCode, school_name: schoolName,
+        email, contact_person: contactPerson,
+        admin_email: adminEmail, admin_password: adminPassword,
+      },
+    });
+    if (error) throw error;
+    return data;
+  },
+
+  async createSchoolAdmin(schoolId: number, adminEmail: string, adminPassword: string) {
+    const { data, error } = await supabase.functions.invoke("create-school-admin", {
+      body: { school_id: schoolId, admin_email: adminEmail, admin_password: adminPassword },
     });
     if (error) throw error;
     return data;
