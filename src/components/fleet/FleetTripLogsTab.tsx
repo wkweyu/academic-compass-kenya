@@ -230,7 +230,7 @@ function TripLogView() {
               <Select value={form.driver_id} onValueChange={(v) => setForm({ ...form, driver_id: v })}>
                 <SelectTrigger><SelectValue placeholder="Select driver" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="__none__">None</SelectItem>
                   {drivers.filter(d => d.is_active).map(d => <SelectItem key={d.id} value={String(d.id)}>{d.full_name}</SelectItem>)}
                 </SelectContent>
               </Select>
