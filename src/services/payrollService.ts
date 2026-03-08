@@ -221,7 +221,7 @@ export const payrollService = {
         paye_deduction: paye,
         loan_deduction: loan,
         other_deductions: otherDed,
-        net_salary: gross - totalDed,
+        // net_salary is a generated column — do not insert
         effective_from: structure.effective_from || new Date().toISOString().split('T')[0],
         is_active: true,
         school_id: schoolId,
@@ -244,7 +244,8 @@ export const payrollService = {
       const gross = basic + house + transport + medical + responsibility + otherAllow;
       const totalDed = Number(updates.nhif_deduction || 0) + Number(updates.nssf_deduction || 0) +
         Number(updates.paye_deduction || 0) + Number(updates.loan_deduction || 0) + Number(updates.other_deductions || 0);
-      recalc.net_salary = gross - totalDed;
+      // net_salary is a generated column — do not update
+      delete recalc.net_salary;
     }
     const { error } = await supabase.from('payroll_salary_structures').update(recalc).eq('id', id);
     if (error) throw error;
