@@ -2617,43 +2617,91 @@ export type Database = {
       }
       payroll_entries: {
         Row: {
+          account_number: string
+          bank_branch: string
+          bank_name: string
           basic_salary: number
           created_at: string
+          department: string
+          employee_no: string
           gross_salary: number
+          house_allowance: number
           id: number
+          loan_deduction: number
+          medical_allowance: number
           net_salary: number
+          nhif_deduction: number
+          nssf_deduction: number
+          other_allowances: number
+          other_deductions: number
           paid_at: string | null
+          paye_deduction: number
           payment_status: string
           payroll_run_id: number
+          school_id: number | null
           staff_id: number
+          staff_name: string
           total_allowances: number
           total_deductions: number
+          transport_allowance: number
         }
         Insert: {
+          account_number?: string
+          bank_branch?: string
+          bank_name?: string
           basic_salary?: number
           created_at?: string
+          department?: string
+          employee_no?: string
           gross_salary?: number
+          house_allowance?: number
           id?: never
+          loan_deduction?: number
+          medical_allowance?: number
           net_salary?: number
+          nhif_deduction?: number
+          nssf_deduction?: number
+          other_allowances?: number
+          other_deductions?: number
           paid_at?: string | null
+          paye_deduction?: number
           payment_status?: string
           payroll_run_id: number
+          school_id?: number | null
           staff_id: number
+          staff_name?: string
           total_allowances?: number
           total_deductions?: number
+          transport_allowance?: number
         }
         Update: {
+          account_number?: string
+          bank_branch?: string
+          bank_name?: string
           basic_salary?: number
           created_at?: string
+          department?: string
+          employee_no?: string
           gross_salary?: number
+          house_allowance?: number
           id?: never
+          loan_deduction?: number
+          medical_allowance?: number
           net_salary?: number
+          nhif_deduction?: number
+          nssf_deduction?: number
+          other_allowances?: number
+          other_deductions?: number
           paid_at?: string | null
+          paye_deduction?: number
           payment_status?: string
           payroll_run_id?: number
+          school_id?: number | null
           staff_id?: number
+          staff_name?: string
           total_allowances?: number
           total_deductions?: number
+          transport_allowance?: number
         }
         Relationships: [
           {
@@ -2661,6 +2709,13 @@ export type Database = {
             columns: ["payroll_run_id"]
             isOneToOne: false
             referencedRelation: "payroll_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_entries_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
             referencedColumns: ["id"]
           },
           {
@@ -2677,8 +2732,10 @@ export type Database = {
           approved_at: string | null
           approved_by: number | null
           created_at: string
+          description: string
           id: number
           month: number
+          paid_at: string | null
           school_id: number
           staff_count: number
           status: string
@@ -2692,8 +2749,10 @@ export type Database = {
           approved_at?: string | null
           approved_by?: number | null
           created_at?: string
+          description?: string
           id?: never
           month: number
+          paid_at?: string | null
           school_id: number
           staff_count?: number
           status?: string
@@ -2707,8 +2766,10 @@ export type Database = {
           approved_at?: string | null
           approved_by?: number | null
           created_at?: string
+          description?: string
           id?: never
           month?: number
+          paid_at?: string | null
           school_id?: number
           staff_count?: number
           status?: string
@@ -2758,6 +2819,7 @@ export type Database = {
           other_allowances: number
           other_deductions: number
           paye_deduction: number
+          responsibility_allowance: number
           school_id: number
           staff_id: number
           transport_allowance: number
@@ -2778,6 +2840,7 @@ export type Database = {
           other_allowances?: number
           other_deductions?: number
           paye_deduction?: number
+          responsibility_allowance?: number
           school_id: number
           staff_id: number
           transport_allowance?: number
@@ -2798,6 +2861,7 @@ export type Database = {
           other_allowances?: number
           other_deductions?: number
           paye_deduction?: number
+          responsibility_allowance?: number
           school_id?: number
           staff_id?: number
           transport_allowance?: number
