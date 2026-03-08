@@ -495,15 +495,12 @@ export const FeesManagementModule = () => {
           <Card>
             <CardHeader>
               <CardTitle>Student Statement</CardTitle>
-              <CardDescription>Select a student to view their full fee statement</CardDescription>
-              <div className="mt-2 max-w-sm">
-                <Select value={statementStudentId?.toString() || ''} onValueChange={v => setStatementStudentId(parseInt(v))}>
-                  <SelectTrigger><SelectValue placeholder="Select student" /></SelectTrigger>
-                  <SelectContent>
-                    {students.map(s => <SelectItem key={s.id} value={s.id.toString()}>{s.name} ({s.admission_number})</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
+              <CardDescription>Search by name or admission number</CardDescription>
+              <StatementStudentSearch
+                students={students}
+                selectedId={statementStudentId}
+                onSelect={setStatementStudentId}
+              />
             </CardHeader>
             <CardContent>
               {statement ? (
