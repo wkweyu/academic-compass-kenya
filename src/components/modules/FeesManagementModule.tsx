@@ -26,6 +26,8 @@ import { FeesReportsModule } from '@/components/fees/FeesReportsModule';
 import { AdditionalDebitsDialog } from '@/components/fees/AdditionalDebitsDialog';
 import { TransferCreditDialog } from '@/components/fees/TransferCreditDialog';
 import { BulkCsvImport } from '@/components/fees/BulkCsvImport';
+import { TermManager } from '@/utils/termManager';
+import { Checkbox } from '@/components/ui/checkbox';
 const PAYMENT_MODES = [
   { value: 'cash', label: 'Cash' },
   { value: 'mpesa', label: 'M-PESA' },
