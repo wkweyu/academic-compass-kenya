@@ -466,63 +466,86 @@ export const feesService = {
     const allocations: Allocation[] = [];
     let remaining = amount;
 
+    // First pass: allocate to matching term/year balances by votehead priority
     for (const vh of (voteheads || [])) {
       if (remaining <= 0) break;
 
-      // Check outstanding balance for this votehead
-      const { data: balance } = await supabase
+      const { data: balances } = await supabase
         .from('fees_feebalance')
-        .select('id, amount_invoiced, amount_paid, closing_balance')
+        .select('id, amount_invoiced, amount_paid, closing_balance, term, year')
         .eq('school_id', schoolId)
         .eq('student_id', studentId)
         .eq('vote_head_id', vh.id)
-        .eq('year', year)
-        .eq('term', term)
-        .maybeSingle();
+        .gt('closing_balance', 0)
+        .order('year', { ascending: true })
+        .order('term', { ascending: true });
 
-      if (!balance) continue;
-      const outstanding = Number((balance as any).closing_balance);
-      if (outstanding <= 0) continue;
+      if (!balances || balances.length === 0) continue;
 
-      const allocate = Math.min(remaining, outstanding);
+      for (const balance of balances) {
+        if (remaining <= 0) break;
+        const outstanding = Number((balance as any).closing_balance);
+        if (outstanding <= 0) continue;
 
-      // Create allocation record
-      const { data: alloc } = await supabase
-        .from('fees_allocation')
-        .insert({
-          school_id: schoolId,
-          receipt_id: receiptId,
-          vote_head_id: vh.id,
-          amount: allocate,
-        })
-        .select()
-        .single();
+        const allocate = Math.min(remaining, outstanding);
 
-      // Update fee balance
-      await supabase.from('fees_feebalance').update({
-        amount_paid: Number((balance as any).amount_paid) + allocate,
-        closing_balance: outstanding - allocate,
-      }).eq('id', (balance as any).id);
+        // Create allocation record
+        const { data: alloc } = await supabase
+          .from('fees_allocation')
+          .insert({
+            school_id: schoolId,
+            receipt_id: receiptId,
+            vote_head_id: vh.id,
+            amount: allocate,
+          })
+          .select()
+          .single();
 
-      allocations.push({
-        id: (alloc as any)?.id || 0,
-        receipt_id: receiptId,
-        vote_head_id: vh.id,
-        vote_head_name: vh.name,
-        amount: allocate,
-      });
+        // Update fee balance
+        await supabase.from('fees_feebalance').update({
+          amount_paid: Number((balance as any).amount_paid) + allocate,
+          closing_balance: outstanding - allocate,
+        }).eq('id', (balance as any).id);
 
-      remaining -= allocate;
+        // Add to existing allocation for same votehead or create new
+        const existingAlloc = allocations.find(a => a.vote_head_id === vh.id);
+        if (existingAlloc) {
+          existingAlloc.amount += allocate;
+        } else {
+          allocations.push({
+            id: (alloc as any)?.id || 0,
+            receipt_id: receiptId,
+            vote_head_id: vh.id,
+            vote_head_name: vh.name,
+            amount: allocate,
+          });
+        }
+
+        remaining -= allocate;
+      }
     }
 
-    // If there's remaining amount (overpayment), record as excess
+    // If there's remaining amount (overpayment), record as excess on first votehead
     if (remaining > 0) {
+      const firstVh = (voteheads || [])[0];
       await supabase.from('fees_allocation').insert({
         school_id: schoolId,
         receipt_id: receiptId,
-        vote_head_id: (voteheads || [])[0]?.id || 0,
+        vote_head_id: firstVh?.id || 0,
         amount: remaining,
       });
+      const existingAlloc = allocations.find(a => a.vote_head_id === firstVh?.id);
+      if (existingAlloc) {
+        existingAlloc.amount += remaining;
+      } else {
+        allocations.push({
+          id: 0,
+          receipt_id: receiptId,
+          vote_head_id: firstVh?.id || 0,
+          vote_head_name: firstVh?.name || 'Excess',
+          amount: remaining,
+        });
+      }
     }
 
     return allocations;
