@@ -27,6 +27,7 @@ import TermReportsPage from "./pages/TermReportsPage";
 import FeesPage from "./pages/FeesPage";
 import PromotionsPage from "./pages/PromotionsPage";
 import ComingSoonPage from "./pages/ComingSoonPage";
+import TransportPage from "./pages/TransportPage";
 import SettingsPage from "./pages/SettingsPage";
 import StaffProfilePage from "./pages/StaffProfilePage";
 import ProcurementPage from "./pages/ProcurementPage";
