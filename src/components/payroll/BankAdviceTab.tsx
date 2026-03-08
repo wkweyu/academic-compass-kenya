@@ -89,13 +89,13 @@ export default function BankAdviceTab({ runs, schoolName }: BankAdviceTabProps) 
 
   const printAllBankAdvice = () => {
     const period = selectedRun ? `${MONTHS[selectedRun.month - 1]} ${selectedRun.year}` : '';
-    const sections = bankGroups.map(group => {
+    const sections = filteredGroups.map(group => {
       const rows = group.entries.map((e, i) =>
         `<tr><td>${i+1}</td><td>${e.employee_no}</td><td>${e.staff_name}</td><td>${e.account_number}</td><td>${e.bank_branch}</td><td style="text-align:right">${formatCurrency(Number(e.net_salary))}</td></tr>`
       ).join('');
       return `<div style="page-break-after:always"><h2>${group.bank_name}</h2><p>${group.staff_count} staff • Total: ${formatCurrency(group.total_amount)}</p><table><thead><tr><th>No.</th><th>Emp No</th><th>Name</th><th>Account No</th><th>Branch</th><th>Amount (KES)</th></tr></thead><tbody>${rows}</tbody></table></div>`;
     }).join('');
-    const html = `<html><head><title>Bank Advice - All Banks</title><style>body{font-family:Arial;margin:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #333;padding:6px 8px;font-size:12px}th{background:#f0f0f0}h1{font-size:16px}h2{font-size:14px}</style></head><body><h1>${schoolName || 'SCHOOL'} - BANK ADVICE | ${period}</h1><p>Grand Total: ${formatCurrency(grandTotal)} | ${totalStaff} staff | ${bankGroups.length} banks</p>${sections}</body></html>`;
+    const html = `<html><head><title>Bank Advice - All Banks</title><style>body{font-family:Arial;margin:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #333;padding:6px 8px;font-size:12px}th{background:#f0f0f0}h1{font-size:16px}h2{font-size:14px}</style></head><body><h1>${schoolName || 'SCHOOL'} - BANK ADVICE | ${period}</h1><p>Grand Total: ${formatCurrency(grandTotal)} | ${totalStaff} staff | ${filteredGroups.length} banks</p>${sections}</body></html>`;
     const w = window.open('', '_blank');
     if (w) { w.document.write(html); w.document.close(); w.print(); }
   };
