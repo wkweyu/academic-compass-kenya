@@ -1908,6 +1908,226 @@ export type Database = {
           },
         ]
       }
+      fleet_drivers: {
+        Row: {
+          created_at: string
+          full_name: string
+          id: number
+          id_number: string | null
+          is_active: boolean
+          license_expiry: string | null
+          license_number: string | null
+          phone: string | null
+          school_id: number
+        }
+        Insert: {
+          created_at?: string
+          full_name: string
+          id?: number
+          id_number?: string | null
+          is_active?: boolean
+          license_expiry?: string | null
+          license_number?: string | null
+          phone?: string | null
+          school_id: number
+        }
+        Update: {
+          created_at?: string
+          full_name?: string
+          id?: number
+          id_number?: string | null
+          is_active?: boolean
+          license_expiry?: string | null
+          license_number?: string | null
+          phone?: string | null
+          school_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fleet_drivers_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fleet_fuel_vouchers: {
+        Row: {
+          actual_amount: number | null
+          authorized_amount: number
+          authorized_litres: number | null
+          converted_at: string | null
+          created_at: string
+          driver_id: number | null
+          fill_date: string | null
+          id: number
+          issued_by: string | null
+          issued_date: string
+          litres_filled: number | null
+          mileage_at_fill: number | null
+          mileage_at_issue: number
+          price_per_litre: number | null
+          receipt_number: string | null
+          remarks: string | null
+          school_id: number
+          station_name: string | null
+          status: string
+          vehicle_id: number
+          voucher_number: string
+        }
+        Insert: {
+          actual_amount?: number | null
+          authorized_amount?: number
+          authorized_litres?: number | null
+          converted_at?: string | null
+          created_at?: string
+          driver_id?: number | null
+          fill_date?: string | null
+          id?: number
+          issued_by?: string | null
+          issued_date?: string
+          litres_filled?: number | null
+          mileage_at_fill?: number | null
+          mileage_at_issue?: number
+          price_per_litre?: number | null
+          receipt_number?: string | null
+          remarks?: string | null
+          school_id: number
+          station_name?: string | null
+          status?: string
+          vehicle_id: number
+          voucher_number: string
+        }
+        Update: {
+          actual_amount?: number | null
+          authorized_amount?: number
+          authorized_litres?: number | null
+          converted_at?: string | null
+          created_at?: string
+          driver_id?: number | null
+          fill_date?: string | null
+          id?: number
+          issued_by?: string | null
+          issued_date?: string
+          litres_filled?: number | null
+          mileage_at_fill?: number | null
+          mileage_at_issue?: number
+          price_per_litre?: number | null
+          receipt_number?: string | null
+          remarks?: string | null
+          school_id?: number
+          station_name?: string | null
+          status?: string
+          vehicle_id?: number
+          voucher_number?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fleet_fuel_vouchers_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "fleet_drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fleet_fuel_vouchers_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fleet_fuel_vouchers_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "fleet_vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fleet_vehicles: {
+        Row: {
+          assigned_driver_id: number | null
+          assigned_route_id: number | null
+          capacity: number | null
+          chassis_number: string | null
+          created_at: string
+          current_mileage: number
+          engine_number: string | null
+          fuel_type: string
+          id: number
+          inspection_expiry: string | null
+          insurance_expiry: string | null
+          make: string | null
+          model: string | null
+          registration_number: string
+          school_id: number
+          status: string
+          year_of_manufacture: number | null
+        }
+        Insert: {
+          assigned_driver_id?: number | null
+          assigned_route_id?: number | null
+          capacity?: number | null
+          chassis_number?: string | null
+          created_at?: string
+          current_mileage?: number
+          engine_number?: string | null
+          fuel_type?: string
+          id?: number
+          inspection_expiry?: string | null
+          insurance_expiry?: string | null
+          make?: string | null
+          model?: string | null
+          registration_number: string
+          school_id: number
+          status?: string
+          year_of_manufacture?: number | null
+        }
+        Update: {
+          assigned_driver_id?: number | null
+          assigned_route_id?: number | null
+          capacity?: number | null
+          chassis_number?: string | null
+          created_at?: string
+          current_mileage?: number
+          engine_number?: string | null
+          fuel_type?: string
+          id?: number
+          inspection_expiry?: string | null
+          insurance_expiry?: string | null
+          make?: string | null
+          model?: string | null
+          registration_number?: string
+          school_id?: number
+          status?: string
+          year_of_manufacture?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fleet_vehicles_assigned_driver_id_fkey"
+            columns: ["assigned_driver_id"]
+            isOneToOne: false
+            referencedRelation: "fleet_drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fleet_vehicles_assigned_route_id_fkey"
+            columns: ["assigned_route_id"]
+            isOneToOne: false
+            referencedRelation: "transport_transportroute"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fleet_vehicles_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       grade_scales: {
         Row: {
           academic_year: number
@@ -5458,6 +5678,10 @@ export type Database = {
       }
       generate_admission_number: { Args: never; Returns: string }
       generate_employee_number: { Args: never; Returns: string }
+      generate_fuel_voucher_number: {
+        Args: { p_school_id: number }
+        Returns: string
+      }
       generate_receipt_number: {
         Args: { p_school_id: number }
         Returns: string
