@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { escapeHtml } from '@/utils/escapeHtml';
 import { Search, Download, Printer, FileText, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
