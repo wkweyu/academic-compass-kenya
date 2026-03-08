@@ -584,7 +584,10 @@ export default function PayrollPage() {
                         <TableCell className="text-right font-medium">{formatCurrency(Number(s.net_salary))}</TableCell>
                         <TableCell><Badge variant={s.is_active ? 'default' : 'outline'}>{s.is_active ? 'Active' : 'Inactive'}</Badge></TableCell>
                         <TableCell>
-                          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleDeleteStructure(s.id)}>Delete</Button>
+                          <div className="flex gap-1">
+                            <Button size="sm" variant="ghost" onClick={() => handleEditStructure(s)}>Edit</Button>
+                            <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleDeleteStructure(s.id)}>Delete</Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
