@@ -206,7 +206,11 @@ export const saasService = {
     const { data, error } = await supabase.functions.invoke("create-school-admin", {
       body: { school_id: schoolId, admin_email: adminEmail, admin_password: adminPassword },
     });
-    if (error) throw error;
+    if (error) {
+      // Extract the actual error message from the response body if available
+      const msg = data?.error || error.message || "Unknown error";
+      throw new Error(msg);
+    }
     return data;
   },
 

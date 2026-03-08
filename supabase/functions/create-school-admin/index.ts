@@ -12,6 +12,7 @@ Deno.serve(async (req) => {
   }
 
   try {
+    console.log("create-school-admin: request received");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -50,7 +51,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { school_id, admin_email, admin_password } = await req.json();
+    const body = await req.json();
+    const { school_id, admin_email, admin_password } = body;
+    console.log("create-school-admin: creating admin for school", school_id, "email:", admin_email);
 
     if (!school_id || !admin_email || !admin_password) {
       return new Response(JSON.stringify({ error: "school_id, admin_email, and admin_password are required" }), {
@@ -70,11 +73,14 @@ Deno.serve(async (req) => {
     });
 
     if (createError) {
+      console.error("create-school-admin: createUser failed:", createError.message);
       return new Response(JSON.stringify({ error: `Failed to create user: ${createError.message}` }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    console.log("create-school-admin: user created:", authUser.user.id);
 
     const newUserId = authUser.user.id;
 
