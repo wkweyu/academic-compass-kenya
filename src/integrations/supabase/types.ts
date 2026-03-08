@@ -4842,6 +4842,123 @@ export type Database = {
           },
         ]
       }
+      uniform_issue_items: {
+        Row: {
+          id: number
+          issue_id: number
+          item_id: number | null
+          item_name: string
+          quantity: number
+          total: number
+          unit_price: number
+        }
+        Insert: {
+          id?: number
+          issue_id: number
+          item_id?: number | null
+          item_name: string
+          quantity?: number
+          total?: number
+          unit_price?: number
+        }
+        Update: {
+          id?: number
+          issue_id?: number
+          item_id?: number | null
+          item_name?: string
+          quantity?: number
+          total?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "uniform_issue_items_issue_id_fkey"
+            columns: ["issue_id"]
+            isOneToOne: false
+            referencedRelation: "uniform_issues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "uniform_issue_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_item"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      uniform_issues: {
+        Row: {
+          created_at: string
+          id: number
+          issued_by: number | null
+          remarks: string | null
+          school_id: number
+          student_id: number
+          term: number
+          total_amount: number
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          issued_by?: number | null
+          remarks?: string | null
+          school_id: number
+          student_id: number
+          term: number
+          total_amount?: number
+          year: number
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          issued_by?: number | null
+          remarks?: string | null
+          school_id?: number
+          student_id?: number
+          term?: number
+          total_amount?: number
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "uniform_issues_issued_by_fkey"
+            columns: ["issued_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "uniform_issues_issued_by_fkey"
+            columns: ["issued_by"]
+            isOneToOne: false
+            referencedRelation: "users_secure"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "uniform_issues_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "uniform_issues_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_summary"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "uniform_issues_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string | null

@@ -27,6 +27,7 @@ import { AdditionalDebitsDialog } from '@/components/fees/AdditionalDebitsDialog
 import { TransferCreditDialog } from '@/components/fees/TransferCreditDialog';
 import { BulkCsvImport } from '@/components/fees/BulkCsvImport';
 import { TermManager } from '@/utils/termManager';
+import { UniformPOS } from '@/components/fees/UniformPOS';
 import { Checkbox } from '@/components/ui/checkbox';
 const PAYMENT_MODES = [
   { value: 'cash', label: 'Cash' },
@@ -437,6 +438,7 @@ export const FeesManagementModule = () => {
           <TabsTrigger value="balances">Ledgers</TabsTrigger>
           <TabsTrigger value="statement">Statement</TabsTrigger>
           <TabsTrigger value="reports">Reports</TabsTrigger>
+          <TabsTrigger value="uniform-pos">Uniform POS</TabsTrigger>
         </TabsList>
 
         {/* Overview */}
@@ -703,6 +705,11 @@ export const FeesManagementModule = () => {
         {/* Reports */}
         <TabsContent value="reports">
           <FeesReportsModule />
+        </TabsContent>
+
+        {/* Uniform POS */}
+        <TabsContent value="uniform-pos">
+          <UniformPOS />
         </TabsContent>
       </Tabs>
     </div>
