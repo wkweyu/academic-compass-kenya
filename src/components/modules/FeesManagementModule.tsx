@@ -607,6 +607,67 @@ export const FeesManagementModule = () => {
   );
 };
 
+// ==================== STUDENT SEARCH COMPONENT ====================
+function StatementStudentSearch({ students, selectedId, onSelect }: {
+  students: { id: number; name: string; admission_number: string; class_name: string }[];
+  selectedId: number | null;
+  onSelect: (id: number | null) => void;
+}) {
+  const [search, setSearch] = useState('');
+  const filtered = search.length >= 2
+    ? students.filter(s =>
+        s.name?.toLowerCase().includes(search.toLowerCase()) ||
+        s.admission_number?.toLowerCase().includes(search.toLowerCase())
+      ).slice(0, 10)
+    : [];
+
+  const selected = students.find(s => s.id === selectedId);
+
+  return (
+    <div className="mt-2 max-w-md space-y-2">
+      {selected && (
+        <div className="flex items-center gap-2 p-2 rounded-md border bg-muted/30">
+          <div className="flex-1">
+            <p className="font-medium text-sm">{selected.name}</p>
+            <p className="text-xs text-muted-foreground">Adm: {selected.admission_number} • {selected.class_name}</p>
+          </div>
+          <Button variant="ghost" size="sm" onClick={() => { onSelect(null); setSearch(''); }}>Change</Button>
+        </div>
+      )}
+      {!selected && (
+        <>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Type student name or admission number..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          {filtered.length > 0 && (
+            <div className="border rounded-md max-h-48 overflow-y-auto">
+              {filtered.map(s => (
+                <button
+                  key={s.id}
+                  className="w-full text-left px-3 py-2 hover:bg-muted/50 border-b last:border-0 transition-colors"
+                  onClick={() => { onSelect(s.id); setSearch(''); }}
+                >
+                  <p className="font-medium text-sm">{s.name}</p>
+                  <p className="text-xs text-muted-foreground">{s.admission_number} • {s.class_name}</p>
+                </button>
+              ))}
+            </div>
+          )}
+          {search.length >= 2 && filtered.length === 0 && (
+            <p className="text-sm text-muted-foreground">No students found matching "{search}"</p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // ==================== VOTE HEADS SUB-COMPONENT ====================
 function VoteHeadsTab() {
   const { toast } = useToast();
