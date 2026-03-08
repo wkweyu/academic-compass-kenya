@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Plus, DollarSign, Receipt as ReceiptIcon, AlertCircle,
@@ -26,6 +26,8 @@ import { FeesReportsModule } from '@/components/fees/FeesReportsModule';
 import { AdditionalDebitsDialog } from '@/components/fees/AdditionalDebitsDialog';
 import { TransferCreditDialog } from '@/components/fees/TransferCreditDialog';
 import { BulkCsvImport } from '@/components/fees/BulkCsvImport';
+import { TermManager } from '@/utils/termManager';
+import { Checkbox } from '@/components/ui/checkbox';
 const PAYMENT_MODES = [
   { value: 'cash', label: 'Cash' },
   { value: 'mpesa', label: 'M-PESA' },
@@ -43,12 +45,18 @@ export const FeesManagementModule = () => {
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isBulkDebitOpen, setIsBulkDebitOpen] = useState(false);
   const [statementStudentId, setStatementStudentId] = useState<number | null>(null);
+  const [manualAllocMode, setManualAllocMode] = useState(false);
+  const [manualAllocations, setManualAllocations] = useState<Record<number, string>>({});
+
+  const currentTerm = TermManager.getCurrentTerm();
+  const currentYear = TermManager.getCurrentYear();
+
   const [paymentForm, setPaymentForm] = useState({
-    student_id: '', amount: '', mode: 'cash', reference: '', term: '1',
-    year: new Date().getFullYear().toString(), remarks: '',
+    student_id: '', amount: '', mode: 'cash', reference: '',
+    remarks: '',
   });
   const [bulkDebitForm, setBulkDebitForm] = useState({
-    structure_group_id: '', term: '1', year: new Date().getFullYear().toString(),
+    structure_group_id: '', term: currentTerm.toString(), year: currentYear.toString(),
     class_id: '',
   });
 
@@ -123,22 +131,39 @@ export const FeesManagementModule = () => {
       toast({ title: 'Error', description: 'Fill student, amount & reference', variant: 'destructive' });
       return;
     }
+
+    // Build manual allocations if in manual mode
+    let manualAllocs: { vote_head_id: number; amount: number }[] | undefined;
+    if (manualAllocMode) {
+      manualAllocs = Object.entries(manualAllocations)
+        .filter(([_, amt]) => Number(amt) > 0)
+        .map(([vhId, amt]) => ({ vote_head_id: Number(vhId), amount: Number(amt) }));
+      const totalManual = manualAllocs.reduce((s, a) => s + a.amount, 0);
+      if (Math.abs(totalManual - parseFloat(paymentForm.amount)) > 0.01) {
+        toast({ title: 'Manual allocations must equal the payment amount', variant: 'destructive' });
+        return;
+      }
+    }
+
     try {
       const receipt = await feesService.collectPayment({
         student_id: parseInt(paymentForm.student_id),
         amount: parseFloat(paymentForm.amount),
         payment_mode: paymentForm.mode,
         reference: paymentForm.reference,
-        term: parseInt(paymentForm.term),
-        year: parseInt(paymentForm.year),
+        term: currentTerm,
+        year: currentYear,
         remarks: paymentForm.remarks,
+        manual_allocations: manualAllocs,
       });
       toast({
         title: 'Payment collected',
         description: `Receipt ${receipt.receipt_no} — ${formatCurrency(receipt.amount)}. ${(receipt.allocations || []).length} allocations made.`,
       });
       setIsPaymentOpen(false);
-      setPaymentForm({ student_id: '', amount: '', mode: 'cash', reference: '', term: '1', year: new Date().getFullYear().toString(), remarks: '' });
+      setPaymentForm({ student_id: '', amount: '', mode: 'cash', reference: '', remarks: '' });
+      setManualAllocMode(false);
+      setManualAllocations({});
       queryClient.invalidateQueries({ queryKey: ['fees-stats'] });
       queryClient.invalidateQueries({ queryKey: ['receipts'] });
       queryClient.invalidateQueries({ queryKey: ['student-ledgers'] });
@@ -231,12 +256,12 @@ export const FeesManagementModule = () => {
           </Dialog>
 
           {/* Collect Payment Dialog */}
-          <Dialog open={isPaymentOpen} onOpenChange={setIsPaymentOpen}>
+          <Dialog open={isPaymentOpen} onOpenChange={(open) => { setIsPaymentOpen(open); if (!open) { setManualAllocMode(false); setManualAllocations({}); } }}>
             <DialogTrigger asChild>
               <Button><Plus className="mr-2 h-4 w-4" />Collect Payment</Button>
             </DialogTrigger>
-            <DialogContent>
-              <DialogHeader><DialogTitle>Collect Payment</DialogTitle></DialogHeader>
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+              <DialogHeader><DialogTitle>Collect Payment (Term {currentTerm}, {currentYear})</DialogTitle></DialogHeader>
               <div className="space-y-4 pt-4">
                 <div>
                   <Label>Student *</Label>
@@ -257,17 +282,50 @@ export const FeesManagementModule = () => {
                   </div>
                 </div>
                 <div><Label>Reference (M-PESA Code / Receipt No) *</Label><Input value={paymentForm.reference} onChange={e => setPaymentForm(p => ({ ...p, reference: e.target.value }))} /></div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div><Label>Term</Label>
-                    <Select value={paymentForm.term} onValueChange={v => setPaymentForm(p => ({ ...p, term: v }))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent><SelectItem value="1">Term 1</SelectItem><SelectItem value="2">Term 2</SelectItem><SelectItem value="3">Term 3</SelectItem></SelectContent>
-                    </Select>
-                  </div>
-                  <div><Label>Year</Label><Input type="number" value={paymentForm.year} onChange={e => setPaymentForm(p => ({ ...p, year: e.target.value }))} /></div>
+                
+                <div className="p-3 rounded-md border bg-muted/30 text-sm">
+                  <p><strong>Auto-detected:</strong> Term {currentTerm}, {currentYear}</p>
+                  <p className="text-xs text-muted-foreground">Overpayments will carry forward to outstanding voteheads across all terms/years.</p>
                 </div>
+
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="manual-alloc"
+                    checked={manualAllocMode}
+                    onCheckedChange={(checked) => setManualAllocMode(!!checked)}
+                  />
+                  <Label htmlFor="manual-alloc" className="text-sm cursor-pointer">Manual allocation (for special debits like tours)</Label>
+                </div>
+
+                {manualAllocMode && (
+                  <div className="space-y-2 border rounded-md p-3">
+                    <p className="text-xs text-muted-foreground font-medium">Distribute amount across vote heads:</p>
+                    {voteHeads.map(vh => (
+                      <div key={vh.id} className="flex items-center gap-2">
+                        <Label className="text-sm w-32 truncate">{vh.name}</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          placeholder="0"
+                          value={manualAllocations[vh.id] || ''}
+                          onChange={e => setManualAllocations(prev => ({ ...prev, [vh.id]: e.target.value }))}
+                          className="h-8"
+                        />
+                      </div>
+                    ))}
+                    {paymentForm.amount && (
+                      <p className="text-xs mt-1">
+                        Allocated: {formatCurrency(Object.values(manualAllocations).reduce((s, v) => s + Number(v || 0), 0))}
+                        {' / '}{formatCurrency(Number(paymentForm.amount))}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <div><Label>Remarks</Label><Textarea value={paymentForm.remarks} onChange={e => setPaymentForm(p => ({ ...p, remarks: e.target.value }))} /></div>
-                <Button onClick={handleCollectPayment} className="w-full">Collect Payment & Auto-Allocate</Button>
+                <Button onClick={handleCollectPayment} className="w-full">
+                  {manualAllocMode ? 'Collect Payment (Manual Allocation)' : 'Collect Payment & Auto-Allocate'}
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
