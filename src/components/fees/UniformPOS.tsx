@@ -3,8 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ShoppingCart, Plus, Minus, Trash2, Search, Shirt, Receipt,
   Package, History, ChevronDown, ChevronRight, Printer, Settings,
-  FileText, CheckCircle2
+  FileText, CheckCircle2, BarChart3
 } from 'lucide-react';
+import { UniformIssuanceReports } from './UniformIssuanceReports';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
