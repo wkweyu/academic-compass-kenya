@@ -138,7 +138,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { school_id, school_code, school_name, email, contact_person, admin_email, admin_password } = await req.json();
+    const body = await req.json();
+    console.log("onboarding-notification: body received", JSON.stringify({ school_id: body.school_id, school_code: body.school_code, email: body.email }));
+    const { school_id, school_code, school_name, email, contact_person, admin_email, admin_password } = body;
 
     const results: { email_sent: boolean; email_error?: string } = { email_sent: false };
 
