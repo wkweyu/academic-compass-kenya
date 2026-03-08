@@ -527,7 +527,7 @@ export function UniformPOS() {
                           </TableCell>
                           <TableCell>
                             {issue.store_issued ? (
-                              <Badge variant="default" className="bg-green-600 text-white">
+                              <Badge variant="default" className="bg-primary text-primary-foreground">
                                 <CheckCircle2 className="h-3 w-3 mr-1" /> Issued
                               </Badge>
                             ) : (
