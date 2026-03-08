@@ -68,7 +68,7 @@ export default function ReportsTab() {
         <Select value={fundId} onValueChange={setFundId}>
           <SelectTrigger className="w-44"><SelectValue placeholder="All funds" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All funds</SelectItem>
+            <SelectItem value="__all__">All funds</SelectItem>
             {funds.filter(f => f.is_active).map(f => <SelectItem key={f.id} value={f.id.toString()}>{f.fund_name}</SelectItem>)}
           </SelectContent>
         </Select>

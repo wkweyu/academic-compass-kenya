@@ -158,7 +158,7 @@ export default function JournalEntriesTab() {
                         <Select value={journalForm.fund_id} onValueChange={v => setJournalForm(p => ({ ...p, fund_id: v }))}>
                           <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">None</SelectItem>
+                            <SelectItem value="__none__">None</SelectItem>
                             {funds.filter(f => f.is_active).map(f => <SelectItem key={f.id} value={f.id.toString()}>{f.fund_code} - {f.fund_name}</SelectItem>)}
                           </SelectContent>
                         </Select>

@@ -60,7 +60,7 @@ export default function GeneralLedgerTab() {
             <Select value={fiscalYearId} onValueChange={setFiscalYearId}>
               <SelectTrigger><SelectValue placeholder="All" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All</SelectItem>
+                <SelectItem value="__all__">All</SelectItem>
                 {fiscalYears.map(fy => <SelectItem key={fy.id} value={fy.id.toString()}>{fy.name}</SelectItem>)}
               </SelectContent>
             </Select>

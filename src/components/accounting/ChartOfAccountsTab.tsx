@@ -118,7 +118,7 @@ export default function ChartOfAccountsTab() {
                   <Select value={form.parent_id} onValueChange={v => setForm(p => ({ ...p, parent_id: v }))}>
                     <SelectTrigger><SelectValue placeholder="None (top-level)" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="__none__">None</SelectItem>
                       {accounts.filter(a => a.is_active).map(a => (
                         <SelectItem key={a.id} value={a.id.toString()}>{a.account_code} - {a.account_name}</SelectItem>
                       ))}
