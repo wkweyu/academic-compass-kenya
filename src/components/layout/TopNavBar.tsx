@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { TermManager } from '@/utils/termManager';
 import { useAuth } from '@/hooks/useAuth';
+import skooltrackLogo from '@/assets/skooltrack-logo.png';
 import {
   BarChart3,
   Users,
@@ -264,10 +265,8 @@ export function TopNavBar() {
         {/* Top row: Brand + User */}
         <div className="flex items-center justify-between px-4 lg:px-6 h-14">
           {/* Brand */}
-          <NavLink to="/dashboard" className="flex items-center gap-2.5 text-white">
-            <div className="h-8 w-8 rounded-lg bg-nav-active flex items-center justify-center">
-              <GraduationCap className="h-5 w-5 text-white" />
-            </div>
+          <NavLink to="/dashboard" className="flex items-center gap-2.5 text-white shrink-0">
+            <img src={skooltrackLogo} alt="SkoolTrack Pro" className="h-8 w-auto rounded" />
             <div className="hidden sm:block">
               <h1 className="text-sm font-bold text-white leading-tight">SkoolTrack Pro</h1>
               <p className="text-[11px] text-nav-foreground/70 leading-tight">

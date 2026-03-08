@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router-dom';
 import { TopNavBar } from '@/components/layout/TopNavBar';
+import skooltrackLogo from '@/assets/skooltrack-logo.png';
 
 interface MainLayoutProps {
   children?: React.ReactNode;
@@ -20,7 +21,10 @@ export function MainLayout({ children }: MainLayoutProps) {
       {/* Footer */}
       <footer className="border-t border-border bg-card py-3 px-4 lg:px-8 print:hidden">
         <div className="max-w-[1600px] mx-auto flex items-center justify-between text-xs text-muted-foreground">
-          <span>© {new Date().getFullYear()} SkoolTrack Pro</span>
+          <div className="flex items-center gap-2">
+            <img src={skooltrackLogo} alt="SkoolTrack Pro" className="h-5 w-auto opacity-60" />
+            <span>© {new Date().getFullYear()} SkoolTrack Pro</span>
+          </div>
           <span>School Management System</span>
         </div>
       </footer>
