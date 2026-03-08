@@ -106,10 +106,16 @@ export default function PayrollPage() {
       setShowCoverageWarning(false);
       refetchRuns();
       queryClient.invalidateQueries({ queryKey: ['payroll-stats'] });
-      // Auto-navigate to payslips
       setSelectedRunId(run.id);
       setActiveTab('payslips');
-    } catch (e: any) { toast({ title: 'Error', description: e.message, variant: 'destructive' }); }
+    } catch (e: any) {
+      const msg = e.message || '';
+      if (msg.includes('duplicate key') || msg.includes('unique constraint') || msg.includes('payroll_runs_school_id_month_year_key')) {
+        toast({ title: 'Payroll run already exists', description: `A payroll run for ${MONTHS[parseInt(runForm.month) - 1]} ${runForm.year} already exists. Use the Refresh button on the existing draft run to update it.`, variant: 'destructive' });
+      } else {
+        toast({ title: 'Error', description: msg, variant: 'destructive' });
+      }
+    }
   };
 
   const handleRefreshRun = async (id: number) => {
