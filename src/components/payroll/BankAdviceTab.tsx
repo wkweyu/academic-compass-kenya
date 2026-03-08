@@ -28,8 +28,10 @@ export default function BankAdviceTab({ runs, schoolName }: BankAdviceTabProps) 
   });
 
   const selectedRun = runs.find(r => r.id === parseInt(selectedRunId));
-  const grandTotal = bankGroups.reduce((s, g) => s + g.total_amount, 0);
-  const totalStaff = bankGroups.reduce((s, g) => s + g.staff_count, 0);
+  const bankNames = [...new Set(bankGroups.map(g => g.bank_name))];
+  const filteredGroups = selectedBank === 'all' ? bankGroups : bankGroups.filter(g => g.bank_name === selectedBank);
+  const grandTotal = filteredGroups.reduce((s, g) => s + g.total_amount, 0);
+  const totalStaff = filteredGroups.reduce((s, g) => s + g.staff_count, 0);
 
   const exportBankAdviceCSV = (group: BankAdviceGroup) => {
     const headers = ['No.', 'Employee No', 'Employee Name', 'Account Number', 'Bank Branch', 'Net Amount'];
