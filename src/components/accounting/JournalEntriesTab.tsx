@@ -74,15 +74,15 @@ export default function JournalEntriesTab() {
           total_debit: totalDebit,
           total_credit: totalCredit,
           school_id: 0,
-          fiscal_year_id: journalForm.fiscal_year_id ? parseInt(journalForm.fiscal_year_id) : undefined,
-          fund_id: journalForm.fund_id ? parseInt(journalForm.fund_id) : undefined,
+          fiscal_year_id: journalForm.fiscal_year_id && journalForm.fiscal_year_id !== '__none__' ? parseInt(journalForm.fiscal_year_id) : undefined,
+          fund_id: journalForm.fund_id && journalForm.fund_id !== '__none__' ? parseInt(journalForm.fund_id) : undefined,
         },
         validLines.map(l => ({
           account_id: parseInt(l.account_id),
           debit_amount: parseFloat(l.debit_amount) || 0,
           credit_amount: parseFloat(l.credit_amount) || 0,
           description: l.description,
-          fund_id: l.fund_id ? parseInt(l.fund_id) : undefined,
+          fund_id: l.fund_id && l.fund_id !== '__none__' ? parseInt(l.fund_id) : undefined,
         }))
       );
       toast({ title: 'Journal entry created (auto-ref generated)' });
@@ -149,7 +149,7 @@ export default function JournalEntriesTab() {
                         <Select value={journalForm.fiscal_year_id} onValueChange={v => setJournalForm(p => ({ ...p, fiscal_year_id: v }))}>
                           <SelectTrigger><SelectValue placeholder="Auto-detect" /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">Auto</SelectItem>
+                            <SelectItem value="__none__">Auto</SelectItem>
                             {fiscalYears.map(fy => <SelectItem key={fy.id} value={fy.id.toString()}>{fy.name}</SelectItem>)}
                           </SelectContent>
                         </Select>
@@ -158,7 +158,7 @@ export default function JournalEntriesTab() {
                         <Select value={journalForm.fund_id} onValueChange={v => setJournalForm(p => ({ ...p, fund_id: v }))}>
                           <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">None</SelectItem>
+                            <SelectItem value="__none__">None</SelectItem>
                             {funds.filter(f => f.is_active).map(f => <SelectItem key={f.id} value={f.id.toString()}>{f.fund_code} - {f.fund_name}</SelectItem>)}
                           </SelectContent>
                         </Select>

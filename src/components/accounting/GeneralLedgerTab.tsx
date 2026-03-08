@@ -29,7 +29,7 @@ export default function GeneralLedgerTab() {
       accountId: parseInt(selectedAccountId),
       startDate: startDate || undefined,
       endDate: endDate || undefined,
-      fiscalYearId: fiscalYearId ? parseInt(fiscalYearId) : undefined,
+      fiscalYearId: fiscalYearId && fiscalYearId !== '__all__' ? parseInt(fiscalYearId) : undefined,
     }),
     enabled: !!selectedAccountId,
   });
@@ -60,7 +60,7 @@ export default function GeneralLedgerTab() {
             <Select value={fiscalYearId} onValueChange={setFiscalYearId}>
               <SelectTrigger><SelectValue placeholder="All" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All</SelectItem>
+                <SelectItem value="__all__">All</SelectItem>
                 {fiscalYears.map(fy => <SelectItem key={fy.id} value={fy.id.toString()}>{fy.name}</SelectItem>)}
               </SelectContent>
             </Select>

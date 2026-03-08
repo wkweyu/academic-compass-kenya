@@ -22,8 +22,8 @@ export default function ReportsTab() {
   const { data: fiscalYears = [] } = useQuery({ queryKey: ['fiscal-years'], queryFn: () => fiscalYearService.getAll() });
   const { data: funds = [] } = useQuery({ queryKey: ['accounting-funds'], queryFn: () => fundService.getAll() });
 
-  const fyId = fiscalYearId ? parseInt(fiscalYearId) : undefined;
-  const fId = fundId ? parseInt(fundId) : undefined;
+  const fyId = fiscalYearId && fiscalYearId !== '__all__' ? parseInt(fiscalYearId) : undefined;
+  const fId = fundId && fundId !== '__all__' ? parseInt(fundId) : undefined;
 
   const { data: trialBalance = [] } = useQuery({
     queryKey: ['trial-balance', fyId, fId],
@@ -58,7 +58,7 @@ export default function ReportsTab() {
         <Select value={fiscalYearId} onValueChange={setFiscalYearId}>
           <SelectTrigger className="w-44"><SelectValue placeholder="All periods" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All periods</SelectItem>
+            <SelectItem value="__all__">All periods</SelectItem>
             {fiscalYears.map(fy => <SelectItem key={fy.id} value={fy.id.toString()}>{fy.name}</SelectItem>)}
           </SelectContent>
         </Select>
@@ -68,7 +68,7 @@ export default function ReportsTab() {
         <Select value={fundId} onValueChange={setFundId}>
           <SelectTrigger className="w-44"><SelectValue placeholder="All funds" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All funds</SelectItem>
+            <SelectItem value="__all__">All funds</SelectItem>
             {funds.filter(f => f.is_active).map(f => <SelectItem key={f.id} value={f.id.toString()}>{f.fund_name}</SelectItem>)}
           </SelectContent>
         </Select>
