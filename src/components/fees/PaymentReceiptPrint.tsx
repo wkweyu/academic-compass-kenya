@@ -73,22 +73,22 @@ export function printReceipt(props: PaymentReceiptPrintProps) {
     </style></head><body>
     <div class="receipt">
       <div class="header">
-        <h1>${schoolName}</h1>
-        ${schoolAddress ? `<p>${schoolAddress}</p>` : ''}
-        ${schoolPhone ? `<p>Tel: ${schoolPhone}</p>` : ''}
-        ${schoolEmail ? `<p>Email: ${schoolEmail}</p>` : ''}
+        <h1>${escapeHtml(schoolName)}</h1>
+        ${schoolAddress ? `<p>${escapeHtml(schoolAddress)}</p>` : ''}
+        ${schoolPhone ? `<p>Tel: ${escapeHtml(schoolPhone)}</p>` : ''}
+        ${schoolEmail ? `<p>Email: ${escapeHtml(schoolEmail)}</p>` : ''}
       </div>
       
       <div class="receipt-title">OFFICIAL RECEIPT</div>
       
       <div class="info-grid">
-        <div class="info-item"><label>Receipt No:</label> ${receipt.receipt_no}</div>
+        <div class="info-item"><label>Receipt No:</label> ${escapeHtml(receipt.receipt_no)}</div>
         <div class="info-item"><label>Date:</label> ${new Date(receipt.created_at).toLocaleDateString()}</div>
-        <div class="info-item"><label>Student:</label> ${receipt.student_name || ''}</div>
-        <div class="info-item"><label>Adm No:</label> ${receipt.admission_number || ''}</div>
-        <div class="info-item"><label>Payment Mode:</label> ${receipt.payment_mode.toUpperCase()}</div>
-        <div class="info-item"><label>Reference:</label> ${receipt.reference || '-'}</div>
-        <div class="info-item"><label>Term/Year:</label> Term ${receipt.term} / ${receipt.year}</div>
+        <div class="info-item"><label>Student:</label> ${escapeHtml(receipt.student_name || '')}</div>
+        <div class="info-item"><label>Adm No:</label> ${escapeHtml(receipt.admission_number || '')}</div>
+        <div class="info-item"><label>Payment Mode:</label> ${escapeHtml(receipt.payment_mode.toUpperCase())}</div>
+        <div class="info-item"><label>Reference:</label> ${escapeHtml(receipt.reference || '-')}</div>
+        <div class="info-item"><label>Term/Year:</label> Term ${escapeHtml(receipt.term)} / ${escapeHtml(receipt.year)}</div>
       </div>
       
       ${allocationsHtml ? `
