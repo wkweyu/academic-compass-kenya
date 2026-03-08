@@ -72,6 +72,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = async () => {
+    // Clear Django DRF token to keep auth systems synchronized
+    localStorage.removeItem('authToken');
     const { error } = await supabase.auth.signOut();
     if (error) {
       throw new Error(error.message);

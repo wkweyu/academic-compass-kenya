@@ -62,7 +62,7 @@ export function parseError(error: any, context?: string): StandardError {
       message: error.response.data?.message || error.message || 'Network error occurred',
       category: categorizeHttpError(status),
       severity: status >= 500 ? ErrorSeverity.CRITICAL : ErrorSeverity.ERROR,
-      details: error.response.data,
+      details: import.meta.env.DEV ? error.response.data : undefined,
       timestamp,
       context,
       action: getHttpErrorAction(status),
@@ -90,7 +90,7 @@ export function parseError(error: any, context?: string): StandardError {
       message: error.message || 'An unexpected error occurred',
       category: ErrorCategory.UNKNOWN,
       severity: ErrorSeverity.ERROR,
-      details: error.stack,
+      details: import.meta.env.DEV ? error.stack : undefined,
       timestamp,
       context,
       action: 'Please try again or contact support if the issue persists',
@@ -116,7 +116,7 @@ export function parseError(error: any, context?: string): StandardError {
     message: 'An unexpected error occurred',
     category: ErrorCategory.UNKNOWN,
     severity: ErrorSeverity.ERROR,
-    details: JSON.stringify(error),
+    details: import.meta.env.DEV ? JSON.stringify(error) : undefined,
     timestamp,
     context,
     action: 'Please refresh the page and try again',
@@ -222,13 +222,15 @@ function getHttpErrorAction(status: number): string {
 export function showError(error: any, context?: string): void {
   const standardError = parseError(error, context);
   
-  // Log to console for debugging (can be disabled in production)
-  console.error(`[${standardError.category}] ${standardError.code}:`, {
-    message: standardError.message,
-    details: standardError.details,
-    context: standardError.context,
-    timestamp: standardError.timestamp,
-  });
+  // Only log detailed error info in development
+  if (import.meta.env.DEV) {
+    console.error(`[${standardError.category}] ${standardError.code}:`, {
+      message: standardError.message,
+      details: standardError.details,
+      context: standardError.context,
+      timestamp: standardError.timestamp,
+    });
+  }
 
   // Display user-friendly message
   const displayMessage = `${standardError.message}${standardError.action ? `\n${standardError.action}` : ''}`;
@@ -348,7 +350,9 @@ export function getOperationErrorMessage(operation: string, error: any): string 
  * Error boundary error handler
  */
 export function handleBoundaryError(error: Error, errorInfo: React.ErrorInfo): void {
-  console.error('Error Boundary caught an error:', error, errorInfo);
+  if (import.meta.env.DEV) {
+    console.error('Error Boundary caught an error:', error, errorInfo);
+  }
   
   // In production, you might want to send this to an error reporting service
   showError(error, 'Application Error Boundary');

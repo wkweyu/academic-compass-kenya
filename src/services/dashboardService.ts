@@ -4,22 +4,19 @@ import { DashboardData } from "@/types/dashboard";
 export const dashboardService = {
   async getDashboardData(): Promise<DashboardData> {
     try {
-      console.log('Fetching dashboard data...');
-      
       // Get user's school ID using RPC function (bypasses RLS)
       const { data: schoolId, error: schoolError } = await supabase.rpc('get_user_school_id');
       
       if (schoolError) {
-        console.error('Error getting school ID:', schoolError);
+        if (import.meta.env.DEV) {
+          console.error('Error getting school ID:', schoolError);
+        }
         throw schoolError;
       }
       
       if (!schoolId) {
-        console.warn('No school associated with user');
         throw new Error("No school associated with user");
       }
-
-      console.log('Using school ID:', schoolId);
 
       // Fetch all statistics in parallel
       const [
@@ -166,7 +163,9 @@ export const dashboardService = {
         performanceData,
       };
     } catch (error) {
-      console.error("Error fetching dashboard data:", error);
+      if (import.meta.env.DEV) {
+        console.error("Error fetching dashboard data:", error);
+      }
       return {
         stats: {
           totalExams: 0,

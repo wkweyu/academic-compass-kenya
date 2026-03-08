@@ -52,7 +52,9 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
-    console.error('API Error:', error.response?.status, error.response?.data);
+    if (import.meta.env.DEV) {
+      console.error('API Error:', error.response?.status, error.response?.data);
+    }
     
     if (error.response?.status === 401) {
       // Token expired or invalid
@@ -98,7 +100,9 @@ export async function signIn(email: string, password: string) {
 
     throw new Error("No token received");
   } catch (err: any) {
-    console.error("Login error:", err.response?.data || err.message);
+    if (import.meta.env.DEV) {
+      console.error("Login error:", err.message);
+    }
     throw new Error(
       err.response?.data?.non_field_errors?.[0] ||
         err.response?.data?.error ||
@@ -113,7 +117,9 @@ export async function getCurrentUser() {
     const response = await api.get("/api/users/me/");
     return response.data;
   } catch (err: any) {
-    console.error("User fetch error:", err.response?.data || err.message);
+    if (import.meta.env.DEV) {
+      console.error("User fetch error:", err.message);
+    }
     throw new Error("Failed to fetch user");
   }
 }
@@ -122,7 +128,9 @@ export async function signOut() {
   try {
     await api.post("/api/auth/logout/");
   } catch (err: any) {
-    console.error("Logout error:", err.response?.data || err.message);
+    if (import.meta.env.DEV) {
+      console.error("Logout error:", err.message);
+    }
   } finally {
     localStorage.removeItem("authToken");
   }
@@ -146,7 +154,9 @@ export async function signUp(
 
     return response.data;
   } catch (err: any) {
-    console.error("Registration error:", err.response?.data || err.message);
+    if (import.meta.env.DEV) {
+      console.error("Registration error:", err.message);
+    }
     throw new Error(
       err.response?.data?.email?.[0] ||
         err.response?.data?.password1?.[0] ||
@@ -167,7 +177,9 @@ export async function testConnection() {
     const response = await api.get("/");
     return response.status === 200;
   } catch (error) {
-    console.error("API connection test failed:", error);
+    if (import.meta.env.DEV) {
+      console.error("API connection test failed:", error);
+    }
     return false;
   }
 }
