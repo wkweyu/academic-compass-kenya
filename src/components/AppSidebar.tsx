@@ -169,7 +169,7 @@ export function AppSidebar() {
           {!collapsed && (
             <div>
               <h1 className="text-lg font-semibold">CBC Exam System</h1>
-              <p className="text-sm text-muted-foreground">Academic Year 2024</p>
+              <p className="text-sm text-muted-foreground">Academic Year {TermManager.getCurrentYear()}</p>
             </div>
           )}
         </div>
