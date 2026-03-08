@@ -74,8 +74,8 @@ export default function JournalEntriesTab() {
           total_debit: totalDebit,
           total_credit: totalCredit,
           school_id: 0,
-          fiscal_year_id: journalForm.fiscal_year_id ? parseInt(journalForm.fiscal_year_id) : undefined,
-          fund_id: journalForm.fund_id ? parseInt(journalForm.fund_id) : undefined,
+          fiscal_year_id: journalForm.fiscal_year_id && journalForm.fiscal_year_id !== '__none__' ? parseInt(journalForm.fiscal_year_id) : undefined,
+          fund_id: journalForm.fund_id && journalForm.fund_id !== '__none__' ? parseInt(journalForm.fund_id) : undefined,
         },
         validLines.map(l => ({
           account_id: parseInt(l.account_id),
