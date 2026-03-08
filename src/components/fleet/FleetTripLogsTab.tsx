@@ -49,7 +49,7 @@ function TripLogView() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<TripLog | null>(null);
   const [form, setForm] = useState(emptyForm);
-  const [filters, setFilters] = useState({ vehicleId: '', dateFrom: '', dateTo: '', tripType: 'all' });
+  const [filters, setFilters] = useState({ vehicleId: '__all__', dateFrom: '', dateTo: '', tripType: 'all' });
 
   const { data: vehicles = [] } = useQuery({ queryKey: ['fleet-vehicles'], queryFn: getFleetVehicles });
   const { data: drivers = [] } = useQuery({ queryKey: ['fleet-drivers'], queryFn: getFleetDrivers });

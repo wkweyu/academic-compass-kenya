@@ -48,7 +48,7 @@ function ServiceHistoryView() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<MaintenanceRecord | null>(null);
   const [form, setForm] = useState(emptyForm);
-  const [filters, setFilters] = useState({ vehicleId: '', dateFrom: '', dateTo: '' });
+  const [filters, setFilters] = useState({ vehicleId: '__all__', dateFrom: '', dateTo: '' });
 
   const { data: vehicles = [] } = useQuery({ queryKey: ['fleet-vehicles'], queryFn: getFleetVehicles });
   const { data: records = [], isLoading } = useQuery({

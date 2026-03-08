@@ -74,8 +74,8 @@ export default function FleetVehiclesTab() {
       year_of_manufacture: form.year_of_manufacture ? parseInt(form.year_of_manufacture) : null,
       engine_number: form.engine_number, chassis_number: form.chassis_number,
       insurance_expiry: form.insurance_expiry || null, inspection_expiry: form.inspection_expiry || null,
-      assigned_route_id: form.assigned_route_id ? parseInt(form.assigned_route_id) : null,
-      assigned_driver_id: form.assigned_driver_id ? parseInt(form.assigned_driver_id) : null,
+      assigned_route_id: form.assigned_route_id && form.assigned_route_id !== '__none__' ? parseInt(form.assigned_route_id) : null,
+      assigned_driver_id: form.assigned_driver_id && form.assigned_driver_id !== '__none__' ? parseInt(form.assigned_driver_id) : null,
       status: form.status, fuel_type: form.fuel_type,
       current_mileage: parseInt(form.current_mileage) || 0,
     };
