@@ -241,6 +241,7 @@ export function FeesReportsModule() {
           <TabsTrigger value="defaulters"><AlertTriangle className="h-3 w-3 mr-1" />Fee Defaulters</TabsTrigger>
           <TabsTrigger value="class-wise"><Users className="h-3 w-3 mr-1" />Class-wise</TabsTrigger>
           <TabsTrigger value="term-wise"><BarChart3 className="h-3 w-3 mr-1" />Term-wise</TabsTrigger>
+          <TabsTrigger value="register"><ClipboardList className="h-3 w-3 mr-1" />Fees Register</TabsTrigger>
         </TabsList>
 
         {/* Daily Collection */}
