@@ -412,7 +412,7 @@ export const payrollService = {
   // Refresh a draft payroll run from current salary structures
   async refreshPayrollRun(runId: number): Promise<void> {
     const { data: run } = await supabase.from('payroll_runs').select('*').eq('id', runId).single();
-    if (!run || (run as any).status !== 'draft') throw new Error('Can only refresh draft payroll runs');
+    if (!run || (run as any).status === 'paid') throw new Error('Cannot refresh a paid payroll run');
 
     const schoolId = (run as any).school_id;
 
