@@ -448,26 +448,26 @@ export function TermReportCard({ classId, termId, academicYear }: TermReportCard
             ${schoolInfo?.logo ? `<img src="${schoolInfo.logo}" alt="School Logo" />` : '<div class="logo-placeholder">🎓</div>'}
           </div>
           <div class="school-info">
-            <h1>${schoolInfo?.name || 'School Name'}</h1>
-            <p class="motto">${schoolInfo?.motto || ''}</p>
-            <p>${schoolInfo?.address || ''}</p>
-            <p>${schoolInfo?.phone || ''} | ${schoolInfo?.email || ''}</p>
+            <h1>${escapeHtml(schoolInfo?.name || 'School Name')}</h1>
+            <p class="motto">${escapeHtml(schoolInfo?.motto || '')}</p>
+            <p>${escapeHtml(schoolInfo?.address || '')}</p>
+            <p>${escapeHtml(schoolInfo?.phone || '')} | ${escapeHtml(schoolInfo?.email || '')}</p>
           </div>
         </div>
         
         <div class="title-bar">
           <h2>COMBINED TERM REPORT CARD</h2>
-          <p>Term ${selectedTermInfo?.term || ''} - ${selectedYear}</p>
+          <p>Term ${escapeHtml(selectedTermInfo?.term || '')} - ${escapeHtml(selectedYear)}</p>
         </div>
 
         <div class="student-info">
           <div class="info-row">
-            <div class="info-item"><span class="label">Name:</span> <span class="value">${student.full_name}</span></div>
-            <div class="info-item"><span class="label">Adm No:</span> <span class="value">${student.admission_number}</span></div>
+            <div class="info-item"><span class="label">Name:</span> <span class="value">${escapeHtml(student.full_name)}</span></div>
+            <div class="info-item"><span class="label">Adm No:</span> <span class="value">${escapeHtml(student.admission_number)}</span></div>
           </div>
           <div class="info-row">
-            <div class="info-item"><span class="label">Class:</span> <span class="value">${selectedClassName}</span></div>
-            <div class="info-item"><span class="label">Stream:</span> <span class="value">${student.stream_name || '-'}</span></div>
+            <div class="info-item"><span class="label">Class:</span> <span class="value">${escapeHtml(selectedClassName)}</span></div>
+            <div class="info-item"><span class="label">Stream:</span> <span class="value">${escapeHtml(student.stream_name || '-')}</span></div>
           </div>
         </div>
 
