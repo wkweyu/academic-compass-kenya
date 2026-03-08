@@ -122,8 +122,7 @@ export const staffService = {
     console.log('staffService.createStaff called with data:', data);
     try {
       // Get the user's school_id
-      const { data: userData } = await supabase.rpc('get_current_user_profile');
-      const schoolId = userData?.school_id;
+      const { data: schoolId } = await supabase.rpc('get_user_school_id');
       
       if (!schoolId) {
         throw new Error('User does not have a school assigned');
