@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { accountingService } from './accountingService';
 
 async function getSchoolId(): Promise<number> {
   const { data } = await supabase.rpc('get_user_school_id');
@@ -375,7 +376,63 @@ export const procurementService = {
   },
 
   async payVoucher(id: number): Promise<void> {
+    // 1. Get voucher details
+    const { data: voucher, error: vErr } = await supabase
+      .from('procurement_paymentvoucher')
+      .select('*, procurement_supplier(name), fees_votehead(name)')
+      .eq('id', id)
+      .single();
+    if (vErr) throw vErr;
+
+    // 2. Mark as Paid
     await this.updatePaymentVoucher(id, { status: 'Paid' } as any);
+
+    // 3. Create journal entry (debit expense, credit cash/bank)
+    try {
+      const schoolId = await getSchoolId();
+      const accounts = await accountingService.getAccounts();
+
+      // Determine credit account by payment mode
+      const paymentMode = (voucher as any).payment_mode || 'Cash';
+      const creditAccountCode = (paymentMode === 'Cash') ? '1000' : '1100'; // Cash or Bank
+      const creditAccount = accounts.find(a => a.account_code === creditAccountCode);
+
+      // Determine debit (expense) account - try to match vote head name, fallback to generic
+      const voteHeadName = (voucher as any).fees_votehead?.name || '';
+      let debitAccount = accounts.find(a =>
+        a.account_type === 'expense' && a.account_name.toLowerCase().includes(voteHeadName.toLowerCase()) && voteHeadName
+      );
+      if (!debitAccount) {
+        debitAccount = accounts.find(a => a.account_code === '5400'); // Administrative Expenses fallback
+      }
+      if (!debitAccount) {
+        debitAccount = accounts.find(a => a.account_type === 'expense');
+      }
+
+      if (creditAccount && debitAccount) {
+        const supplierName = (voucher as any).procurement_supplier?.name || 'Supplier';
+        const pvNumber = (voucher as any).voucher_number;
+        const amount = Number((voucher as any).amount);
+
+        await accountingService.createJournalEntry(
+          {
+            entry_date: new Date().toISOString().split('T')[0],
+            reference_number: pvNumber,
+            description: `Payment to ${supplierName} — ${(voucher as any).description || pvNumber}`,
+            total_debit: amount,
+            total_credit: amount,
+            status: 'posted',
+            school_id: schoolId,
+          },
+          [
+            { account_id: debitAccount.id, debit_amount: amount, credit_amount: 0, description: `${voteHeadName || 'Expense'} — ${supplierName}` },
+            { account_id: creditAccount.id, debit_amount: 0, credit_amount: amount, description: `Payment via ${paymentMode}` },
+          ]
+        );
+      }
+    } catch (journalErr) {
+      console.error('Journal entry creation failed (voucher still marked paid):', journalErr);
+    }
   },
 
   // ── Stock Transactions ──

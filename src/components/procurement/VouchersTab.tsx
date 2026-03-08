@@ -69,7 +69,11 @@ export default function VouchersTab({ vouchers, suppliers, voteHeads, refetch, s
   };
 
   const handlePay = async (id: number) => {
-    try { await procurementService.payVoucher(id); toast({ title: 'Voucher marked as paid' }); refetch(); }
+    try {
+      await procurementService.payVoucher(id);
+      toast({ title: 'Voucher paid', description: 'Journal entry posted to accounting automatically.' });
+      refetch();
+    }
     catch (e: any) { toast({ title: 'Error', description: e.message, variant: 'destructive' }); }
   };
 
