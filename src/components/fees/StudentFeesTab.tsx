@@ -100,9 +100,9 @@ export function StudentFeesTab({ studentId, studentName, admissionNumber, classN
     e.balance = runningBalance;
   });
 
-  const totalDebits = Number(statement.ledger?.debit_total || 0);
-  const totalCredits = Number(statement.ledger?.credit_total || 0);
-  const balance = statement.running_balance;
+  const totalDebits = entries.reduce((sum, entry) => sum + entry.debit, 0);
+  const totalCredits = entries.reduce((sum, entry) => sum + entry.credit, 0);
+  const balance = runningBalance;
 
   const handlePrint = () => {
     const printContent = document.getElementById('student-statement-print');

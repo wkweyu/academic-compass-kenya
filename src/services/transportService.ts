@@ -134,6 +134,65 @@ export const unassignStudentFromRoute = async (
 
 // ─── Transport Billing ───
 
+const recalculateStudentLedger = async (schoolId: number, studentId: number): Promise<void> => {
+  const [debitsRes, receiptsRes] = await Promise.all([
+    supabase
+      .from('fees_debittransaction')
+      .select('amount')
+      .eq('school_id', schoolId)
+      .eq('student_id', studentId),
+    supabase
+      .from('fees_receipt')
+      .select('amount')
+      .eq('school_id', schoolId)
+      .eq('student_id', studentId)
+      .eq('is_reversed', false),
+  ]);
+
+  if (debitsRes.error) throw debitsRes.error;
+  if (receiptsRes.error) throw receiptsRes.error;
+
+  const debitTotal = (debitsRes.data || []).reduce((sum, row: any) => sum + Number(row.amount || 0), 0);
+  const creditTotal = (receiptsRes.data || []).reduce((sum, row: any) => sum + Number(row.amount || 0), 0);
+  const balance = debitTotal - creditTotal;
+
+  const { data: existingLedger, error: ledgerFetchError } = await supabase
+    .from('fees_student_ledger')
+    .select('id')
+    .eq('school_id', schoolId)
+    .eq('student_id', studentId)
+    .maybeSingle();
+
+  if (ledgerFetchError) throw ledgerFetchError;
+
+  if (existingLedger) {
+    const { error: ledgerUpdateError } = await supabase
+      .from('fees_student_ledger')
+      .update({
+        debit_total: debitTotal,
+        credit_total: creditTotal,
+        balance,
+        last_updated: new Date().toISOString(),
+      })
+      .eq('id', existingLedger.id);
+
+    if (ledgerUpdateError) throw ledgerUpdateError;
+    return;
+  }
+
+  const { error: ledgerInsertError } = await supabase
+    .from('fees_student_ledger')
+    .insert({
+      school_id: schoolId,
+      student_id: studentId,
+      debit_total: debitTotal,
+      credit_total: creditTotal,
+      balance,
+    });
+
+  if (ledgerInsertError) throw ledgerInsertError;
+};
+
 export const postTransportDebit = async (
   studentId: number,
   amount: number,
@@ -144,13 +203,15 @@ export const postTransportDebit = async (
   const { data: schoolId } = await supabase.rpc('get_user_school_id');
   if (!schoolId) throw new Error('No school found');
 
-  // Find or skip transport votehead
-  const { data: voteheads } = await supabase
+  // Find transport votehead
+  const { data: voteheads, error: voteHeadError } = await supabase
     .from('fees_votehead')
     .select('id')
     .eq('school_id', schoolId)
     .ilike('name', '%transport%')
     .limit(1);
+
+  if (voteHeadError) throw voteHeadError;
 
   if (!voteheads || voteheads.length === 0) {
     console.warn('No Transport votehead found – skipping debit');
@@ -174,10 +235,11 @@ export const postTransportDebit = async (
       invoice_number: invoiceNo,
       remarks: `Transport charge – ${routeName}`,
     });
+
   if (debitErr) throw debitErr;
 
   // Upsert fee balance
-  const { data: existing } = await supabase
+  const { data: existing, error: existingBalanceError } = await supabase
     .from('fees_feebalance')
     .select('*')
     .eq('student_id', studentId)
@@ -186,15 +248,20 @@ export const postTransportDebit = async (
     .eq('year', year)
     .maybeSingle();
 
+  if (existingBalanceError) throw existingBalanceError;
+
   if (existing) {
     const newInvoiced = existing.amount_invoiced + amount;
     const newClosing = existing.opening_balance + newInvoiced - existing.amount_paid;
-    await supabase
+
+    const { error: updateBalanceError } = await supabase
       .from('fees_feebalance')
       .update({ amount_invoiced: newInvoiced, closing_balance: newClosing })
       .eq('id', existing.id);
+
+    if (updateBalanceError) throw updateBalanceError;
   } else {
-    await supabase.from('fees_feebalance').insert({
+    const { error: insertBalanceError } = await supabase.from('fees_feebalance').insert({
       student_id: studentId,
       vote_head_id: voteHeadId,
       term,
@@ -205,7 +272,11 @@ export const postTransportDebit = async (
       amount_paid: 0,
       closing_balance: amount,
     });
+
+    if (insertBalanceError) throw insertBalanceError;
   }
+
+  await recalculateStudentLedger(schoolId, studentId);
 };
 
 // ─── Reports ───
