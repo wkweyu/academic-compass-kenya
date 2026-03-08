@@ -84,7 +84,7 @@ const App = () => (
                 <Route path="/attendance/biometric" element={<BiometricIntegration />} />
                 <Route path="/attendance/sms" element={<SmsIntegration />} />
                 <Route path="/grading" element={<ComingSoonPage title="Grading" />} />
-                <Route path="/transport" element={<ComingSoonPage title="Transport" />} />
+                <Route path="/transport" element={<TransportPage />} />
                 <Route path="/procurement" element={<ProcurementPage />} />
                 <Route path="/payroll" element={<PayrollPage />} />
                 <Route path="/accounting" element={<AccountingPage />} />
