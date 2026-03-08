@@ -265,7 +265,7 @@ export const updateStudent = async (id: string, studentData: Partial<Student>): 
       upi_number: studentData.upi_number,
       status: studentData.status,
       is_on_transport: studentData.is_on_transport,
-      transport_route: studentData.transport_route,
+      transport_route_id: studentData.transport_route ? parseInt(String(studentData.transport_route)) : null,
       transport_type: studentData.transport_type,
       photo: studentData.photo,
       photo_url: studentData.photo_url,
