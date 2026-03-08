@@ -492,3 +492,140 @@ export const getMaintenanceCostReport = async (dateFrom: string, dateTo: string)
 
   return Object.values(vehicleMap);
 };
+
+// ─── Trip Log Types ───
+
+export interface TripLog {
+  id: number;
+  school_id: number;
+  vehicle_id: number;
+  driver_id: number | null;
+  route_id: number | null;
+  trip_date: string;
+  trip_type: string;
+  departure_time: string | null;
+  arrival_time: string | null;
+  departure_location: string;
+  arrival_location: string;
+  mileage_start: number;
+  mileage_end: number | null;
+  passenger_count: number;
+  notes: string | null;
+  status: string;
+  created_at: string;
+  vehicle_reg?: string;
+  driver_name?: string;
+  route_name?: string;
+}
+
+export const TRIP_TYPES = [
+  { value: 'morning', label: 'Morning Pick-up' },
+  { value: 'afternoon', label: 'Afternoon Drop-off' },
+  { value: 'field_trip', label: 'Field Trip' },
+  { value: 'sports', label: 'Sports/Events' },
+  { value: 'other', label: 'Other' },
+];
+
+// ─── Trip Log CRUD ───
+
+export const getTripLogs = async (filters?: {
+  vehicleId?: number;
+  dateFrom?: string;
+  dateTo?: string;
+  tripType?: string;
+}): Promise<TripLog[]> => {
+  let query = supabase
+    .from('fleet_trip_logs')
+    .select('*, fleet_vehicles(registration_number), fleet_drivers(full_name), transport_transportroute(name)')
+    .order('trip_date', { ascending: false })
+    .order('departure_time', { ascending: false });
+
+  if (filters?.vehicleId) query = query.eq('vehicle_id', filters.vehicleId);
+  if (filters?.dateFrom) query = query.gte('trip_date', filters.dateFrom);
+  if (filters?.dateTo) query = query.lte('trip_date', filters.dateTo);
+  if (filters?.tripType && filters.tripType !== 'all') query = query.eq('trip_type', filters.tripType);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data || []).map((t: any) => ({
+    ...t,
+    vehicle_reg: t.fleet_vehicles?.registration_number || '',
+    driver_name: t.fleet_drivers?.full_name || '',
+    route_name: t.transport_transportroute?.name || '',
+  }));
+};
+
+export const createTripLog = async (trip: Partial<TripLog>): Promise<TripLog> => {
+  const { data: schoolId } = await supabase.rpc('get_user_school_id');
+  const { data, error } = await supabase
+    .from('fleet_trip_logs')
+    .insert({ ...trip, school_id: schoolId })
+    .select('*, fleet_vehicles(registration_number), fleet_drivers(full_name), transport_transportroute(name)')
+    .single();
+  if (error) throw error;
+
+  // Update vehicle mileage if mileage_end provided
+  if (trip.mileage_end && trip.vehicle_id) {
+    await supabase.from('fleet_vehicles').update({ current_mileage: trip.mileage_end }).eq('id', trip.vehicle_id);
+  }
+
+  return { ...data, vehicle_reg: (data as any).fleet_vehicles?.registration_number || '', driver_name: (data as any).fleet_drivers?.full_name || '', route_name: (data as any).transport_transportroute?.name || '' } as TripLog;
+};
+
+export const updateTripLog = async (id: number, trip: Partial<TripLog>): Promise<TripLog> => {
+  const { school_id, id: _id, vehicle_reg, driver_name, route_name, ...rest } = trip as any;
+  const { data, error } = await supabase
+    .from('fleet_trip_logs')
+    .update(rest)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+
+  if (trip.mileage_end && trip.vehicle_id) {
+    await supabase.from('fleet_vehicles').update({ current_mileage: trip.mileage_end }).eq('id', trip.vehicle_id);
+  }
+
+  return data as TripLog;
+};
+
+export const deleteTripLog = async (id: number): Promise<void> => {
+  const { error } = await supabase.from('fleet_trip_logs').delete().eq('id', id);
+  if (error) throw error;
+};
+
+// ─── Trip Reports ───
+
+export const getTripSummaryReport = async (dateFrom: string, dateTo: string): Promise<any[]> => {
+  const { data, error } = await supabase
+    .from('fleet_trip_logs')
+    .select('*, fleet_vehicles(registration_number, make, model)')
+    .gte('trip_date', dateFrom)
+    .lte('trip_date', dateTo)
+    .order('trip_date');
+  if (error) throw error;
+
+  const vehicleMap: Record<number, any> = {};
+  (data || []).forEach((t: any) => {
+    const vid = t.vehicle_id;
+    if (!vehicleMap[vid]) {
+      vehicleMap[vid] = {
+        vehicle_id: vid,
+        registration_number: t.fleet_vehicles?.registration_number || '',
+        make_model: `${t.fleet_vehicles?.make || ''} ${t.fleet_vehicles?.model || ''}`.trim(),
+        trip_count: 0,
+        total_passengers: 0,
+        total_km: 0,
+        by_type: {} as Record<string, number>,
+      };
+    }
+    vehicleMap[vid].trip_count += 1;
+    vehicleMap[vid].total_passengers += t.passenger_count || 0;
+    const km = (t.mileage_end && t.mileage_start) ? (t.mileage_end - t.mileage_start) : 0;
+    vehicleMap[vid].total_km += Math.max(0, km);
+    const type = t.trip_type || 'other';
+    vehicleMap[vid].by_type[type] = (vehicleMap[vid].by_type[type] || 0) + 1;
+  });
+
+  return Object.values(vehicleMap);
+};
