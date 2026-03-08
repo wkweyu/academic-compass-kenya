@@ -19,6 +19,7 @@ interface BankAdviceTabProps {
 
 export default function BankAdviceTab({ runs, schoolName }: BankAdviceTabProps) {
   const [selectedRunId, setSelectedRunId] = useState<string>('');
+  const [selectedBank, setSelectedBank] = useState<string>('all');
 
   const { data: bankGroups = [] } = useQuery({
     queryKey: ['bank-advice', selectedRunId],
@@ -27,8 +28,10 @@ export default function BankAdviceTab({ runs, schoolName }: BankAdviceTabProps) 
   });
 
   const selectedRun = runs.find(r => r.id === parseInt(selectedRunId));
-  const grandTotal = bankGroups.reduce((s, g) => s + g.total_amount, 0);
-  const totalStaff = bankGroups.reduce((s, g) => s + g.staff_count, 0);
+  const bankNames = [...new Set(bankGroups.map(g => g.bank_name))];
+  const filteredGroups = selectedBank === 'all' ? bankGroups : bankGroups.filter(g => g.bank_name === selectedBank);
+  const grandTotal = filteredGroups.reduce((s, g) => s + g.total_amount, 0);
+  const totalStaff = filteredGroups.reduce((s, g) => s + g.staff_count, 0);
 
   const exportBankAdviceCSV = (group: BankAdviceGroup) => {
     const headers = ['No.', 'Employee No', 'Employee Name', 'Account Number', 'Bank Branch', 'Net Amount'];
@@ -53,7 +56,7 @@ export default function BankAdviceTab({ runs, schoolName }: BankAdviceTabProps) 
 
   const exportAllBankAdviceCSV = () => {
     const headers = ['Bank Name', 'Employee No', 'Employee Name', 'Account Number', 'Bank Branch', 'Net Amount'];
-    const rows = bankGroups.flatMap(g =>
+    const rows = filteredGroups.flatMap(g =>
       g.entries.map(e => [
         g.bank_name,
         e.employee_no,
@@ -86,13 +89,13 @@ export default function BankAdviceTab({ runs, schoolName }: BankAdviceTabProps) 
 
   const printAllBankAdvice = () => {
     const period = selectedRun ? `${MONTHS[selectedRun.month - 1]} ${selectedRun.year}` : '';
-    const sections = bankGroups.map(group => {
+    const sections = filteredGroups.map(group => {
       const rows = group.entries.map((e, i) =>
         `<tr><td>${i+1}</td><td>${e.employee_no}</td><td>${e.staff_name}</td><td>${e.account_number}</td><td>${e.bank_branch}</td><td style="text-align:right">${formatCurrency(Number(e.net_salary))}</td></tr>`
       ).join('');
       return `<div style="page-break-after:always"><h2>${group.bank_name}</h2><p>${group.staff_count} staff • Total: ${formatCurrency(group.total_amount)}</p><table><thead><tr><th>No.</th><th>Emp No</th><th>Name</th><th>Account No</th><th>Branch</th><th>Amount (KES)</th></tr></thead><tbody>${rows}</tbody></table></div>`;
     }).join('');
-    const html = `<html><head><title>Bank Advice - All Banks</title><style>body{font-family:Arial;margin:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #333;padding:6px 8px;font-size:12px}th{background:#f0f0f0}h1{font-size:16px}h2{font-size:14px}</style></head><body><h1>${schoolName || 'SCHOOL'} - BANK ADVICE | ${period}</h1><p>Grand Total: ${formatCurrency(grandTotal)} | ${totalStaff} staff | ${bankGroups.length} banks</p>${sections}</body></html>`;
+    const html = `<html><head><title>Bank Advice - All Banks</title><style>body{font-family:Arial;margin:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #333;padding:6px 8px;font-size:12px}th{background:#f0f0f0}h1{font-size:16px}h2{font-size:14px}</style></head><body><h1>${schoolName || 'SCHOOL'} - BANK ADVICE | ${period}</h1><p>Grand Total: ${formatCurrency(grandTotal)} | ${totalStaff} staff | ${filteredGroups.length} banks</p>${sections}</body></html>`;
     const w = window.open('', '_blank');
     if (w) { w.document.write(html); w.document.close(); w.print(); }
   };
@@ -106,7 +109,7 @@ export default function BankAdviceTab({ runs, schoolName }: BankAdviceTabProps) 
             <CardDescription>Generate bank transfer advice grouped by bank/SACCO for salary disbursement</CardDescription>
           </div>
           <div className="flex items-center gap-2">
-            <Select value={selectedRunId} onValueChange={setSelectedRunId}>
+            <Select value={selectedRunId} onValueChange={(v) => { setSelectedRunId(v); setSelectedBank('all'); }}>
               <SelectTrigger className="w-[250px]"><SelectValue placeholder="Select payroll run" /></SelectTrigger>
               <SelectContent>
                 {runs.filter(r => r.status === 'approved' || r.status === 'paid').map(r => (
@@ -116,7 +119,18 @@ export default function BankAdviceTab({ runs, schoolName }: BankAdviceTabProps) 
                 ))}
               </SelectContent>
             </Select>
-            {bankGroups.length > 0 && (
+            {bankNames.length > 1 && (
+              <Select value={selectedBank} onValueChange={setSelectedBank}>
+                <SelectTrigger className="w-[200px]"><SelectValue placeholder="Filter by bank" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Banks</SelectItem>
+                  {bankNames.map(name => (
+                    <SelectItem key={name} value={name}>{name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {filteredGroups.length > 0 && (
               <>
                 <Button variant="outline" onClick={printAllBankAdvice}>
                   <Printer className="mr-2 h-4 w-4" />Print All
@@ -134,15 +148,15 @@ export default function BankAdviceTab({ runs, schoolName }: BankAdviceTabProps) 
           <p className="text-center py-8 text-muted-foreground">Select an approved payroll run to generate bank advice</p>
         )}
 
-        {bankGroups.length > 0 && (
+        {filteredGroups.length > 0 && (
           <div className="grid gap-3 md:grid-cols-3 mb-4">
-            <Card className="p-3"><p className="text-sm text-muted-foreground">Total Banks/SACCOs</p><p className="text-2xl font-bold">{bankGroups.length}</p></Card>
+            <Card className="p-3"><p className="text-sm text-muted-foreground">Total Banks/SACCOs</p><p className="text-2xl font-bold">{filteredGroups.length}</p></Card>
             <Card className="p-3"><p className="text-sm text-muted-foreground">Total Staff</p><p className="text-2xl font-bold">{totalStaff}</p></Card>
             <Card className="p-3"><p className="text-sm text-muted-foreground">Grand Total</p><p className="text-2xl font-bold">{formatCurrency(grandTotal)}</p></Card>
           </div>
         )}
 
-        {bankGroups.map(group => (
+        {filteredGroups.map(group => (
           <Card key={group.bank_name} className="border">
             <CardHeader className="pb-3">
               <div className="flex justify-between items-center">
@@ -193,7 +207,7 @@ export default function BankAdviceTab({ runs, schoolName }: BankAdviceTabProps) 
           </Card>
         ))}
 
-        {selectedRunId && bankGroups.length === 0 && (
+        {selectedRunId && filteredGroups.length === 0 && (
           <p className="text-center py-8 text-muted-foreground">No entries found for this payroll run. Ensure staff have bank details configured.</p>
         )}
       </CardContent>
