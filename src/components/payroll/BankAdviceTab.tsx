@@ -109,7 +109,7 @@ export default function BankAdviceTab({ runs, schoolName }: BankAdviceTabProps) 
             <CardDescription>Generate bank transfer advice grouped by bank/SACCO for salary disbursement</CardDescription>
           </div>
           <div className="flex items-center gap-2">
-            <Select value={selectedRunId} onValueChange={setSelectedRunId}>
+            <Select value={selectedRunId} onValueChange={(v) => { setSelectedRunId(v); setSelectedBank('all'); }}>
               <SelectTrigger className="w-[250px]"><SelectValue placeholder="Select payroll run" /></SelectTrigger>
               <SelectContent>
                 {runs.filter(r => r.status === 'approved' || r.status === 'paid').map(r => (
@@ -119,7 +119,18 @@ export default function BankAdviceTab({ runs, schoolName }: BankAdviceTabProps) 
                 ))}
               </SelectContent>
             </Select>
-            {bankGroups.length > 0 && (
+            {bankNames.length > 1 && (
+              <Select value={selectedBank} onValueChange={setSelectedBank}>
+                <SelectTrigger className="w-[200px]"><SelectValue placeholder="Filter by bank" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Banks</SelectItem>
+                  {bankNames.map(name => (
+                    <SelectItem key={name} value={name}>{name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {filteredGroups.length > 0 && (
               <>
                 <Button variant="outline" onClick={printAllBankAdvice}>
                   <Printer className="mr-2 h-4 w-4" />Print All
