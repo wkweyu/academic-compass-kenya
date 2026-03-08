@@ -99,8 +99,6 @@ export default function ProcurementPage() {
             suppliers={suppliers} items={items} voteHeads={voteHeads} schoolName={schoolName} />
         </TabsContent>
       </Tabs>
-        </TabsContent>
-      </Tabs>
     </div>
   );
 }
