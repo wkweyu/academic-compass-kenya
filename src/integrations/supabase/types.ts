@@ -2115,6 +2115,95 @@ export type Database = {
           },
         ]
       }
+      fleet_trip_logs: {
+        Row: {
+          arrival_location: string | null
+          arrival_time: string | null
+          created_at: string
+          departure_location: string | null
+          departure_time: string | null
+          driver_id: number | null
+          id: number
+          mileage_end: number | null
+          mileage_start: number
+          notes: string | null
+          passenger_count: number
+          route_id: number | null
+          school_id: number
+          status: string
+          trip_date: string
+          trip_type: string
+          vehicle_id: number
+        }
+        Insert: {
+          arrival_location?: string | null
+          arrival_time?: string | null
+          created_at?: string
+          departure_location?: string | null
+          departure_time?: string | null
+          driver_id?: number | null
+          id?: number
+          mileage_end?: number | null
+          mileage_start?: number
+          notes?: string | null
+          passenger_count?: number
+          route_id?: number | null
+          school_id: number
+          status?: string
+          trip_date?: string
+          trip_type?: string
+          vehicle_id: number
+        }
+        Update: {
+          arrival_location?: string | null
+          arrival_time?: string | null
+          created_at?: string
+          departure_location?: string | null
+          departure_time?: string | null
+          driver_id?: number | null
+          id?: number
+          mileage_end?: number | null
+          mileage_start?: number
+          notes?: string | null
+          passenger_count?: number
+          route_id?: number | null
+          school_id?: number
+          status?: string
+          trip_date?: string
+          trip_type?: string
+          vehicle_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fleet_trip_logs_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "fleet_drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fleet_trip_logs_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "transport_transportroute"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fleet_trip_logs_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fleet_trip_logs_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "fleet_vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fleet_vehicles: {
         Row: {
           assigned_driver_id: number | null
