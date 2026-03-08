@@ -93,6 +93,13 @@ export default function ProcurementPage() {
         <TabsContent value="petty-cash">
           <PettyCashTab transactions={pettyCash} voteHeads={voteHeads} refetch={refetchPettyCash} />
         </TabsContent>
+
+        <TabsContent value="reports">
+          <ReportsTab lpos={lpos} vouchers={vouchers} stockBalances={stockBalances}
+            suppliers={suppliers} items={items} voteHeads={voteHeads} schoolName={schoolName} />
+        </TabsContent>
+      </Tabs>
+        </TabsContent>
       </Tabs>
     </div>
   );
