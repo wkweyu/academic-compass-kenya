@@ -135,7 +135,7 @@ export function EnhancedMeritList({ sessionId, classes }: EnhancedMeritListProps
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Merit List - ${selectedClassName}</title>
+          <title>Merit List - ${escapeHtml(selectedClassName)}</title>
           <style>
             body { font-family: Arial, sans-serif; padding: 20px; }
             h1 { text-align: center; margin-bottom: 5px; }
