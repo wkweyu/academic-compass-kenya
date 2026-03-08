@@ -30,19 +30,22 @@ export default function PayrollPage() {
   const [activeTab, setActiveTab] = useState('runs');
   const [isRunOpen, setIsRunOpen] = useState(false);
   const [isSalaryOpen, setIsSalaryOpen] = useState(false);
+  const [editingStructureId, setEditingStructureId] = useState<number | null>(null);
   const [runForm, setRunForm] = useState({ month: (new Date().getMonth() + 1).toString(), year: new Date().getFullYear().toString() });
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
   const [selectedPayslip, setSelectedPayslip] = useState<PayrollEntry | null>(null);
   const [autoCalc, setAutoCalc] = useState(true);
   const [showCoverageWarning, setShowCoverageWarning] = useState(false);
-  const [salaryForm, setSalaryForm] = useState({
+
+  const emptySalaryForm = {
     staff_id: '', basic_salary: '', house_allowance: '0', transport_allowance: '0',
     medical_allowance: '0', responsibility_allowance: '0', other_allowances: '0',
     nhif_deduction: '0', nssf_deduction: '0', paye_deduction: '0',
     housing_levy: '0', nita_levy: '0',
     loan_deduction: '0', other_deductions: '0',
     effective_from: new Date().toISOString().split('T')[0],
-  });
+  };
+  const [salaryForm, setSalaryForm] = useState(emptySalaryForm);
 
   const { data: stats } = useQuery({ queryKey: ['payroll-stats'], queryFn: () => payrollService.getStats() });
   const { data: runs = [], refetch: refetchRuns } = useQuery({ queryKey: ['payroll-runs'], queryFn: () => payrollService.getPayrollRuns() });
@@ -103,10 +106,16 @@ export default function PayrollPage() {
       setShowCoverageWarning(false);
       refetchRuns();
       queryClient.invalidateQueries({ queryKey: ['payroll-stats'] });
-      // Auto-navigate to payslips
       setSelectedRunId(run.id);
       setActiveTab('payslips');
-    } catch (e: any) { toast({ title: 'Error', description: e.message, variant: 'destructive' }); }
+    } catch (e: any) {
+      const msg = e.message || '';
+      if (msg.includes('duplicate key') || msg.includes('unique constraint') || msg.includes('payroll_runs_school_id_month_year_key')) {
+        toast({ title: 'Payroll run already exists', description: `A payroll run for ${MONTHS[parseInt(runForm.month) - 1]} ${runForm.year} already exists. Use the Refresh button on the existing draft run to update it.`, variant: 'destructive' });
+      } else {
+        toast({ title: 'Error', description: msg, variant: 'destructive' });
+      }
+    }
   };
 
   const handleRefreshRun = async (id: number) => {
@@ -142,12 +151,12 @@ export default function PayrollPage() {
     } catch (e: any) { toast({ title: 'Error', description: e.message, variant: 'destructive' }); }
   };
 
-  const handleCreateSalary = async () => {
+  const handleSaveSalary = async () => {
     if (!salaryForm.staff_id || !salaryForm.basic_salary) {
       toast({ title: 'Select staff and enter basic salary', variant: 'destructive' }); return;
     }
     try {
-      await payrollService.createSalaryStructure({
+      const payload: any = {
         staff_id: parseInt(salaryForm.staff_id),
         basic_salary: parseFloat(salaryForm.basic_salary),
         house_allowance: parseFloat(salaryForm.house_allowance) || 0,
@@ -164,14 +173,57 @@ export default function PayrollPage() {
         other_deductions: parseFloat(salaryForm.other_deductions) || 0,
         effective_from: salaryForm.effective_from,
         is_active: true,
-      });
-      toast({ title: 'Salary structure created with statutory deductions auto-calculated' });
+      };
+
+      if (editingStructureId) {
+        // Recalculate statutory if autoCalc
+        const gross = payload.basic_salary + payload.house_allowance + payload.transport_allowance +
+          payload.medical_allowance + payload.responsibility_allowance + payload.other_allowances;
+        const stat = calculateStatutoryDeductions(gross);
+        if (autoCalc) {
+          payload.nhif_deduction = stat.nhif;
+          payload.nssf_deduction = stat.nssf;
+          payload.paye_deduction = stat.paye;
+          payload.housing_levy = stat.housingLevy;
+          payload.nita_levy = stat.nitaLevy;
+        }
+        await payrollService.updateSalaryStructure(editingStructureId, payload);
+        toast({ title: 'Salary structure updated' });
+      } else {
+        await payrollService.createSalaryStructure(payload);
+        toast({ title: 'Salary structure created with statutory deductions auto-calculated' });
+      }
+
       setIsSalaryOpen(false);
-      setSalaryForm({ staff_id: '', basic_salary: '', house_allowance: '0', transport_allowance: '0', medical_allowance: '0', responsibility_allowance: '0', other_allowances: '0', nhif_deduction: '0', nssf_deduction: '0', paye_deduction: '0', housing_levy: '0', nita_levy: '0', loan_deduction: '0', other_deductions: '0', effective_from: new Date().toISOString().split('T')[0] });
+      setEditingStructureId(null);
+      setSalaryForm(emptySalaryForm);
       refetchStructures();
       queryClient.invalidateQueries({ queryKey: ['payroll-stats'] });
       queryClient.invalidateQueries({ queryKey: ['uncovered-staff'] });
     } catch (e: any) { toast({ title: 'Error', description: e.message, variant: 'destructive' }); }
+  };
+
+  const handleEditStructure = (s: any) => {
+    setEditingStructureId(s.id);
+    setSalaryForm({
+      staff_id: s.staff_id?.toString() || '',
+      basic_salary: s.basic_salary?.toString() || '',
+      house_allowance: s.house_allowance?.toString() || '0',
+      transport_allowance: s.transport_allowance?.toString() || '0',
+      medical_allowance: s.medical_allowance?.toString() || '0',
+      responsibility_allowance: s.responsibility_allowance?.toString() || '0',
+      other_allowances: s.other_allowances?.toString() || '0',
+      nhif_deduction: s.nhif_deduction?.toString() || '0',
+      nssf_deduction: s.nssf_deduction?.toString() || '0',
+      paye_deduction: s.paye_deduction?.toString() || '0',
+      housing_levy: s.housing_levy?.toString() || '0',
+      nita_levy: s.nita_levy?.toString() || '0',
+      loan_deduction: s.loan_deduction?.toString() || '0',
+      other_deductions: s.other_deductions?.toString() || '0',
+      effective_from: s.effective_from || new Date().toISOString().split('T')[0],
+    });
+    setAutoCalc(false); // Show current values, let user toggle auto-calc
+    setIsSalaryOpen(true);
   };
 
   const handleDeleteStructure = async (id: number) => {
@@ -434,10 +486,13 @@ export default function PayrollPage() {
                   <CardTitle>Salary Structures</CardTitle>
                   <CardDescription>Configure earnings and deductions for each staff member. PAYE, NHIF, NSSF, Housing Levy & NITA are auto-calculated per Kenyan rates.</CardDescription>
                 </div>
-                <Dialog open={isSalaryOpen} onOpenChange={setIsSalaryOpen}>
+                <Dialog open={isSalaryOpen} onOpenChange={(open) => {
+                  setIsSalaryOpen(open);
+                  if (!open) { setEditingStructureId(null); setSalaryForm(emptySalaryForm); setAutoCalc(true); }
+                }}>
                   <DialogTrigger asChild><Button><Plus className="mr-2 h-4 w-4" />Add Salary Structure</Button></DialogTrigger>
                   <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader><DialogTitle>Create Salary Structure</DialogTitle></DialogHeader>
+                    <DialogHeader><DialogTitle>{editingStructureId ? 'Edit Salary Structure' : 'Create Salary Structure'}</DialogTitle></DialogHeader>
                     <div className="space-y-4 pt-4">
                       <div className="grid grid-cols-2 gap-3">
                         <div><Label>Staff Member *</Label>
@@ -495,7 +550,7 @@ export default function PayrollPage() {
                         <div className="flex justify-between text-base border-t pt-2"><span className="font-bold">NET PAY:</span><span className="font-bold text-lg">{formatCurrency(grossPreview - deductionsPreview)}</span></div>
                       </div>
 
-                      <Button onClick={handleCreateSalary} className="w-full">Create Salary Structure</Button>
+                      <Button onClick={handleSaveSalary} className="w-full">{editingStructureId ? 'Update Salary Structure' : 'Create Salary Structure'}</Button>
                     </div>
                   </DialogContent>
                 </Dialog>
@@ -522,6 +577,7 @@ export default function PayrollPage() {
                         <TableCell>
                           <div className="font-medium">{s.staff_name}</div>
                           <div className="text-xs text-muted-foreground">{s.employee_no} • {s.department}</div>
+                          {!s.bank_name && <div className="text-xs text-destructive">⚠ No bank details</div>}
                         </TableCell>
                         <TableCell className="text-right">{formatCurrency(Number(s.basic_salary))}</TableCell>
                         <TableCell className="text-right">{formatCurrency(allowances)}</TableCell>
@@ -535,7 +591,10 @@ export default function PayrollPage() {
                         <TableCell className="text-right font-medium">{formatCurrency(Number(s.net_salary))}</TableCell>
                         <TableCell><Badge variant={s.is_active ? 'default' : 'outline'}>{s.is_active ? 'Active' : 'Inactive'}</Badge></TableCell>
                         <TableCell>
-                          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleDeleteStructure(s.id)}>Delete</Button>
+                          <div className="flex gap-1">
+                            <Button size="sm" variant="ghost" onClick={() => handleEditStructure(s)}>Edit</Button>
+                            <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleDeleteStructure(s.id)}>Delete</Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
