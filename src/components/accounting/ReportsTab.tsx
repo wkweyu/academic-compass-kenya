@@ -58,7 +58,7 @@ export default function ReportsTab() {
         <Select value={fiscalYearId} onValueChange={setFiscalYearId}>
           <SelectTrigger className="w-44"><SelectValue placeholder="All periods" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All periods</SelectItem>
+            <SelectItem value="__all__">All periods</SelectItem>
             {fiscalYears.map(fy => <SelectItem key={fy.id} value={fy.id.toString()}>{fy.name}</SelectItem>)}
           </SelectContent>
         </Select>
