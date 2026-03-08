@@ -2626,11 +2626,13 @@ export type Database = {
           employee_no: string
           gross_salary: number
           house_allowance: number
+          housing_levy: number | null
           id: number
           loan_deduction: number
           medical_allowance: number
           net_salary: number
           nhif_deduction: number
+          nita_levy: number | null
           nssf_deduction: number
           other_allowances: number
           other_deductions: number
@@ -2655,11 +2657,13 @@ export type Database = {
           employee_no?: string
           gross_salary?: number
           house_allowance?: number
+          housing_levy?: number | null
           id?: never
           loan_deduction?: number
           medical_allowance?: number
           net_salary?: number
           nhif_deduction?: number
+          nita_levy?: number | null
           nssf_deduction?: number
           other_allowances?: number
           other_deductions?: number
@@ -2684,11 +2688,13 @@ export type Database = {
           employee_no?: string
           gross_salary?: number
           house_allowance?: number
+          housing_levy?: number | null
           id?: never
           loan_deduction?: number
           medical_allowance?: number
           net_salary?: number
           nhif_deduction?: number
+          nita_levy?: number | null
           nssf_deduction?: number
           other_allowances?: number
           other_deductions?: number
@@ -2809,12 +2815,14 @@ export type Database = {
           created_at: string
           effective_from: string
           house_allowance: number
+          housing_levy: number | null
           id: number
           is_active: boolean
           loan_deduction: number
           medical_allowance: number
           net_salary: number | null
           nhif_deduction: number
+          nita_levy: number | null
           nssf_deduction: number
           other_allowances: number
           other_deductions: number
@@ -2830,12 +2838,14 @@ export type Database = {
           created_at?: string
           effective_from?: string
           house_allowance?: number
+          housing_levy?: number | null
           id?: never
           is_active?: boolean
           loan_deduction?: number
           medical_allowance?: number
           net_salary?: number | null
           nhif_deduction?: number
+          nita_levy?: number | null
           nssf_deduction?: number
           other_allowances?: number
           other_deductions?: number
@@ -2851,12 +2861,14 @@ export type Database = {
           created_at?: string
           effective_from?: string
           house_allowance?: number
+          housing_levy?: number | null
           id?: never
           is_active?: boolean
           loan_deduction?: number
           medical_allowance?: number
           net_salary?: number | null
           nhif_deduction?: number
+          nita_levy?: number | null
           nssf_deduction?: number
           other_allowances?: number
           other_deductions?: number
@@ -2880,6 +2892,56 @@ export type Database = {
             columns: ["staff_id"]
             isOneToOne: false
             referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payroll_statutory_rates: {
+        Row: {
+          bracket_data: Json | null
+          created_at: string | null
+          effective_from: string
+          effective_to: string | null
+          id: number
+          is_active: boolean | null
+          rate_name: string
+          rate_type: string
+          rate_value: number | null
+          school_id: number
+          updated_at: string | null
+        }
+        Insert: {
+          bracket_data?: Json | null
+          created_at?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: number
+          is_active?: boolean | null
+          rate_name: string
+          rate_type: string
+          rate_value?: number | null
+          school_id: number
+          updated_at?: string | null
+        }
+        Update: {
+          bracket_data?: Json | null
+          created_at?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: number
+          is_active?: boolean | null
+          rate_name?: string
+          rate_type?: string
+          rate_value?: number | null
+          school_id?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_statutory_rates_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
             referencedColumns: ["id"]
           },
         ]
