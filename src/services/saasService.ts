@@ -209,4 +209,14 @@ export const saasService = {
     if (error) throw error;
     return data;
   },
+
+  async updateSchoolDetails(schoolId: number, details: {
+    name?: string; email?: string; phone?: string; city?: string; country?: string;
+  }) {
+    const { error } = await supabase
+      .from("schools_school" as any)
+      .update(details as any)
+      .eq("id", schoolId);
+    if (error) throw error;
+  },
 };
