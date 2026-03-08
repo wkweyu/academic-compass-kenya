@@ -76,6 +76,11 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
     queryFn: () => classService.getStreams(),
   });
 
+  const { data: transportRoutes = [] } = useQuery({
+    queryKey: ['transport-routes'],
+    queryFn: getTransportRoutes,
+  });
+
   // Fetch term settings to auto-populate current term
   const { data: termSettings = [] } = useQuery({
     queryKey: ['termSettings'],
