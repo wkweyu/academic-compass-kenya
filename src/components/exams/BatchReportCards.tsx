@@ -258,7 +258,7 @@ export function BatchReportCards({ session }: BatchReportCardsProps) {
             <tbody>
               ${marks.map(m => `
                 <tr>
-                  <td>${m.subject_name} (${m.subject_code})</td>
+                  <td>${escapeHtml(m.subject_name)} (${escapeHtml(m.subject_code)})</td>
                   <td class="center">${m.marks}</td>
                   <td class="center">${m.max_marks}</td>
                   <td class="center">${((m.marks / m.max_marks) * 100).toFixed(0)}%</td>
