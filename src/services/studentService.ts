@@ -249,10 +249,9 @@ async function generateAdmissionNumber(): Promise<string> {
 
 export const updateStudent = async (id: string, studentData: Partial<Student>): Promise<Student | null> => {
   try {
+    // Only include columns that actually exist in the students table
     const updateData: any = {
       full_name: studentData.full_name,
-      first_name: studentData.first_name,
-      last_name: studentData.last_name,
       date_of_birth: studentData.date_of_birth,
       gender: studentData.gender,
       guardian_name: studentData.guardian_name,
@@ -262,22 +261,11 @@ export const updateStudent = async (id: string, studentData: Partial<Student>): 
       current_class_id: studentData.current_class ? parseInt(studentData.current_class) : null,
       current_stream_id: studentData.current_stream ? parseInt(studentData.current_stream) : null,
       level: studentData.level,
-      academic_year: studentData.academic_year,
-      term: studentData.term,
-      upi_number: studentData.upi_number,
-      status: studentData.status,
+      admission_year: studentData.admission_year,
       is_on_transport: studentData.is_on_transport,
       transport_route_id: studentData.transport_route && !isNaN(Number(studentData.transport_route)) ? Number(studentData.transport_route) : null,
-      transport_type: studentData.transport_type,
+      transport_type: studentData.is_on_transport ? studentData.transport_type : null,
       photo: studentData.photo,
-      photo_url: studentData.photo_url,
-      address: studentData.address,
-      phone: studentData.phone,
-      email: studentData.email,
-      medical_conditions: studentData.medical_conditions,
-      emergency_contact: studentData.emergency_contact,
-      emergency_phone: studentData.emergency_phone,
-      previous_school: studentData.previous_school
     };
 
     // Remove undefined values
