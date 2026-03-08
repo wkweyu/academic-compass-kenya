@@ -502,6 +502,113 @@ export function FeesReportsModule() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Fees Register */}
+        <TabsContent value="register">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <CardTitle>Fees Register</CardTitle>
+                  <CardDescription>Votehead-wise fee breakdown per student for a class</CardDescription>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Select value={registerClassId} onValueChange={setRegisterClassId}>
+                    <SelectTrigger className="w-40"><SelectValue placeholder="Select class" /></SelectTrigger>
+                    <SelectContent>
+                      {classes.map((c: any) => (
+                        <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={selectedTerm} onValueChange={setSelectedTerm}>
+                    <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">Term 1</SelectItem>
+                      <SelectItem value="2">Term 2</SelectItem>
+                      <SelectItem value="3">Term 3</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input type="number" value={selectedYear} onChange={e => setSelectedYear(e.target.value)} className="w-24" />
+                  <Button variant="outline" size="sm" onClick={() => printReport('Fees Register - ' + (classes.find((c: any) => String(c.id) === registerClassId) as any)?.name + ' Term ' + selectedTerm + ' ' + selectedYear)}>
+                    <Printer className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {!registerClassId && (
+                <p className="text-center py-8 text-muted-foreground">Select a class to view the fees register</p>
+              )}
+              {registerClassId && registerLoading && (
+                <p className="text-center py-8 text-muted-foreground">Loading...</p>
+              )}
+              {registerData && registerData.rows.length > 0 && (
+                <div id="report-print-area" className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="sticky left-0 bg-background z-10">#</TableHead>
+                        <TableHead className="sticky left-8 bg-background z-10 min-w-[180px]">Student</TableHead>
+                        {registerData.voteheads.map((vh: any) => (
+                          <TableHead key={vh.id} className="text-right min-w-[100px]">{vh.name}</TableHead>
+                        ))}
+                        <TableHead className="text-right min-w-[100px] font-bold">Total Invoiced</TableHead>
+                        <TableHead className="text-right min-w-[100px] font-bold">Total Paid</TableHead>
+                        <TableHead className="text-right min-w-[100px] font-bold">Balance</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {registerData.rows.map((row: any, idx: number) => (
+                        <TableRow key={row.student_id}>
+                          <TableCell className="sticky left-0 bg-background">{idx + 1}</TableCell>
+                          <TableCell className="sticky left-8 bg-background">
+                            <div className="font-medium text-sm">{row.full_name}</div>
+                            <div className="text-xs text-muted-foreground">{row.admission_number}</div>
+                          </TableCell>
+                          {registerData.voteheads.map((vh: any) => {
+                            const vd = row.voteheads[vh.id];
+                            return (
+                              <TableCell key={vh.id} className="text-right text-sm">
+                                {vd && vd.invoiced > 0 ? (
+                                  <div>
+                                    <div>{formatCurrency(vd.invoiced)}</div>
+                                    {vd.paid > 0 && <div className="text-xs text-green-600">-{formatCurrency(vd.paid)}</div>}
+                                    {vd.balance > 0 && <div className="text-xs font-semibold text-destructive">{formatCurrency(vd.balance)}</div>}
+                                  </div>
+                                ) : '-'}
+                              </TableCell>
+                            );
+                          })}
+                          <TableCell className="text-right font-medium">{formatCurrency(row.totalInvoiced)}</TableCell>
+                          <TableCell className="text-right font-medium text-green-600">{formatCurrency(row.totalPaid)}</TableCell>
+                          <TableCell className={`text-right font-bold ${row.totalBalance > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                            {formatCurrency(row.totalBalance)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {/* Totals row */}
+                      <TableRow className="font-bold border-t-2 bg-muted/30">
+                        <TableCell className="sticky left-0 bg-muted/30"></TableCell>
+                        <TableCell className="sticky left-8 bg-muted/30">TOTALS ({registerData.rows.length} students)</TableCell>
+                        {registerData.voteheads.map((vh: any) => {
+                          const totalVh = registerData.rows.reduce((s: number, r: any) => s + (r.voteheads[vh.id]?.balance || 0), 0);
+                          return <TableCell key={vh.id} className="text-right">{formatCurrency(totalVh)}</TableCell>;
+                        })}
+                        <TableCell className="text-right">{formatCurrency(registerData.rows.reduce((s: number, r: any) => s + r.totalInvoiced, 0))}</TableCell>
+                        <TableCell className="text-right text-green-600">{formatCurrency(registerData.rows.reduce((s: number, r: any) => s + r.totalPaid, 0))}</TableCell>
+                        <TableCell className="text-right text-destructive">{formatCurrency(registerData.rows.reduce((s: number, r: any) => s + r.totalBalance, 0))}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+              {registerData && registerData.rows.length === 0 && registerClassId && (
+                <p className="text-center py-8 text-muted-foreground">No fee data found for the selected class/term/year</p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
     </div>
   );
