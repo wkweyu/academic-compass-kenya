@@ -131,10 +131,14 @@ export const saasService = {
     });
   },
 
-  async isPlatformAdmin(): Promise<boolean> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return false;
-    const { data, error } = await supabase.rpc("has_role", { _user_id: user.id, _role: "platform_admin" });
+  async isPlatformAdmin(userId?: string): Promise<boolean> {
+    let uid = userId;
+    if (!uid) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return false;
+      uid = user.id;
+    }
+    const { data, error } = await supabase.rpc("has_role", { _user_id: uid, _role: "platform_admin" });
     if (error) {
       console.error("isPlatformAdmin RPC error:", error);
       return false;
