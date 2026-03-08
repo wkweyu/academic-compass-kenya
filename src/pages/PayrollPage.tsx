@@ -30,19 +30,22 @@ export default function PayrollPage() {
   const [activeTab, setActiveTab] = useState('runs');
   const [isRunOpen, setIsRunOpen] = useState(false);
   const [isSalaryOpen, setIsSalaryOpen] = useState(false);
+  const [editingStructureId, setEditingStructureId] = useState<number | null>(null);
   const [runForm, setRunForm] = useState({ month: (new Date().getMonth() + 1).toString(), year: new Date().getFullYear().toString() });
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
   const [selectedPayslip, setSelectedPayslip] = useState<PayrollEntry | null>(null);
   const [autoCalc, setAutoCalc] = useState(true);
   const [showCoverageWarning, setShowCoverageWarning] = useState(false);
-  const [salaryForm, setSalaryForm] = useState({
+
+  const emptySalaryForm = {
     staff_id: '', basic_salary: '', house_allowance: '0', transport_allowance: '0',
     medical_allowance: '0', responsibility_allowance: '0', other_allowances: '0',
     nhif_deduction: '0', nssf_deduction: '0', paye_deduction: '0',
     housing_levy: '0', nita_levy: '0',
     loan_deduction: '0', other_deductions: '0',
     effective_from: new Date().toISOString().split('T')[0],
-  });
+  };
+  const [salaryForm, setSalaryForm] = useState(emptySalaryForm);
 
   const { data: stats } = useQuery({ queryKey: ['payroll-stats'], queryFn: () => payrollService.getStats() });
   const { data: runs = [], refetch: refetchRuns } = useQuery({ queryKey: ['payroll-runs'], queryFn: () => payrollService.getPayrollRuns() });
