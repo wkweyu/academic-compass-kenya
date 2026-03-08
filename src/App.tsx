@@ -27,6 +27,7 @@ import TermReportsPage from "./pages/TermReportsPage";
 import FeesPage from "./pages/FeesPage";
 import PromotionsPage from "./pages/PromotionsPage";
 import ComingSoonPage from "./pages/ComingSoonPage";
+import TransportPage from "./pages/TransportPage";
 import SettingsPage from "./pages/SettingsPage";
 import StaffProfilePage from "./pages/StaffProfilePage";
 import ProcurementPage from "./pages/ProcurementPage";
@@ -83,7 +84,7 @@ const App = () => (
                 <Route path="/attendance/biometric" element={<BiometricIntegration />} />
                 <Route path="/attendance/sms" element={<SmsIntegration />} />
                 <Route path="/grading" element={<ComingSoonPage title="Grading" />} />
-                <Route path="/transport" element={<ComingSoonPage title="Transport" />} />
+                <Route path="/transport" element={<TransportPage />} />
                 <Route path="/procurement" element={<ProcurementPage />} />
                 <Route path="/payroll" element={<PayrollPage />} />
                 <Route path="/accounting" element={<AccountingPage />} />

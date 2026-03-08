@@ -11,7 +11,8 @@ export const getStudents = async (
       .select(`
         *,
         classes:current_class_id(id, name, grade_level),
-        streams:current_stream_id(id, name)
+        streams:current_stream_id(id, name),
+        transport_transportroute:transport_route_id(id, name, one_way_charge, two_way_charge)
       `);
     
     if (params.search) {
@@ -60,8 +61,9 @@ export const getStudents = async (
       status: item.status,
       is_active: item.is_active,
       is_on_transport: item.is_on_transport || false,
-      transport_route: item.transport_route,
+      transport_route: item.transport_route_id,
       transport_type: item.transport_type,
+      transport_route_name: item.transport_transportroute?.name || null,
       stream: item.streams?.name || '',
       photo: item.photo,
       photo_url: item.photo_url,
@@ -265,7 +267,7 @@ export const updateStudent = async (id: string, studentData: Partial<Student>): 
       upi_number: studentData.upi_number,
       status: studentData.status,
       is_on_transport: studentData.is_on_transport,
-      transport_route: studentData.transport_route,
+      transport_route_id: studentData.transport_route ? parseInt(String(studentData.transport_route)) : null,
       transport_type: studentData.transport_type,
       photo: studentData.photo,
       photo_url: studentData.photo_url,
