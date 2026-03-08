@@ -19,6 +19,7 @@ interface BankAdviceTabProps {
 
 export default function BankAdviceTab({ runs, schoolName }: BankAdviceTabProps) {
   const [selectedRunId, setSelectedRunId] = useState<string>('');
+  const [selectedBank, setSelectedBank] = useState<string>('all');
 
   const { data: bankGroups = [] } = useQuery({
     queryKey: ['bank-advice', selectedRunId],
