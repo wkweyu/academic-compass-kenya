@@ -38,7 +38,7 @@ export function printReceipt(props: PaymentReceiptPrintProps) {
   
   const allocationsHtml = (receipt.allocations || []).map(a => `
     <tr>
-      <td style="padding: 6px 12px; border-bottom: 1px solid #eee;">${a.vote_head_name || 'Fee'}</td>
+      <td style="padding: 6px 12px; border-bottom: 1px solid #eee;">${escapeHtml(a.vote_head_name || 'Fee')}</td>
       <td style="padding: 6px 12px; border-bottom: 1px solid #eee; text-align: right;">${formatCurrency(Number(a.amount))}</td>
     </tr>
   `).join('');
