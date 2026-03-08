@@ -56,7 +56,7 @@ export default function BankAdviceTab({ runs, schoolName }: BankAdviceTabProps) 
 
   const exportAllBankAdviceCSV = () => {
     const headers = ['Bank Name', 'Employee No', 'Employee Name', 'Account Number', 'Bank Branch', 'Net Amount'];
-    const rows = bankGroups.flatMap(g =>
+    const rows = filteredGroups.flatMap(g =>
       g.entries.map(e => [
         g.bank_name,
         e.employee_no,
