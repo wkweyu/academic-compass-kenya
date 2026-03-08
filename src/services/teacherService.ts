@@ -121,11 +121,22 @@ export const staffService = {
   async createStaff(data: Omit<Staff, 'id' | 'created_at' | 'updated_at' | 'full_name' | 'years_of_service' | 'gross_salary'>): Promise<Staff> {
     console.log('staffService.createStaff called with data:', data);
     try {
-      // Get the user's school_id
-      const { data: schoolId } = await supabase.rpc('get_user_school_id');
-      
+      // Resolve user's school_id with fallback for environments where one RPC may fail
+      const { data: schoolIdFromRpc, error: schoolIdError } = await supabase.rpc('get_user_school_id');
+      let schoolId = Number(schoolIdFromRpc ?? 0);
+
       if (!schoolId) {
-        throw new Error('User does not have a school assigned');
+        const { data: schoolProfileRows, error: schoolProfileError } = await supabase.rpc('get_or_create_school_profile');
+        const fallbackSchoolId = Array.isArray(schoolProfileRows) ? Number(schoolProfileRows[0]?.id ?? 0) : 0;
+        schoolId = fallbackSchoolId;
+
+        if (!schoolId) {
+          throw new Error(
+            schoolIdError?.message ||
+            schoolProfileError?.message ||
+            'User does not have a school assigned'
+          );
+        }
       }
 
       const now = new Date().toISOString();
