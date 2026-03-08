@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Bus, Users, FileText, Search, Receipt } from 'lucide-react';
+import { Plus, Pencil, Trash2, Bus, Users, FileText, Search, Receipt, Truck, UserCheck, Fuel, BarChart3 } from 'lucide-react';
 import { TermManager } from '@/utils/termManager';
 import {
   getTransportRoutes,
@@ -26,6 +26,10 @@ import {
   TransportRoute,
 } from '@/services/transportService';
 import { supabase } from '@/integrations/supabase/client';
+import FleetVehiclesTab from '@/components/fleet/FleetVehiclesTab';
+import FleetDriversTab from '@/components/fleet/FleetDriversTab';
+import FuelVouchersTab from '@/components/fleet/FuelVouchersTab';
+import FleetReportsTab from '@/components/fleet/FleetReportsTab';
 
 export default function TransportModule() {
   const [tab, setTab] = useState('routes');
@@ -33,15 +37,23 @@ export default function TransportModule() {
   return (
     <div className="space-y-6">
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
+        <TabsList className="flex-wrap">
           <TabsTrigger value="routes" className="gap-1"><Bus className="h-4 w-4" /> Routes</TabsTrigger>
           <TabsTrigger value="students" className="gap-1"><Users className="h-4 w-4" /> Students</TabsTrigger>
-          <TabsTrigger value="reports" className="gap-1"><FileText className="h-4 w-4" /> Reports</TabsTrigger>
+          <TabsTrigger value="reports" className="gap-1"><FileText className="h-4 w-4" /> Billing</TabsTrigger>
+          <TabsTrigger value="fleet" className="gap-1"><Truck className="h-4 w-4" /> Fleet</TabsTrigger>
+          <TabsTrigger value="drivers" className="gap-1"><UserCheck className="h-4 w-4" /> Drivers</TabsTrigger>
+          <TabsTrigger value="vouchers" className="gap-1"><Fuel className="h-4 w-4" /> Fuel Vouchers</TabsTrigger>
+          <TabsTrigger value="fleet-reports" className="gap-1"><BarChart3 className="h-4 w-4" /> Fleet Reports</TabsTrigger>
         </TabsList>
 
         <TabsContent value="routes"><RoutesTab /></TabsContent>
         <TabsContent value="students"><StudentsTab /></TabsContent>
         <TabsContent value="reports"><ReportsTab /></TabsContent>
+        <TabsContent value="fleet"><FleetVehiclesTab /></TabsContent>
+        <TabsContent value="drivers"><FleetDriversTab /></TabsContent>
+        <TabsContent value="vouchers"><FuelVouchersTab /></TabsContent>
+        <TabsContent value="fleet-reports"><FleetReportsTab /></TabsContent>
       </Tabs>
     </div>
   );
