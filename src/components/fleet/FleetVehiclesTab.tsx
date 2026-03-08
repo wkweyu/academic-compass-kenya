@@ -194,7 +194,7 @@ export default function FleetVehiclesTab() {
               <Select value={form.assigned_route_id} onValueChange={(v) => setForm({ ...form, assigned_route_id: v })}>
                 <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="__none__">None</SelectItem>
                   {routes.map((r) => <SelectItem key={r.id} value={String(r.id)}>{r.name}</SelectItem>)}
                 </SelectContent>
               </Select>
