@@ -476,7 +476,7 @@ export function TermReportCard({ classId, termId, academicYear }: TermReportCard
           <div class="exam-list">
             ${student.exams.map(e => `
               <div class="exam-item">
-                <span class="exam-name">${e.session_name}</span>
+                <span class="exam-name">${escapeHtml(e.session_name)}</span>
                 <span class="exam-score">${e.average_percentage.toFixed(1)}% (${e.overall_grade})</span>
               </div>
             `).join('')}
