@@ -618,7 +618,7 @@ export const feesService = {
     }
 
 
-    // If there's remaining amount (overpayment), record as excess on first votehead
+    // If there's remaining amount (overpayment/prepayment), record as advance
     if (remaining > 0) {
       const firstVh = (voteheads || [])[0];
       await supabase.from('fees_allocation').insert({
@@ -627,18 +627,13 @@ export const feesService = {
         vote_head_id: firstVh?.id || 0,
         amount: remaining,
       });
-      const existingAlloc = allocations.find(a => a.vote_head_id === firstVh?.id);
-      if (existingAlloc) {
-        existingAlloc.amount += remaining;
-      } else {
-        allocations.push({
-          id: 0,
-          receipt_id: receiptId,
-          vote_head_id: firstVh?.id || 0,
-          vote_head_name: firstVh?.name || 'Excess',
-          amount: remaining,
-        });
-      }
+      allocations.push({
+        id: 0,
+        receipt_id: receiptId,
+        vote_head_id: firstVh?.id || 0,
+        vote_head_name: 'Advance/Prepayment',
+        amount: remaining,
+      });
     }
 
     return allocations;
