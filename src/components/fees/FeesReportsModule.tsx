@@ -24,6 +24,82 @@ export function FeesReportsModule() {
   const [dateTo, setDateTo] = useState('');
   const [selectedTerm, setSelectedTerm] = useState('1');
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+  const [registerClassId, setRegisterClassId] = useState('');
+
+  // Classes list for register filter
+  const { data: classes = [] } = useQuery({
+    queryKey: ['classes-list'],
+    queryFn: async () => {
+      const { data } = await supabase.from('classes').select('id, name').order('name');
+      return data || [];
+    },
+  });
+
+  // Fees Register: per-student votehead breakdown for a class/term/year
+  const { data: registerData, isLoading: registerLoading } = useQuery({
+    queryKey: ['fees-register', registerClassId, selectedTerm, selectedYear],
+    queryFn: async () => {
+      const term = parseInt(selectedTerm);
+      const year = parseInt(selectedYear);
+      const classId = parseInt(registerClassId);
+
+      const { data: students } = await supabase
+        .from('students')
+        .select('id, full_name, admission_number')
+        .eq('current_class_id', classId)
+        .eq('is_active', true)
+        .order('full_name');
+
+      if (!students?.length) return { students: [], voteheads: [], rows: [] };
+
+      const studentIds = students.map(s => s.id);
+
+      const { data: voteheads } = await supabase
+        .from('fees_votehead')
+        .select('id, name, priority')
+        .eq('fee_applicable', true)
+        .order('priority');
+
+      const { data: balances } = await supabase
+        .from('fees_feebalance')
+        .select('student_id, vote_head_id, amount_invoiced, amount_paid, closing_balance')
+        .in('student_id', studentIds)
+        .eq('term', term)
+        .eq('year', year);
+
+      const balanceMap: Record<string, any> = {};
+      (balances || []).forEach(b => {
+        balanceMap[`${b.student_id}-${b.vote_head_id}`] = b;
+      });
+
+      const rows = students.map(s => {
+        const vhData: Record<number, { invoiced: number; paid: number; balance: number }> = {};
+        let totalInvoiced = 0, totalPaid = 0, totalBalance = 0;
+        (voteheads || []).forEach(vh => {
+          const b = balanceMap[`${s.id}-${vh.id}`];
+          const invoiced = b ? Number(b.amount_invoiced) : 0;
+          const paid = b ? Number(b.amount_paid) : 0;
+          const balance = b ? Number(b.closing_balance) : 0;
+          vhData[vh.id] = { invoiced, paid, balance };
+          totalInvoiced += invoiced;
+          totalPaid += paid;
+          totalBalance += balance;
+        });
+        return {
+          student_id: s.id,
+          full_name: s.full_name,
+          admission_number: s.admission_number,
+          voteheads: vhData,
+          totalInvoiced,
+          totalPaid,
+          totalBalance,
+        };
+      });
+
+      return { voteheads: voteheads || [], rows };
+    },
+    enabled: reportTab === 'register' && !!registerClassId,
+  });
 
   // Daily Collection Report
   const { data: dailyData } = useQuery({
