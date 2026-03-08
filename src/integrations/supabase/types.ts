@@ -2046,6 +2046,75 @@ export type Database = {
           },
         ]
       }
+      fleet_maintenance_records: {
+        Row: {
+          cost: number
+          created_at: string
+          description: string
+          id: number
+          invoice_number: string | null
+          mileage_at_service: number
+          next_service_date: string | null
+          next_service_mileage: number | null
+          parts_replaced: string | null
+          school_id: number
+          service_date: string
+          service_type: string
+          status: string
+          vehicle_id: number
+          vendor: string | null
+        }
+        Insert: {
+          cost?: number
+          created_at?: string
+          description?: string
+          id?: number
+          invoice_number?: string | null
+          mileage_at_service?: number
+          next_service_date?: string | null
+          next_service_mileage?: number | null
+          parts_replaced?: string | null
+          school_id: number
+          service_date?: string
+          service_type?: string
+          status?: string
+          vehicle_id: number
+          vendor?: string | null
+        }
+        Update: {
+          cost?: number
+          created_at?: string
+          description?: string
+          id?: number
+          invoice_number?: string | null
+          mileage_at_service?: number
+          next_service_date?: string | null
+          next_service_mileage?: number | null
+          parts_replaced?: string | null
+          school_id?: number
+          service_date?: string
+          service_type?: string
+          status?: string
+          vehicle_id?: number
+          vendor?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fleet_maintenance_records_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fleet_maintenance_records_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "fleet_vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fleet_vehicles: {
         Row: {
           assigned_driver_id: number | null
