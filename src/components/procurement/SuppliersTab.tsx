@@ -173,7 +173,7 @@ export default function SuppliersTab({ suppliers, refetch }: Props) {
       </Dialog>
 
       <DeleteConfirmationDialog
-        open={!!deleteId}
+        isOpen={!!deleteId}
         onOpenChange={(o) => { if (!o) setDeleteId(null); }}
         onConfirm={handleDelete}
         title="Delete Supplier"

@@ -195,11 +195,11 @@ export default function ItemsTab({ items, categories, suppliers, stockBalances, 
         </CardContent>
       </Card>
 
-      <DeleteConfirmationDialog open={!!deleteId} onOpenChange={(o) => { if (!o) setDeleteId(null); }}
+      <DeleteConfirmationDialog isOpen={!!deleteId} onOpenChange={(o) => { if (!o) setDeleteId(null); }}
         onConfirm={async () => { if (deleteId) { await procurementService.deleteItem(deleteId); toast({ title: 'Item deleted' }); setDeleteId(null); refetchItems(); } }}
         title="Delete Item" description="This will permanently delete this item." />
 
-      <DeleteConfirmationDialog open={!!deleteCatId} onOpenChange={(o) => { if (!o) setDeleteCatId(null); }}
+      <DeleteConfirmationDialog isOpen={!!deleteCatId} onOpenChange={(o) => { if (!o) setDeleteCatId(null); }}
         onConfirm={async () => { if (deleteCatId) { await procurementService.deleteItemCategory(deleteCatId); toast({ title: 'Category deleted' }); setDeleteCatId(null); refetchCategories(); } }}
         title="Delete Category" description="This will delete this category. Items using it must be reassigned first." />
     </>
