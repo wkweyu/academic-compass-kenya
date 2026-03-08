@@ -99,6 +99,7 @@ Deno.serve(async (req) => {
   }
 
   try {
+    console.log("onboarding-notification: request received");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const brevoApiKey = Deno.env.get("BREVO_API_KEY");
@@ -137,7 +138,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { school_id, school_code, school_name, email, contact_person, admin_email, admin_password } = await req.json();
+    const body = await req.json();
+    console.log("onboarding-notification: body received", JSON.stringify({ school_id: body.school_id, school_code: body.school_code, email: body.email }));
+    const { school_id, school_code, school_name, email, contact_person, admin_email, admin_password } = body;
 
     const results: { email_sent: boolean; email_error?: string } = { email_sent: false };
 
@@ -157,7 +160,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const loginUrl = `${req.headers.get("origin") || "https://academic-compass-kenya.lovable.app"}/auth`;
+    const origin = req.headers.get("origin") || req.headers.get("referer") || "https://academic-compass-kenya.lovable.app";
+    const loginUrl = `${origin.replace(/\/$/, "")}/auth`;
+    console.log("onboarding-notification: loginUrl =", loginUrl);
     const htmlBody = buildEmailHtml(school_name, school_code, contact_person, loginUrl, admin_email, admin_password);
 
     try {
@@ -176,12 +181,14 @@ Deno.serve(async (req) => {
         }),
       });
 
+      const brevoStatus = brevoRes.status;
+      const brevoBody = await brevoRes.text();
+      console.log("onboarding-notification: Brevo response status =", brevoStatus, "body =", brevoBody);
       if (brevoRes.ok) {
         results.email_sent = true;
       } else {
-        const errBody = await brevoRes.text();
-        console.error("Brevo API error:", errBody);
-        results.email_error = errBody;
+        console.error("Brevo API error:", brevoBody);
+        results.email_error = brevoBody;
       }
     } catch (e: any) {
       console.error("Email send error:", e);

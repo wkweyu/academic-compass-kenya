@@ -191,7 +191,14 @@ export const saasService = {
         admin_email: adminEmail, admin_password: adminPassword,
       },
     });
-    if (error) throw error;
+    if (error) {
+      console.error("onboarding-notification invoke error:", error);
+      throw error;
+    }
+    if (data && !data.email_sent) {
+      console.error("onboarding-notification failed:", data.email_error);
+      throw new Error(data.email_error || "Email sending failed");
+    }
     return data;
   },
 
