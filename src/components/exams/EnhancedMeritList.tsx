@@ -158,7 +158,7 @@ export function EnhancedMeritList({ sessionId, classes }: EnhancedMeritListProps
         </head>
         <body>
           <h1>${viewType === 'stream' ? 'Stream' : 'Class'} Merit List</h1>
-          <h2>${selectedClassName}${streamName ? ` - ${streamName}` : ''}</h2>
+          <h2>${escapeHtml(selectedClassName)}${streamName ? ` - ${escapeHtml(streamName)}` : ''}</h2>
           
           <div class="stats">
             <div class="stat">
@@ -170,7 +170,7 @@ export function EnhancedMeritList({ sessionId, classes }: EnhancedMeritListProps
               <div class="stat-label">CLASS AVERAGE</div>
             </div>
             <div class="stat">
-              <div class="stat-value">${statistics.topPerformer?.full_name || '-'}</div>
+              <div class="stat-value">${escapeHtml(statistics.topPerformer?.full_name || '-')}</div>
               <div class="stat-label">TOP PERFORMER</div>
             </div>
           </div>
