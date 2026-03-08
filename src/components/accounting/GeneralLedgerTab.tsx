@@ -29,7 +29,7 @@ export default function GeneralLedgerTab() {
       accountId: parseInt(selectedAccountId),
       startDate: startDate || undefined,
       endDate: endDate || undefined,
-      fiscalYearId: fiscalYearId ? parseInt(fiscalYearId) : undefined,
+      fiscalYearId: fiscalYearId && fiscalYearId !== '__all__' ? parseInt(fiscalYearId) : undefined,
     }),
     enabled: !!selectedAccountId,
   });
