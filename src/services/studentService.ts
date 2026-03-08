@@ -125,7 +125,7 @@ export const getStudentById = async (id: string): Promise<Student | null> => {
       status: data.status,
       is_active: data.is_active,
       is_on_transport: data.is_on_transport || false,
-      transport_route: data.transport_route,
+      transport_route: data.transport_route_id,
       transport_type: data.transport_type,
       stream: data.streams?.name || '',
       photo: data.photo,
