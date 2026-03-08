@@ -592,12 +592,12 @@ export function FeesReportsModule() {
                         <TableCell className="sticky left-0 bg-muted/30"></TableCell>
                         <TableCell className="sticky left-8 bg-muted/30">TOTALS ({registerData.rows.length} students)</TableCell>
                         {registerData.voteheads.map((vh: any) => {
-                          const totalVh = registerData.rows.reduce((s: number, r: any) => s + (r.voteheads[vh.id]?.balance || 0), 0);
+                          const totalVh = (registerData.rows as any[]).reduce((s: number, r: any) => s + (r.voteheads[vh.id]?.balance || 0), 0);
                           return <TableCell key={vh.id} className="text-right">{formatCurrency(totalVh)}</TableCell>;
                         })}
-                        <TableCell className="text-right">{formatCurrency(registerData.rows.reduce((s: number, r: any) => s + r.totalInvoiced, 0))}</TableCell>
-                        <TableCell className="text-right text-green-600">{formatCurrency(registerData.rows.reduce((s: number, r: any) => s + r.totalPaid, 0))}</TableCell>
-                        <TableCell className="text-right text-destructive">{formatCurrency(registerData.rows.reduce((s: number, r: any) => s + r.totalBalance, 0))}</TableCell>
+                        <TableCell className="text-right">{formatCurrency((registerData.rows as any[]).reduce((s: number, r: any) => s + r.totalInvoiced, 0))}</TableCell>
+                        <TableCell className="text-right text-green-600">{formatCurrency((registerData.rows as any[]).reduce((s: number, r: any) => s + r.totalPaid, 0))}</TableCell>
+                        <TableCell className="text-right text-destructive">{formatCurrency((registerData.rows as any[]).reduce((s: number, r: any) => s + r.totalBalance, 0))}</TableCell>
                       </TableRow>
                     </TableBody>
                   </Table>
