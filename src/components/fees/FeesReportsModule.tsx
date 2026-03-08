@@ -557,8 +557,9 @@ export function FeesReportsModule() {
                         {registerData.voteheads.map((vh: any) => (
                           <TableHead key={vh.id} className="text-right min-w-[100px]">{vh.name}</TableHead>
                         ))}
-                        <TableHead className="text-right min-w-[100px] font-bold">Total Invoiced</TableHead>
-                        <TableHead className="text-right min-w-[100px] font-bold">Total Paid</TableHead>
+                        <TableHead className="text-right min-w-[90px] font-bold">B/F</TableHead>
+                        <TableHead className="text-right min-w-[100px] font-bold">Invoiced</TableHead>
+                        <TableHead className="text-right min-w-[100px] font-bold">Paid</TableHead>
                         <TableHead className="text-right min-w-[100px] font-bold">Balance</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -574,16 +575,18 @@ export function FeesReportsModule() {
                             const vd = row.voteheads[vh.id];
                             return (
                               <TableCell key={vh.id} className="text-right text-sm">
-                                {vd && vd.invoiced > 0 ? (
+                                {vd && (vd.invoiced > 0 || vd.opening > 0) ? (
                                   <div>
+                                    {vd.opening > 0 && <div className="text-xs text-amber-600">B/F {formatCurrency(vd.opening)}</div>}
                                     <div>{formatCurrency(vd.invoiced)}</div>
                                     {vd.paid > 0 && <div className="text-xs text-green-600">-{formatCurrency(vd.paid)}</div>}
-                                    {vd.balance > 0 && <div className="text-xs font-semibold text-destructive">{formatCurrency(vd.balance)}</div>}
+                                    {vd.balance !== 0 && <div className={`text-xs font-semibold ${vd.balance > 0 ? 'text-destructive' : 'text-green-600'}`}>{formatCurrency(vd.balance)}</div>}
                                   </div>
                                 ) : '-'}
                               </TableCell>
                             );
                           })}
+                          <TableCell className="text-right text-sm text-amber-600">{row.totalOpening > 0 ? formatCurrency(row.totalOpening) : '-'}</TableCell>
                           <TableCell className="text-right font-medium">{formatCurrency(row.totalInvoiced)}</TableCell>
                           <TableCell className="text-right font-medium text-green-600">{formatCurrency(row.totalPaid)}</TableCell>
                           <TableCell className={`text-right font-bold ${row.totalBalance > 0 ? 'text-destructive' : 'text-green-600'}`}>
@@ -599,6 +602,7 @@ export function FeesReportsModule() {
                           const totalVh = (registerData.rows as any[]).reduce((s: number, r: any) => s + (r.voteheads[vh.id]?.balance || 0), 0);
                           return <TableCell key={vh.id} className="text-right">{formatCurrency(totalVh)}</TableCell>;
                         })}
+                        <TableCell className="text-right text-amber-600">{formatCurrency((registerData.rows as any[]).reduce((s: number, r: any) => s + r.totalOpening, 0))}</TableCell>
                         <TableCell className="text-right">{formatCurrency((registerData.rows as any[]).reduce((s: number, r: any) => s + r.totalInvoiced, 0))}</TableCell>
                         <TableCell className="text-right text-green-600">{formatCurrency((registerData.rows as any[]).reduce((s: number, r: any) => s + r.totalPaid, 0))}</TableCell>
                         <TableCell className="text-right text-destructive">{formatCurrency((registerData.rows as any[]).reduce((s: number, r: any) => s + r.totalBalance, 0))}</TableCell>

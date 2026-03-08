@@ -872,6 +872,98 @@ export const feesService = {
     }));
   },
 
+  // ==================== TERM/YEAR ROLLOVER ====================
+
+  /**
+   * Roll forward closing balances from one term to the next as opening balances.
+   * Term 1 → Term 2, Term 2 → Term 3, Term 3 → next year Term 1.
+   * Positive closing = arrears (carried forward), Negative = prepayment/credit.
+   */
+  async rolloverTermBalances(fromTerm: number, fromYear: number): Promise<{ studentsProcessed: number; balancesCreated: number }> {
+    const schoolId = await getSchoolId();
+
+    // Determine target term/year
+    let toTerm: number, toYear: number;
+    if (fromTerm === 3) {
+      toTerm = 1;
+      toYear = fromYear + 1;
+    } else {
+      toTerm = fromTerm + 1;
+      toYear = fromYear;
+    }
+
+    // Get all fee balances for the source term
+    const { data: sourceBalances, error } = await supabase
+      .from('fees_feebalance')
+      .select('student_id, vote_head_id, opening_balance, amount_invoiced, amount_paid')
+      .eq('school_id', schoolId)
+      .eq('term', fromTerm)
+      .eq('year', fromYear);
+
+    if (error) throw error;
+    if (!sourceBalances || sourceBalances.length === 0) {
+      return { studentsProcessed: 0, balancesCreated: 0 };
+    }
+
+    const studentIds = new Set<number>();
+    let balancesCreated = 0;
+
+    for (const bal of sourceBalances) {
+      const opening = Number((bal as any).opening_balance || 0);
+      const invoiced = Number((bal as any).amount_invoiced || 0);
+      const paid = Number((bal as any).amount_paid || 0);
+      const closingBalance = opening + invoiced - paid;
+
+      // Skip if nothing to carry forward
+      if (closingBalance === 0) continue;
+
+      studentIds.add(bal.student_id);
+
+      // Also heal the source record's closing_balance if stale
+      await supabase.from('fees_feebalance')
+        .update({ closing_balance: closingBalance })
+        .eq('school_id', schoolId)
+        .eq('student_id', bal.student_id)
+        .eq('vote_head_id', bal.vote_head_id)
+        .eq('term', fromTerm)
+        .eq('year', fromYear);
+
+      // Upsert into target term with closing as opening_balance
+      const { data: existing } = await supabase
+        .from('fees_feebalance')
+        .select('id, opening_balance')
+        .eq('school_id', schoolId)
+        .eq('student_id', bal.student_id)
+        .eq('vote_head_id', bal.vote_head_id)
+        .eq('term', toTerm)
+        .eq('year', toYear)
+        .maybeSingle();
+
+      if (existing) {
+        // Update opening balance and recalculate closing
+        await supabase.from('fees_feebalance')
+          .update({ opening_balance: closingBalance })
+          .eq('id', (existing as any).id);
+      } else {
+        await supabase.from('fees_feebalance').insert({
+          school_id: schoolId,
+          student_id: bal.student_id,
+          vote_head_id: bal.vote_head_id,
+          year: toYear,
+          term: toTerm,
+          opening_balance: closingBalance,
+          amount_invoiced: 0,
+          amount_paid: 0,
+          closing_balance: closingBalance,
+        });
+      }
+
+      balancesCreated++;
+    }
+
+    return { studentsProcessed: studentIds.size, balancesCreated };
+  },
+
   // ==================== MPESA PLACEHOLDER ====================
 
   async processMpesaCallback(data: {
