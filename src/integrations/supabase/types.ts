@@ -2976,6 +2976,9 @@ export type Database = {
       procurement_lpo: {
         Row: {
           date: string
+          delivered_by: string | null
+          delivery_date: string | null
+          delivery_note: string | null
           id: number
           lpo_number: string
           school_id: number
@@ -2985,6 +2988,9 @@ export type Database = {
         }
         Insert: {
           date: string
+          delivered_by?: string | null
+          delivery_date?: string | null
+          delivery_note?: string | null
           id?: number
           lpo_number: string
           school_id: number
@@ -2994,6 +3000,9 @@ export type Database = {
         }
         Update: {
           date?: string
+          delivered_by?: string | null
+          delivery_date?: string | null
+          delivery_note?: string | null
           id?: number
           lpo_number?: string
           school_id?: number
@@ -3014,6 +3023,61 @@ export type Database = {
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "procurement_supplier"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      procurement_lpo_items: {
+        Row: {
+          description: string
+          id: number
+          item_id: number | null
+          lpo_id: number
+          quantity: number
+          school_id: number
+          total_price: number
+          unit_price: number
+        }
+        Insert: {
+          description: string
+          id?: number
+          item_id?: number | null
+          lpo_id: number
+          quantity?: number
+          school_id: number
+          total_price?: number
+          unit_price?: number
+        }
+        Update: {
+          description?: string
+          id?: number
+          item_id?: number | null
+          lpo_id?: number
+          quantity?: number
+          school_id?: number
+          total_price?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "procurement_lpo_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_item"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "procurement_lpo_items_lpo_id_fkey"
+            columns: ["lpo_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_lpo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "procurement_lpo_items_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
             referencedColumns: ["id"]
           },
         ]
@@ -5840,6 +5904,8 @@ export type Database = {
         Args: { p_school_id: number }
         Returns: string
       }
+      generate_lpo_number: { Args: { p_school_id: number }; Returns: string }
+      generate_pv_number: { Args: { p_school_id: number }; Returns: string }
       generate_receipt_number: {
         Args: { p_school_id: number }
         Returns: string
