@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { procurementService } from '@/services/procurementService';
 import SuppliersTab from '@/components/procurement/SuppliersTab';
+import ReportsTab from '@/components/procurement/ReportsTab';
 import ItemsTab from '@/components/procurement/ItemsTab';
 import LPOsTab from '@/components/procurement/LPOsTab';
 import VouchersTab from '@/components/procurement/VouchersTab';
@@ -62,6 +63,7 @@ export default function ProcurementPage() {
           <TabsTrigger value="vouchers">Payment Vouchers</TabsTrigger>
           <TabsTrigger value="stock">Stock & Inventory</TabsTrigger>
           <TabsTrigger value="petty-cash">Petty Cash</TabsTrigger>
+          <TabsTrigger value="reports">Reports</TabsTrigger>
         </TabsList>
 
         <TabsContent value="suppliers">
@@ -90,6 +92,11 @@ export default function ProcurementPage() {
 
         <TabsContent value="petty-cash">
           <PettyCashTab transactions={pettyCash} voteHeads={voteHeads} refetch={refetchPettyCash} />
+        </TabsContent>
+
+        <TabsContent value="reports">
+          <ReportsTab lpos={lpos} vouchers={vouchers} stockBalances={stockBalances}
+            suppliers={suppliers} items={items} voteHeads={voteHeads} schoolName={schoolName} />
         </TabsContent>
       </Tabs>
     </div>
