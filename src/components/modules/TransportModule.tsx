@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, Fragment } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -262,9 +262,82 @@ function ReportsTab() {
     enabled: !!term && !!year,
   });
 
-  const totalInvoiced = report.reduce((s: number, r: any) => s + (r.invoiced || 0), 0);
-  const totalPaid = report.reduce((s: number, r: any) => s + (r.paid || 0), 0);
-  const totalBalance = report.reduce((s: number, r: any) => s + (r.balance || 0), 0);
+  // Also fetch all transport students (even those without billing yet)
+  const { data: transportStudents = [] } = useQuery({
+    queryKey: ['transport-students'],
+    queryFn: getTransportStudents,
+  });
+
+  const { data: routes = [] } = useQuery({
+    queryKey: ['transport-routes'],
+    queryFn: getTransportRoutes,
+  });
+
+  // Merge: for each transport student, overlay billing data if it exists
+  const mergedByRoute = useMemo(() => {
+    const billingMap = new Map<number, any>();
+    report.forEach((r: any) => billingMap.set(r.student_id, r));
+
+    const allStudents = transportStudents.map((s) => {
+      const billing = billingMap.get(s.id);
+      return {
+        student_id: s.id,
+        admission_number: s.admission_number,
+        full_name: s.full_name,
+        class_name: s.current_class_name,
+        stream_name: s.current_stream_name,
+        route_name: s.route_name || 'Unassigned',
+        route_id: s.transport_route_id || 0,
+        transport_type: s.transport_type || '',
+        charge: s.charge || 0,
+        invoiced: billing?.invoiced || 0,
+        paid: billing?.paid || 0,
+        balance: billing?.balance || (s.charge || 0),
+      };
+    });
+
+    // Also include billing-only students not in transport list
+    report.forEach((r: any) => {
+      if (!transportStudents.find((s) => s.id === r.student_id)) {
+        allStudents.push({
+          student_id: r.student_id,
+          admission_number: r.admission_number,
+          full_name: r.full_name,
+          class_name: r.class_name,
+          stream_name: r.stream_name,
+          route_name: r.route_name || 'Unknown',
+          route_id: 0,
+          transport_type: r.transport_type,
+          charge: r.invoiced,
+          invoiced: r.invoiced,
+          paid: r.paid,
+          balance: r.balance,
+        });
+      }
+    });
+
+    // Group by route
+    const grouped: Record<string, typeof allStudents> = {};
+    allStudents.forEach((s) => {
+      const key = s.route_name || 'Unassigned';
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(s);
+    });
+
+    // Sort students within each route
+    Object.values(grouped).forEach((list) => list.sort((a, b) => a.full_name.localeCompare(b.full_name)));
+
+    return grouped;
+  }, [report, transportStudents]);
+
+  const routeNames = Object.keys(mergedByRoute).sort();
+  const grandTotals = useMemo(() => {
+    let invoiced = 0, paid = 0, balance = 0, charge = 0;
+    routeNames.forEach((rn) => mergedByRoute[rn].forEach((s) => {
+      charge += s.charge; invoiced += s.invoiced; paid += s.paid; balance += s.balance;
+    }));
+    return { charge, invoiced, paid, balance };
+  }, [mergedByRoute, routeNames]);
 
   const handlePrint = () => {
     const el = document.getElementById('transport-billing-report');
@@ -272,11 +345,26 @@ function ReportsTab() {
     const w = window.open('', '_blank');
     if (!w) return;
     w.document.write(`<html><head><title>Transport Billing Report</title>
-      <style>body{font-family:Arial;margin:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left;font-size:12px}.text-right{text-align:right}h2{margin-bottom:4px}</style>
+      <style>
+        body{font-family:Arial;margin:20px}
+        table{width:100%;border-collapse:collapse;margin-bottom:16px}
+        th,td{border:1px solid #ccc;padding:6px 8px;text-align:left;font-size:12px}
+        .text-right{text-align:right}
+        .route-header{background:#f0f0f0;font-weight:bold;font-size:13px}
+        .subtotal-row{background:#f8f8f8;font-weight:600}
+        .grand-total{background:#e0e0e0;font-weight:bold;font-size:13px}
+        h2{margin-bottom:4px}
+        .summary{display:flex;gap:24px;margin-bottom:12px}
+        .summary-card{border:1px solid #ccc;padding:8px 16px;border-radius:4px;text-align:center}
+        .summary-card .label{font-size:11px;color:#666}
+        .summary-card .value{font-size:18px;font-weight:bold}
+      </style>
     </head><body>${el.innerHTML}</body></html>`);
     w.document.close();
     setTimeout(() => { w.print(); w.close(); }, 300);
   };
+
+  const hasData = routeNames.length > 0;
 
   return (
     <Card>
@@ -299,51 +387,106 @@ function ReportsTab() {
               ))}
             </SelectContent>
           </Select>
-          <Button variant="outline" onClick={handlePrint} disabled={report.length === 0}>Print</Button>
+          <Button variant="outline" onClick={handlePrint} disabled={!hasData}>Print</Button>
         </div>
       </CardHeader>
       <CardContent>
         <div id="transport-billing-report">
           <h2 className="text-lg font-semibold mb-1">Transport Billing — Term {term}, {year}</h2>
+
           {isLoading ? (
             <p className="text-muted-foreground">Loading...</p>
-          ) : report.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">No transport billing data for this period.</p>
+          ) : !hasData ? (
+            <p className="text-muted-foreground text-center py-8">No transport students or billing data for this period.</p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Adm No</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Class</TableHead>
-                  <TableHead>Route</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead className="text-right">Invoiced</TableHead>
-                  <TableHead className="text-right">Paid</TableHead>
-                  <TableHead className="text-right">Balance</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {report.map((r: any, i: number) => (
-                  <TableRow key={i}>
-                    <TableCell>{r.admission_number}</TableCell>
-                    <TableCell className="font-medium">{r.full_name}</TableCell>
-                    <TableCell>{r.class_name} {r.stream_name}</TableCell>
-                    <TableCell>{r.route_name}</TableCell>
-                    <TableCell>{r.transport_type === 'two_way' ? 'Two Way' : 'One Way'}</TableCell>
-                    <TableCell className="text-right">{r.invoiced?.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">{r.paid?.toLocaleString()}</TableCell>
-                    <TableCell className="text-right font-medium">{r.balance?.toLocaleString()}</TableCell>
+            <>
+              {/* Summary Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                <div className="rounded-md border p-3 text-center">
+                  <p className="text-xs text-muted-foreground">Routes</p>
+                  <p className="text-xl font-bold">{routeNames.length}</p>
+                </div>
+                <div className="rounded-md border p-3 text-center">
+                  <p className="text-xs text-muted-foreground">Total Charges</p>
+                  <p className="text-xl font-bold">{grandTotals.charge.toLocaleString()}</p>
+                </div>
+                <div className="rounded-md border p-3 text-center">
+                  <p className="text-xs text-muted-foreground">Total Paid</p>
+                  <p className="text-xl font-bold text-primary">{grandTotals.paid.toLocaleString()}</p>
+                </div>
+                <div className="rounded-md border p-3 text-center">
+                  <p className="text-xs text-muted-foreground">Outstanding</p>
+                  <p className="text-xl font-bold text-destructive">{grandTotals.balance.toLocaleString()}</p>
+                </div>
+              </div>
+
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[80px]">#</TableHead>
+                    <TableHead>Adm No</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Class</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead className="text-right">Charge</TableHead>
+                    <TableHead className="text-right">Invoiced</TableHead>
+                    <TableHead className="text-right">Paid</TableHead>
+                    <TableHead className="text-right">Balance</TableHead>
                   </TableRow>
-                ))}
-                <TableRow className="font-bold border-t-2">
-                  <TableCell colSpan={5} className="text-right">Totals</TableCell>
-                  <TableCell className="text-right">{totalInvoiced.toLocaleString()}</TableCell>
-                  <TableCell className="text-right">{totalPaid.toLocaleString()}</TableCell>
-                  <TableCell className="text-right">{totalBalance.toLocaleString()}</TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {routeNames.map((routeName) => {
+                    const students = mergedByRoute[routeName];
+                    const routeCharge = students.reduce((s, r) => s + r.charge, 0);
+                    const routeInvoiced = students.reduce((s, r) => s + r.invoiced, 0);
+                    const routePaid = students.reduce((s, r) => s + r.paid, 0);
+                    const routeBalance = students.reduce((s, r) => s + r.balance, 0);
+
+                    return (
+                      <Fragment key={routeName}>
+                        <TableRow className="bg-muted/50">
+                          <TableCell colSpan={9} className="font-semibold text-sm">
+                            <Bus className="h-4 w-4 inline mr-2" />
+                            {routeName} ({students.length} student{students.length !== 1 ? 's' : ''})
+                          </TableCell>
+                        </TableRow>
+                        {students.map((s, idx) => (
+                          <TableRow key={s.student_id}>
+                            <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
+                            <TableCell>{s.admission_number}</TableCell>
+                            <TableCell className="font-medium">{s.full_name}</TableCell>
+                            <TableCell>{s.class_name} {s.stream_name}</TableCell>
+                            <TableCell>
+                              <Badge variant={s.transport_type === 'two_way' ? 'default' : 'secondary'} className="text-xs">
+                                {s.transport_type === 'two_way' ? '2-Way' : '1-Way'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">{s.charge.toLocaleString()}</TableCell>
+                            <TableCell className="text-right">{s.invoiced.toLocaleString()}</TableCell>
+                            <TableCell className="text-right">{s.paid.toLocaleString()}</TableCell>
+                            <TableCell className="text-right font-medium">{s.balance.toLocaleString()}</TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow className="bg-muted/30 border-b-2">
+                          <TableCell colSpan={5} className="text-right font-semibold text-sm">Subtotal — {routeName}</TableCell>
+                          <TableCell className="text-right font-semibold">{routeCharge.toLocaleString()}</TableCell>
+                          <TableCell className="text-right font-semibold">{routeInvoiced.toLocaleString()}</TableCell>
+                          <TableCell className="text-right font-semibold">{routePaid.toLocaleString()}</TableCell>
+                          <TableCell className="text-right font-semibold">{routeBalance.toLocaleString()}</TableCell>
+                        </TableRow>
+                      </Fragment>
+                    );
+                  })}
+                  <TableRow className="font-bold border-t-2 bg-muted">
+                    <TableCell colSpan={5} className="text-right">Grand Total</TableCell>
+                    <TableCell className="text-right">{grandTotals.charge.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">{grandTotals.invoiced.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">{grandTotals.paid.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">{grandTotals.balance.toLocaleString()}</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </>
           )}
         </div>
       </CardContent>
