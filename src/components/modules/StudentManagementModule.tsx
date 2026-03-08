@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { escapeHtml } from '@/utils/escapeHtml';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
