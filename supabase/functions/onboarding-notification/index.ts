@@ -160,7 +160,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const loginUrl = `${req.headers.get("origin") || "https://academic-compass-kenya.lovable.app"}/auth`;
+    const origin = req.headers.get("origin") || req.headers.get("referer") || "https://academic-compass-kenya.lovable.app";
+    const loginUrl = `${origin.replace(/\/$/, "")}/auth`;
+    console.log("onboarding-notification: loginUrl =", loginUrl);
     const htmlBody = buildEmailHtml(school_name, school_code, contact_person, loginUrl, admin_email, admin_password);
 
     try {
