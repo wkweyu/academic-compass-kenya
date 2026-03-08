@@ -299,7 +299,7 @@ export function BatchReportCards({ session }: BatchReportCardsProps) {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Report Cards - ${session.name}</title>
+          <title>Report Cards - ${escapeHtml(session.name)}</title>
           <style>
             * { box-sizing: border-box; margin: 0; padding: 0; }
             body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; line-height: 1.4; }

@@ -106,7 +106,7 @@ export function StudentReportCardModule() {
         printWindow.document.write(`
           <html>
             <head>
-              <title>Report Card - ${reportData?.student?.full_name}</title>
+              <title>Report Card - ${escapeHtml(reportData?.student?.full_name)}</title>
               <style>
                 body { font-family: Arial, sans-serif; padding: 20px; }
                 table { width: 100%; border-collapse: collapse; margin: 10px 0; }

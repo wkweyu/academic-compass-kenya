@@ -1114,7 +1114,7 @@ const StudentManagementModule = () => {
                         printWindow.document.write(`
                           <html>
                             <head>
-                              <title>Admission Form - ${printStudentData.full_name}</title>
+                              <title>Admission Form - ${escapeHtml(printStudentData.full_name)}</title>
                               <style>
                                 body { 
                                   font-family: Arial, sans-serif; 

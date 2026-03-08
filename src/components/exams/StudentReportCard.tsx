@@ -182,7 +182,7 @@ export function StudentReportCard({ session }: StudentReportCardProps) {
         printWindow.document.write(`
           <html>
             <head>
-              <title>Report Card - ${selectedStudent?.full_name}</title>
+              <title>Report Card - ${escapeHtml(selectedStudent?.full_name)}</title>
               <style>
                 body { font-family: Arial, sans-serif; padding: 20px; }
                 table { width: 100%; border-collapse: collapse; margin: 20px 0; }

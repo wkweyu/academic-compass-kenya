@@ -116,7 +116,7 @@ export function printReceipt(props: PaymentReceiptPrintProps) {
         <strong>Balance After Payment: ${formatCurrency(balance)}</strong>
       </div>
       
-      ${receipt.remarks ? `<p style="font-size: 12px; color: #555; margin: 10px 0;"><strong>Remarks:</strong> ${receipt.remarks}</p>` : ''}
+      ${receipt.remarks ? `<p style="font-size: 12px; color: #555; margin: 10px 0;"><strong>Remarks:</strong> ${escapeHtml(receipt.remarks)}</p>` : ''}
       
       <div class="footer">
         <div class="signature">

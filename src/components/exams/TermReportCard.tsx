@@ -569,7 +569,7 @@ export function TermReportCard({ classId, termId, academicYear }: TermReportCard
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Term Report Cards - ${selectedClassName}</title>
+          <title>Term Report Cards - ${escapeHtml(selectedClassName)}</title>
           <style>
             * { box-sizing: border-box; margin: 0; padding: 0; }
             body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 11px; line-height: 1.4; color: #1a1a1a; }

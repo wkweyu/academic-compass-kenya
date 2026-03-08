@@ -175,7 +175,7 @@ export function ClassMarksheet({ sessionId, sessionName, classes }: ClassMarkshe
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Marksheet - ${className}${streamName ? ` (${streamName})` : ''}</title>
+          <title>Marksheet - ${escapeHtml(className)}${streamName ? ` (${escapeHtml(streamName)})` : ''}</title>
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; font-size: 11px; }
@@ -198,12 +198,12 @@ export function ClassMarksheet({ sessionId, sessionName, classes }: ClassMarkshe
         </head>
         <body>
           <div class="header">
-            <div class="school-name">${school?.name || 'School Name'}</div>
+            <div class="school-name">${escapeHtml(school?.name || 'School Name')}</div>
             <div class="school-details">
-              ${school?.address || ''} | Tel: ${school?.phone || ''} | Email: ${school?.email || ''}
+              ${escapeHtml(school?.address || '')} | Tel: ${escapeHtml(school?.phone || '')} | Email: ${escapeHtml(school?.email || '')}
             </div>
             <div class="title">${showMarks ? 'MARKSHEET' : 'BLANK MARKSHEET'}</div>
-            <div class="subtitle">${sessionName} - ${className}${streamName ? ` (${streamName})` : ''}</div>
+            <div class="subtitle">${escapeHtml(sessionName)} - ${escapeHtml(className)}${streamName ? ` (${escapeHtml(streamName)})` : ''}</div>
           </div>
           ${printContent.innerHTML}
           <div class="footer">

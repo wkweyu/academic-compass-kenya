@@ -742,7 +742,7 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
                         printWindow.document.write(`
                           <html>
                             <head>
-                              <title>Admission Form - ${submittedStudent.full_name}</title>
+                              <title>Admission Form - ${escapeHtml(submittedStudent.full_name)}</title>
                               <style>
                                 body { 
                                   font-family: Arial, sans-serif; 

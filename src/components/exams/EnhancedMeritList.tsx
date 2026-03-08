@@ -192,9 +192,9 @@ export function EnhancedMeritList({ sessionId, classes }: EnhancedMeritListProps
               ${meritList.map(entry => `
                 <tr>
                   <td class="position">${entry.position || '-'}</td>
-                  <td>${entry.admission_number}</td>
-                  <td>${entry.full_name}</td>
-                  ${viewType === 'class' ? `<td>${entry.stream_name || '-'}</td>` : ''}
+                  <td>${escapeHtml(entry.admission_number)}</td>
+                  <td>${escapeHtml(entry.full_name)}</td>
+                  ${viewType === 'class' ? `<td>${escapeHtml(entry.stream_name || '-')}</td>` : ''}
                   <td style="text-align: right;">${entry.total_marks}/${entry.total_possible}</td>
                   <td style="text-align: right;">${entry.percentage.toFixed(1)}%</td>
                   <td style="text-align: right;">${entry.average_points.toFixed(2)}</td>
