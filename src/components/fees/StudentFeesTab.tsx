@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { escapeHtml } from '@/utils/escapeHtml';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
