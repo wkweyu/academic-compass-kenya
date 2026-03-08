@@ -63,6 +63,7 @@ export default function ProcurementPage() {
           <TabsTrigger value="vouchers">Payment Vouchers</TabsTrigger>
           <TabsTrigger value="stock">Stock & Inventory</TabsTrigger>
           <TabsTrigger value="petty-cash">Petty Cash</TabsTrigger>
+          <TabsTrigger value="reports">Reports</TabsTrigger>
         </TabsList>
 
         <TabsContent value="suppliers">
