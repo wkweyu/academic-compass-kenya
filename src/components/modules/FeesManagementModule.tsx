@@ -44,6 +44,8 @@ export const FeesManagementModule = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isBulkDebitOpen, setIsBulkDebitOpen] = useState(false);
+  const [isRolloverOpen, setIsRolloverOpen] = useState(false);
+  const [rolloverForm, setRolloverForm] = useState({ term: currentTerm.toString(), year: currentYear.toString() });
   const [statementStudentId, setStatementStudentId] = useState<number | null>(null);
   const [manualAllocMode, setManualAllocMode] = useState(false);
   const [manualAllocations, setManualAllocations] = useState<Record<number, string>>({});
