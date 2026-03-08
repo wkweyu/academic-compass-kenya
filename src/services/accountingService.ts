@@ -219,6 +219,8 @@ export const accountingService = {
       { account_code: '2100', account_name: 'PAYE Payable', account_type: 'liability' },
       { account_code: '2200', account_name: 'NHIF Payable', account_type: 'liability' },
       { account_code: '2300', account_name: 'NSSF Payable', account_type: 'liability' },
+      { account_code: '2400', account_name: 'Housing Levy Payable', account_type: 'liability' },
+      { account_code: '2500', account_name: 'NITA Levy Payable', account_type: 'liability' },
       { account_code: '3000', account_name: 'School Capital', account_type: 'equity' },
       { account_code: '3100', account_name: 'Retained Surplus', account_type: 'equity' },
       { account_code: '4000', account_name: 'Tuition Fees Income', account_type: 'income' },
