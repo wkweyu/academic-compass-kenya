@@ -287,26 +287,63 @@ const OnboardForm = ({ onSuccess }: { onSuccess: () => void }) => {
   const [form, setForm] = useState({
     name: "", email: "", phone: "", address: "", city: "", country: "Kenya",
     plan: "starter", contact_person: "", contact_phone: "",
+    admin_email: "", admin_password: "",
   });
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ school_id: number; school_code: string } | null>(null);
   const [notificationSent, setNotificationSent] = useState(false);
+  const [createAdmin, setCreateAdmin] = useState(true);
+
+  // Auto-fill admin email from school email
+  const handleEmailChange = (val: string) => {
+    setForm((prev) => ({
+      ...prev,
+      email: val,
+      admin_email: prev.admin_email === prev.email || !prev.admin_email ? val : prev.admin_email,
+    }));
+  };
+
+  // Generate random password
+  const generatePassword = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$";
+    let pass = "";
+    for (let i = 0; i < 12; i++) pass += chars.charAt(Math.floor(Math.random() * chars.length));
+    setForm({ ...form, admin_password: pass });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (createAdmin && (!form.admin_email || !form.admin_password)) {
+      toast.error("Please fill in the admin email and password");
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await saasService.onboardSchool(form);
       setResult(res);
       toast.success(`School onboarded! Code: ${res.school_code}`);
 
-      // Send onboarding notification
+      // Create admin user if requested
+      if (createAdmin && form.admin_email && form.admin_password) {
+        try {
+          await saasService.createSchoolAdmin(
+            res.school_id, form.admin_email, form.admin_password
+          );
+          toast.success("School admin account created");
+        } catch (adminErr: any) {
+          toast.error(`Admin account creation failed: ${adminErr.message}`);
+        }
+      }
+
+      // Send onboarding notification with login details
       try {
         await saasService.sendOnboardingNotification(
-          res.school_id, res.school_code, form.name, form.email, form.contact_person
+          res.school_id, res.school_code, form.name, form.email, form.contact_person,
+          createAdmin ? form.admin_email : undefined,
+          createAdmin ? form.admin_password : undefined
         );
         setNotificationSent(true);
-        toast.success("Onboarding email sent");
+        toast.success("Onboarding email with login details sent");
       } catch {
         toast.error("School created, but notification email failed");
       }
@@ -328,22 +365,27 @@ const OnboardForm = ({ onSuccess }: { onSuccess: () => void }) => {
           <p className="text-sm text-muted-foreground">School Code</p>
           <p className="text-2xl font-mono font-bold text-foreground">{result.school_code}</p>
         </div>
-        {notificationSent && (
-          <div className="flex items-center justify-center gap-2 text-sm text-green-700">
-            <Mail className="w-4 h-4" /> Onboarding email sent to {form.email}
+        {createAdmin && (
+          <div className="bg-muted p-3 rounded-lg text-left text-sm space-y-1">
+            <p className="text-muted-foreground">Admin Login:</p>
+            <p className="font-medium text-foreground">{form.admin_email}</p>
+            <p className="font-mono text-xs text-muted-foreground">{form.admin_password}</p>
           </div>
         )}
-        <p className="text-xs text-muted-foreground">
-          Share this code with the school admin. Create user accounts and assign the <strong>schooladmin</strong> role.
-        </p>
+        {notificationSent && (
+          <div className="flex items-center justify-center gap-2 text-sm text-green-700">
+            <Mail className="w-4 h-4" /> Login details emailed to {form.email}
+          </div>
+        )}
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
+    <form onSubmit={handleSubmit} className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
+      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">School Info</p>
       <Input placeholder="School Name *" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-      <Input placeholder="School Email *" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+      <Input placeholder="School Email *" type="email" required value={form.email} onChange={(e) => handleEmailChange(e.target.value)} />
       <div className="grid grid-cols-2 gap-3">
         <Input placeholder="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
         <Input placeholder="City" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
@@ -361,6 +403,42 @@ const OnboardForm = ({ onSuccess }: { onSuccess: () => void }) => {
           <SelectItem value="enterprise">Enterprise</SelectItem>
         </SelectContent>
       </Select>
+
+      <div className="border-t border-border pt-3 mt-3">
+        <label className="flex items-center gap-2 text-sm cursor-pointer">
+          <input
+            type="checkbox"
+            checked={createAdmin}
+            onChange={(e) => setCreateAdmin(e.target.checked)}
+            className="rounded"
+          />
+          <span className="font-medium text-foreground">Create school admin account</span>
+        </label>
+      </div>
+
+      {createAdmin && (
+        <div className="space-y-3 pl-2 border-l-2 border-primary/20">
+          <Input
+            placeholder="Admin Email *"
+            type="email"
+            value={form.admin_email}
+            onChange={(e) => setForm({ ...form, admin_email: e.target.value })}
+          />
+          <div className="flex gap-2">
+            <Input
+              placeholder="Password *"
+              type="text"
+              value={form.admin_password}
+              onChange={(e) => setForm({ ...form, admin_password: e.target.value })}
+              className="font-mono text-sm"
+            />
+            <Button type="button" variant="outline" size="sm" onClick={generatePassword} className="shrink-0 text-xs">
+              Generate
+            </Button>
+          </div>
+        </div>
+      )}
+
       <Button type="submit" className="w-full" disabled={submitting}>
         {submitting ? "Creating..." : "Onboard School"}
       </Button>
