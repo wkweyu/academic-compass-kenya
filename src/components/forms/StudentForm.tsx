@@ -13,6 +13,7 @@ import { classService } from '@/services/classService';
 import { settingsService } from '@/services/settingsService';
 import { TermManager } from '@/utils/termManager';
 import { getSiblings, findPotentialSiblings, findExistingGuardian } from '@/services/guardianService';
+import { getTransportRoutes, TransportRoute } from '@/services/transportService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import AdmissionFormPrint from '@/components/AdmissionFormPrint';
 import { useState, useEffect } from 'react';
