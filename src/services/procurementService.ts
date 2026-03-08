@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { accountingService } from './accountingService';
 
 async function getSchoolId(): Promise<number> {
   const { data } = await supabase.rpc('get_user_school_id');
