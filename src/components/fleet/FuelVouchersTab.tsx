@@ -52,7 +52,7 @@ function IssueVoucherView() {
   const issueMut = useMutation({
     mutationFn: () => issueVoucher({
       vehicle_id: parseInt(form.vehicle_id),
-      driver_id: form.driver_id ? parseInt(form.driver_id) : null,
+      driver_id: form.driver_id && form.driver_id !== '__none__' ? parseInt(form.driver_id) : null,
       mileage_at_issue: parseInt(form.mileage_at_issue) || 0,
       authorized_amount: parseFloat(form.authorized_amount) || 0,
       authorized_litres: form.authorized_litres ? parseFloat(form.authorized_litres) : null,
