@@ -131,22 +131,39 @@ export const FeesManagementModule = () => {
       toast({ title: 'Error', description: 'Fill student, amount & reference', variant: 'destructive' });
       return;
     }
+
+    // Build manual allocations if in manual mode
+    let manualAllocs: { vote_head_id: number; amount: number }[] | undefined;
+    if (manualAllocMode) {
+      manualAllocs = Object.entries(manualAllocations)
+        .filter(([_, amt]) => Number(amt) > 0)
+        .map(([vhId, amt]) => ({ vote_head_id: Number(vhId), amount: Number(amt) }));
+      const totalManual = manualAllocs.reduce((s, a) => s + a.amount, 0);
+      if (Math.abs(totalManual - parseFloat(paymentForm.amount)) > 0.01) {
+        toast({ title: 'Manual allocations must equal the payment amount', variant: 'destructive' });
+        return;
+      }
+    }
+
     try {
       const receipt = await feesService.collectPayment({
         student_id: parseInt(paymentForm.student_id),
         amount: parseFloat(paymentForm.amount),
         payment_mode: paymentForm.mode,
         reference: paymentForm.reference,
-        term: parseInt(paymentForm.term),
-        year: parseInt(paymentForm.year),
+        term: currentTerm,
+        year: currentYear,
         remarks: paymentForm.remarks,
+        manual_allocations: manualAllocs,
       });
       toast({
         title: 'Payment collected',
         description: `Receipt ${receipt.receipt_no} — ${formatCurrency(receipt.amount)}. ${(receipt.allocations || []).length} allocations made.`,
       });
       setIsPaymentOpen(false);
-      setPaymentForm({ student_id: '', amount: '', mode: 'cash', reference: '', term: '1', year: new Date().getFullYear().toString(), remarks: '' });
+      setPaymentForm({ student_id: '', amount: '', mode: 'cash', reference: '', remarks: '' });
+      setManualAllocMode(false);
+      setManualAllocations({});
       queryClient.invalidateQueries({ queryKey: ['fees-stats'] });
       queryClient.invalidateQueries({ queryKey: ['receipts'] });
       queryClient.invalidateQueries({ queryKey: ['student-ledgers'] });
