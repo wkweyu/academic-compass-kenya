@@ -73,7 +73,7 @@ export default function ChartOfAccountsTab() {
         account_name: form.account_name,
         account_type: form.account_type as any,
         description: form.description,
-        parent_id: form.parent_id ? parseInt(form.parent_id) : undefined,
+        parent_id: form.parent_id && form.parent_id !== '__none__' ? parseInt(form.parent_id) : undefined,
         is_header: form.is_header,
         is_active: true,
         school_id: 0,

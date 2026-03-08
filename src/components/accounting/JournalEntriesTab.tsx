@@ -82,7 +82,7 @@ export default function JournalEntriesTab() {
           debit_amount: parseFloat(l.debit_amount) || 0,
           credit_amount: parseFloat(l.credit_amount) || 0,
           description: l.description,
-          fund_id: l.fund_id ? parseInt(l.fund_id) : undefined,
+          fund_id: l.fund_id && l.fund_id !== '__none__' ? parseInt(l.fund_id) : undefined,
         }))
       );
       toast({ title: 'Journal entry created (auto-ref generated)' });
