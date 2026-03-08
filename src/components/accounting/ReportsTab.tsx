@@ -22,8 +22,8 @@ export default function ReportsTab() {
   const { data: fiscalYears = [] } = useQuery({ queryKey: ['fiscal-years'], queryFn: () => fiscalYearService.getAll() });
   const { data: funds = [] } = useQuery({ queryKey: ['accounting-funds'], queryFn: () => fundService.getAll() });
 
-  const fyId = fiscalYearId ? parseInt(fiscalYearId) : undefined;
-  const fId = fundId ? parseInt(fundId) : undefined;
+  const fyId = fiscalYearId && fiscalYearId !== '__all__' ? parseInt(fiscalYearId) : undefined;
+  const fId = fundId && fundId !== '__all__' ? parseInt(fundId) : undefined;
 
   const { data: trialBalance = [] } = useQuery({
     queryKey: ['trial-balance', fyId, fId],
