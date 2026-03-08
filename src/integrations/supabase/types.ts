@@ -1960,6 +1960,7 @@ export type Database = {
           occupation: string | null
           phone: string
           relationship: string
+          school_id: number | null
           updated_at: string
         }
         Insert: {
@@ -1972,6 +1973,7 @@ export type Database = {
           occupation?: string | null
           phone: string
           relationship: string
+          school_id?: number | null
           updated_at?: string
         }
         Update: {
@@ -1984,9 +1986,18 @@ export type Database = {
           occupation?: string | null
           phone?: string
           relationship?: string
+          school_id?: number | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "guardians_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       journal_entries: {
         Row: {
