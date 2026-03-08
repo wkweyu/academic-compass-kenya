@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import { Printer, Download, Calendar, Users, AlertTriangle, BarChart3 } from 'lucide-react';
+import { Printer, Download, Calendar, Users, AlertTriangle, BarChart3, ClipboardList } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { feesService } from '@/services/feesService';
 
