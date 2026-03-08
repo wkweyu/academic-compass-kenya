@@ -1,6 +1,7 @@
 /**
  * Uniform POS Service
  * Issues uniform items to students and auto-debits their fee accounts.
+ * Supports class-group-based pricing tiers.
  */
 import { supabase } from '@/integrations/supabase/client';
 import { feesService } from './feesService';
@@ -14,12 +15,29 @@ export interface UniformItem {
   is_consumable: boolean;
 }
 
+export interface ClassGroup {
+  id: number;
+  school_id: number;
+  name: string;
+  min_grade_level: number;
+  max_grade_level: number;
+}
+
+export interface ItemPrice {
+  id: number;
+  item_id: number;
+  class_group_id: number;
+  class_group_name?: string;
+  price: number;
+}
+
 export interface CartItem {
   item_id: number;
   item_name: string;
   unit_price: number;
   quantity: number;
   total: number;
+  class_group_name?: string;
 }
 
 export interface UniformIssue {
@@ -28,11 +46,14 @@ export interface UniformIssue {
   student_id: number;
   student_name?: string;
   admission_number?: string;
+  class_name?: string;
   issued_by: number | null;
   total_amount: number;
   term: number;
   year: number;
   remarks: string;
+  store_issued: boolean;
+  store_issued_at?: string;
   created_at: string;
   items?: UniformIssueItem[];
 }
@@ -45,6 +66,7 @@ export interface UniformIssueItem {
   quantity: number;
   unit_price: number;
   total: number;
+  class_group_name?: string;
 }
 
 async function getSchoolId(): Promise<number> {
@@ -60,9 +82,95 @@ async function getUserId(): Promise<number> {
 }
 
 export const uniformService = {
-  /** Fetch uniform items from procurement_item with category "Uniform" */
+  // ============ CLASS GROUPS ============
+
+  async getClassGroups(): Promise<ClassGroup[]> {
+    const { data, error } = await supabase
+      .from('uniform_class_groups')
+      .select('*')
+      .order('min_grade_level');
+    if (error) throw error;
+    return (data || []) as unknown as ClassGroup[];
+  },
+
+  async createClassGroup(group: Omit<ClassGroup, 'id'>): Promise<ClassGroup> {
+    const schoolId = await getSchoolId();
+    const { data, error } = await supabase
+      .from('uniform_class_groups')
+      .insert({ ...group, school_id: schoolId })
+      .select()
+      .single();
+    if (error) throw error;
+    return data as unknown as ClassGroup;
+  },
+
+  async deleteClassGroup(id: number): Promise<void> {
+    const { error } = await supabase.from('uniform_class_groups').delete().eq('id', id);
+    if (error) throw error;
+  },
+
+  // ============ ITEM PRICES ============
+
+  async getItemPrices(itemId?: number): Promise<ItemPrice[]> {
+    let query = supabase
+      .from('uniform_item_prices')
+      .select('*, uniform_class_groups(name)')
+      .order('class_group_id');
+    if (itemId) query = query.eq('item_id', itemId);
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data || []).map((d: any) => ({
+      id: d.id,
+      item_id: d.item_id,
+      class_group_id: d.class_group_id,
+      class_group_name: d.uniform_class_groups?.name,
+      price: Number(d.price),
+    }));
+  },
+
+  async upsertItemPrice(params: { item_id: number; class_group_id: number; price: number }): Promise<void> {
+    const schoolId = await getSchoolId();
+    const { error } = await supabase
+      .from('uniform_item_prices')
+      .upsert({
+        school_id: schoolId,
+        item_id: params.item_id,
+        class_group_id: params.class_group_id,
+        price: params.price,
+      }, { onConflict: 'school_id,item_id,class_group_id' });
+    if (error) throw error;
+  },
+
+  async deleteItemPrice(id: number): Promise<void> {
+    const { error } = await supabase.from('uniform_item_prices').delete().eq('id', id);
+    if (error) throw error;
+  },
+
+  /**
+   * Resolve the price for an item based on a student's grade level.
+   * Falls back to the item's default unit_price if no class-group price is set.
+   */
+  async resolvePrice(item: UniformItem, gradeLevel: number): Promise<{ price: number; classGroupName: string }> {
+    const { data } = await supabase
+      .from('uniform_item_prices')
+      .select('price, uniform_class_groups(name, min_grade_level, max_grade_level)')
+      .eq('item_id', item.id);
+
+    if (data && data.length > 0) {
+      const match = (data as any[]).find(d => {
+        const g = d.uniform_class_groups;
+        return g && gradeLevel >= g.min_grade_level && gradeLevel <= g.max_grade_level;
+      });
+      if (match) {
+        return { price: Number(match.price), classGroupName: match.uniform_class_groups.name };
+      }
+    }
+    return { price: item.unit_price, classGroupName: 'Default' };
+  },
+
+  // ============ UNIFORM ITEMS ============
+
   async getUniformItems(): Promise<UniformItem[]> {
-    // Find uniform category
     const { data: categories } = await supabase
       .from('procurement_itemcategory')
       .select('id, name')
@@ -88,7 +196,8 @@ export const uniformService = {
     }));
   },
 
-  /** Issue uniform items to a student and auto-debit their account */
+  // ============ ISSUE UNIFORM ============
+
   async issueUniform(params: {
     student_id: number;
     items: CartItem[];
@@ -126,6 +235,7 @@ export const uniformService = {
       quantity: item.quantity,
       unit_price: item.unit_price,
       total: item.total,
+      class_group_name: item.class_group_name || '',
     }));
 
     const { error: itemsErr } = await supabase
@@ -133,7 +243,7 @@ export const uniformService = {
       .insert(lineItems);
     if (itemsErr) throw itemsErr;
 
-    // 3. Find or match "Uniform" votehead
+    // 3. Find "Uniform" votehead
     const { data: voteheads } = await supabase
       .from('fees_votehead')
       .select('id, name')
@@ -223,11 +333,12 @@ export const uniformService = {
     } as UniformIssue;
   },
 
-  /** Get issue history */
+  // ============ ISSUE HISTORY ============
+
   async getIssueHistory(studentId?: number): Promise<UniformIssue[]> {
     let query = supabase
       .from('uniform_issues')
-      .select('*, students(full_name, admission_number)')
+      .select('*, students(full_name, admission_number, current_class_id, classes(name))')
       .order('created_at', { ascending: false })
       .limit(100);
 
@@ -240,6 +351,7 @@ export const uniformService = {
       ...d,
       student_name: d.students?.full_name,
       admission_number: d.students?.admission_number,
+      class_name: d.students?.classes?.name,
     })) as UniformIssue[];
 
     // Fetch items for each issue
@@ -261,5 +373,15 @@ export const uniformService = {
     }
 
     return issues;
+  },
+
+  // ============ MARK STORE ISSUED ============
+
+  async markStoreIssued(issueId: number): Promise<void> {
+    const { error } = await supabase
+      .from('uniform_issues')
+      .update({ store_issued: true, store_issued_at: new Date().toISOString() })
+      .eq('id', issueId);
+    if (error) throw error;
   },
 };
