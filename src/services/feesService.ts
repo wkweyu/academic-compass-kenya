@@ -335,7 +335,7 @@ export const feesService = {
         // Update fee balance
         const { data: existing } = await supabase
           .from('fees_feebalance')
-          .select('id, amount_invoiced')
+          .select('id, opening_balance, amount_invoiced, amount_paid')
           .eq('school_id', schoolId)
           .eq('student_id', studentId)
           .eq('vote_head_id', item.vote_head_id)
@@ -344,9 +344,14 @@ export const feesService = {
           .maybeSingle();
 
         if (existing) {
+          const openingBalance = Number((existing as any).opening_balance || 0);
+          const amountPaid = Number((existing as any).amount_paid || 0);
+          const invoicedAmount = Number(item.amount);
+          const normalizedClosing = Math.max(0, openingBalance + invoicedAmount - amountPaid);
+
           await supabase.from('fees_feebalance').update({
-            amount_invoiced: item.amount,
-            closing_balance: Number((existing as any).amount_invoiced) - 0 + Number(item.amount),
+            amount_invoiced: invoicedAmount,
+            closing_balance: normalizedClosing,
           }).eq('id', (existing as any).id);
         } else {
           await supabase.from('fees_feebalance').insert({
