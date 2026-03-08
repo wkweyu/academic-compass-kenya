@@ -120,12 +120,26 @@ export default function PayrollPage() {
     }
   };
 
+  const filteredRuns = useMemo(() => {
+    return runs.filter(r => {
+      if (filterStatus !== 'all' && r.status !== filterStatus) return false;
+      if (filterYear !== 'all' && r.year.toString() !== filterYear) return false;
+      return true;
+    });
+  }, [runs, filterStatus, filterYear]);
+
+  const availableYears = useMemo(() => {
+    const years = [...new Set(runs.map(r => r.year))].sort((a, b) => b - a);
+    return years;
+  }, [runs]);
+
   const handleRefreshRun = async (id: number) => {
     try {
       await payrollService.refreshPayrollRun(id);
       toast({ title: 'Payroll run refreshed from current salary structures' });
       refetchRuns();
       queryClient.invalidateQueries({ queryKey: ['payroll-entries', id] });
+      queryClient.invalidateQueries({ queryKey: ['payroll-stats'] });
     } catch (e: any) { toast({ title: 'Error', description: e.message, variant: 'destructive' }); }
   };
 
