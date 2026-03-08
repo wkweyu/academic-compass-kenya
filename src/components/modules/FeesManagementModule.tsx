@@ -45,12 +45,18 @@ export const FeesManagementModule = () => {
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isBulkDebitOpen, setIsBulkDebitOpen] = useState(false);
   const [statementStudentId, setStatementStudentId] = useState<number | null>(null);
+  const [manualAllocMode, setManualAllocMode] = useState(false);
+  const [manualAllocations, setManualAllocations] = useState<Record<number, string>>({});
+
+  const currentTerm = TermManager.getCurrentTerm();
+  const currentYear = TermManager.getCurrentYear();
+
   const [paymentForm, setPaymentForm] = useState({
-    student_id: '', amount: '', mode: 'cash', reference: '', term: '1',
-    year: new Date().getFullYear().toString(), remarks: '',
+    student_id: '', amount: '', mode: 'cash', reference: '',
+    remarks: '',
   });
   const [bulkDebitForm, setBulkDebitForm] = useState({
-    structure_group_id: '', term: '1', year: new Date().getFullYear().toString(),
+    structure_group_id: '', term: currentTerm.toString(), year: currentYear.toString(),
     class_id: '',
   });
 
