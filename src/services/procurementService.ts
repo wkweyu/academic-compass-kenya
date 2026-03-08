@@ -329,7 +329,7 @@ export const procurementService = {
     const schoolId = await getSchoolId();
     for (const item of items) {
       if (item.item_id) {
-        await supabase.from('procurement_stocktransaction').insert({
+        const { error: txError } = await supabase.from('procurement_stocktransaction').insert({
           item_id: item.item_id,
           transaction_type: 'Purchase',
           quantity: item.quantity,
@@ -338,6 +338,7 @@ export const procurementService = {
           description: `Goods received: ${item.description}`,
           school_id: schoolId,
         });
+        if (txError) console.error('Stock transaction failed for item', item.item_id, txError);
       }
     }
   },
