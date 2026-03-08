@@ -412,7 +412,7 @@ function ReportsTab() {
                 </div>
                 <div className="rounded-md border p-3 text-center">
                   <p className="text-xs text-muted-foreground">Total Paid</p>
-                  <p className="text-xl font-bold text-green-600">{grandTotals.paid.toLocaleString()}</p>
+                  <p className="text-xl font-bold text-primary">{grandTotals.paid.toLocaleString()}</p>
                 </div>
                 <div className="rounded-md border p-3 text-center">
                   <p className="text-xs text-muted-foreground">Outstanding</p>
