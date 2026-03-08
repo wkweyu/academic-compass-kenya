@@ -99,6 +99,7 @@ Deno.serve(async (req) => {
   }
 
   try {
+    console.log("onboarding-notification: request received");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const brevoApiKey = Deno.env.get("BREVO_API_KEY");
