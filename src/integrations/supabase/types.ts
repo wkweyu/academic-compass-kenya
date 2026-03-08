@@ -85,6 +85,50 @@ export type Database = {
           },
         ]
       }
+      accounting_funds: {
+        Row: {
+          created_at: string
+          description: string | null
+          fund_code: string
+          fund_name: string
+          fund_type: string
+          id: number
+          is_active: boolean
+          is_restricted: boolean
+          school_id: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          fund_code: string
+          fund_name: string
+          fund_type?: string
+          id?: number
+          is_active?: boolean
+          is_restricted?: boolean
+          school_id: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          fund_code?: string
+          fund_name?: string
+          fund_type?: string
+          id?: number
+          is_active?: boolean
+          is_restricted?: boolean
+          school_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounting_funds_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attendance: {
         Row: {
           academic_year: number
@@ -345,6 +389,156 @@ export type Database = {
           },
         ]
       }
+      bank_accounts: {
+        Row: {
+          account_id: number
+          account_number: string
+          bank_name: string
+          branch: string | null
+          created_at: string
+          id: number
+          is_active: boolean
+          school_id: number
+        }
+        Insert: {
+          account_id: number
+          account_number: string
+          bank_name: string
+          branch?: string | null
+          created_at?: string
+          id?: number
+          is_active?: boolean
+          school_id: number
+        }
+        Update: {
+          account_id?: number
+          account_number?: string
+          bank_name?: string
+          branch?: string | null
+          created_at?: string
+          id?: number
+          is_active?: boolean
+          school_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_accounts_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_accounts_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_reconciliation_entries: {
+        Row: {
+          adjusted_balance: number
+          bank_account_id: number
+          created_at: string
+          id: number
+          ledger_balance: number
+          reconciled_by: string | null
+          reconciliation_date: string
+          school_id: number
+          statement_balance: number
+          status: string
+        }
+        Insert: {
+          adjusted_balance?: number
+          bank_account_id: number
+          created_at?: string
+          id?: number
+          ledger_balance?: number
+          reconciled_by?: string | null
+          reconciliation_date: string
+          school_id: number
+          statement_balance?: number
+          status?: string
+        }
+        Update: {
+          adjusted_balance?: number
+          bank_account_id?: number
+          created_at?: string
+          id?: number
+          ledger_balance?: number
+          reconciled_by?: string | null
+          reconciliation_date?: string
+          school_id?: number
+          statement_balance?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_reconciliation_entries_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_reconciliation_entries_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_reconciliation_items: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string
+          id: number
+          is_reconciled: boolean
+          item_type: string
+          journal_entry_id: number | null
+          reconciliation_id: number
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          description?: string
+          id?: number
+          is_reconciled?: boolean
+          item_type?: string
+          journal_entry_id?: number | null
+          reconciliation_id: number
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string
+          id?: number
+          is_reconciled?: boolean
+          item_type?: string
+          journal_entry_id?: number | null
+          reconciliation_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_reconciliation_items_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_reconciliation_items_reconciliation_id_fkey"
+            columns: ["reconciliation_id"]
+            isOneToOne: false
+            referencedRelation: "bank_reconciliation_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chart_of_accounts: {
         Row: {
           account_code: string
@@ -352,8 +546,10 @@ export type Database = {
           account_type: string
           created_at: string
           description: string | null
+          fund_id: number | null
           id: number
           is_active: boolean
+          is_header: boolean
           parent_id: number | null
           school_id: number
         }
@@ -363,8 +559,10 @@ export type Database = {
           account_type: string
           created_at?: string
           description?: string | null
+          fund_id?: number | null
           id?: never
           is_active?: boolean
+          is_header?: boolean
           parent_id?: number | null
           school_id: number
         }
@@ -374,12 +572,21 @@ export type Database = {
           account_type?: string
           created_at?: string
           description?: string | null
+          fund_id?: number | null
           id?: never
           is_active?: boolean
+          is_header?: boolean
           parent_id?: number | null
           school_id?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "chart_of_accounts_fund_id_fkey"
+            columns: ["fund_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_funds"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "chart_of_accounts_parent_id_fkey"
             columns: ["parent_id"]
@@ -1908,6 +2115,47 @@ export type Database = {
           },
         ]
       }
+      fiscal_years: {
+        Row: {
+          created_at: string
+          end_date: string
+          id: number
+          is_current: boolean
+          is_locked: boolean
+          name: string
+          school_id: number
+          start_date: string
+        }
+        Insert: {
+          created_at?: string
+          end_date: string
+          id?: number
+          is_current?: boolean
+          is_locked?: boolean
+          name: string
+          school_id: number
+          start_date: string
+        }
+        Update: {
+          created_at?: string
+          end_date?: string
+          id?: number
+          is_current?: boolean
+          is_locked?: boolean
+          name?: string
+          school_id?: number
+          start_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fiscal_years_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fleet_drivers: {
         Row: {
           created_at: string
@@ -2382,10 +2630,14 @@ export type Database = {
           created_at: string
           description: string
           entry_date: string
+          fiscal_year_id: number | null
+          fund_id: number | null
           id: number
+          is_reversal: boolean
           posted_at: string | null
           posted_by: number | null
           reference_number: string
+          reversal_of_id: number | null
           school_id: number
           status: string
           total_credit: number
@@ -2396,10 +2648,14 @@ export type Database = {
           created_at?: string
           description: string
           entry_date?: string
+          fiscal_year_id?: number | null
+          fund_id?: number | null
           id?: never
+          is_reversal?: boolean
           posted_at?: string | null
           posted_by?: number | null
           reference_number: string
+          reversal_of_id?: number | null
           school_id: number
           status?: string
           total_credit?: number
@@ -2410,10 +2666,14 @@ export type Database = {
           created_at?: string
           description?: string
           entry_date?: string
+          fiscal_year_id?: number | null
+          fund_id?: number | null
           id?: never
+          is_reversal?: boolean
           posted_at?: string | null
           posted_by?: number | null
           reference_number?: string
+          reversal_of_id?: number | null
           school_id?: number
           status?: string
           total_credit?: number
@@ -2421,6 +2681,20 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "journal_entries_fiscal_year_id_fkey"
+            columns: ["fiscal_year_id"]
+            isOneToOne: false
+            referencedRelation: "fiscal_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entries_fund_id_fkey"
+            columns: ["fund_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_funds"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "journal_entries_posted_by_fkey"
             columns: ["posted_by"]
@@ -2433,6 +2707,13 @@ export type Database = {
             columns: ["posted_by"]
             isOneToOne: false
             referencedRelation: "users_secure"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entries_reversal_of_id_fkey"
+            columns: ["reversal_of_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
             referencedColumns: ["id"]
           },
           {
@@ -2451,6 +2732,7 @@ export type Database = {
           credit_amount: number
           debit_amount: number
           description: string | null
+          fund_id: number | null
           id: number
           journal_entry_id: number
         }
@@ -2460,6 +2742,7 @@ export type Database = {
           credit_amount?: number
           debit_amount?: number
           description?: string | null
+          fund_id?: number | null
           id?: never
           journal_entry_id: number
         }
@@ -2469,6 +2752,7 @@ export type Database = {
           credit_amount?: number
           debit_amount?: number
           description?: string | null
+          fund_id?: number | null
           id?: never
           journal_entry_id?: number
         }
@@ -2478,6 +2762,13 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entry_lines_fund_id_fkey"
+            columns: ["fund_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_funds"
             referencedColumns: ["id"]
           },
           {
@@ -6030,6 +6321,10 @@ export type Database = {
         Args: { p_school_id: number }
         Returns: string
       }
+      generate_journal_reference: {
+        Args: { p_school_id: number }
+        Returns: string
+      }
       generate_lpo_number: { Args: { p_school_id: number }; Returns: string }
       generate_pv_number: { Args: { p_school_id: number }; Returns: string }
       generate_receipt_number: {
@@ -6193,6 +6488,7 @@ export type Database = {
         Args: { p_identifier: string; p_success: boolean }
         Returns: undefined
       }
+      reverse_journal_entry: { Args: { p_entry_id: number }; Returns: number }
       user_can_create_school: { Args: never; Returns: boolean }
       verify_user_school: { Args: { p_school_id: number }; Returns: boolean }
     }
