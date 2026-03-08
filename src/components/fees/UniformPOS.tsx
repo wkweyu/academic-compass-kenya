@@ -275,7 +275,13 @@ export function UniformPOS() {
           <TabsTrigger value="pos"><ShoppingCart className="mr-1.5 h-4 w-4" />Issue Uniform</TabsTrigger>
           <TabsTrigger value="history"><History className="mr-1.5 h-4 w-4" />Issue History</TabsTrigger>
           <TabsTrigger value="pricing"><Settings className="mr-1.5 h-4 w-4" />Pricing</TabsTrigger>
+          <TabsTrigger value="reports"><BarChart3 className="mr-1.5 h-4 w-4" />Reports</TabsTrigger>
         </TabsList>
+
+        {/* ===== REPORTS TAB ===== */}
+        <TabsContent value="reports">
+          <UniformIssuanceReports />
+        </TabsContent>
 
         {/* ===== POS TAB ===== */}
         <TabsContent value="pos" className="space-y-4">
