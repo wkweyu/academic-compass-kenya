@@ -51,6 +51,7 @@ export const FeesManagementModule = () => {
 
   const currentTerm = TermManager.getCurrentTerm();
   const currentYear = TermManager.getCurrentYear();
+  const [rolloverForm, setRolloverForm] = useState({ term: currentTerm.toString(), year: currentYear.toString() });
 
   const [paymentForm, setPaymentForm] = useState({
     student_id: '', amount: '', mode: 'cash', reference: '',
