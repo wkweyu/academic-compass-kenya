@@ -415,7 +415,8 @@ export const payrollService = {
         total_debit: totalGross,
         total_credit: totalGross,
         status: 'posted',
-      }, lines);
+        school_id: 0, // overridden by service
+      } as any, lines);
     } catch (err) {
       console.error('Failed to post payroll to accounting:', err);
     }
