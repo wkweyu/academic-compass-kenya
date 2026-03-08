@@ -480,10 +480,13 @@ export default function PayrollPage() {
                   <CardTitle>Salary Structures</CardTitle>
                   <CardDescription>Configure earnings and deductions for each staff member. PAYE, NHIF, NSSF, Housing Levy & NITA are auto-calculated per Kenyan rates.</CardDescription>
                 </div>
-                <Dialog open={isSalaryOpen} onOpenChange={setIsSalaryOpen}>
+                <Dialog open={isSalaryOpen} onOpenChange={(open) => {
+                  setIsSalaryOpen(open);
+                  if (!open) { setEditingStructureId(null); setSalaryForm(emptySalaryForm); setAutoCalc(true); }
+                }}>
                   <DialogTrigger asChild><Button><Plus className="mr-2 h-4 w-4" />Add Salary Structure</Button></DialogTrigger>
                   <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader><DialogTitle>Create Salary Structure</DialogTitle></DialogHeader>
+                    <DialogHeader><DialogTitle>{editingStructureId ? 'Edit Salary Structure' : 'Create Salary Structure'}</DialogTitle></DialogHeader>
                     <div className="space-y-4 pt-4">
                       <div className="grid grid-cols-2 gap-3">
                         <div><Label>Staff Member *</Label>
