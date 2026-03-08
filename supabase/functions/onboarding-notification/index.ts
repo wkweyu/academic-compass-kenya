@@ -169,7 +169,7 @@ Deno.serve(async (req) => {
           "content-type": "application/json",
         },
         body: JSON.stringify({
-          sender: { name: "SkoolTrack Pro", email: "info@concoctsystem.com" },
+          sender: { name: "SkoolTrack Pro", email: "360.hector@gmail.com" },
           to: [{ email, name: contact_person || "Administrator" }],
           subject: `Welcome to SkoolTrack Pro — Your School Login Details`,
           htmlContent: htmlBody,
