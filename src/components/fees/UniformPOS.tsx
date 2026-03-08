@@ -3,8 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ShoppingCart, Plus, Minus, Trash2, Search, Shirt, Receipt,
   Package, History, ChevronDown, ChevronRight, Printer, Settings,
-  FileText, CheckCircle2
+  FileText, CheckCircle2, BarChart3
 } from 'lucide-react';
+import { UniformIssuanceReports } from './UniformIssuanceReports';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -274,7 +275,13 @@ export function UniformPOS() {
           <TabsTrigger value="pos"><ShoppingCart className="mr-1.5 h-4 w-4" />Issue Uniform</TabsTrigger>
           <TabsTrigger value="history"><History className="mr-1.5 h-4 w-4" />Issue History</TabsTrigger>
           <TabsTrigger value="pricing"><Settings className="mr-1.5 h-4 w-4" />Pricing</TabsTrigger>
+          <TabsTrigger value="reports"><BarChart3 className="mr-1.5 h-4 w-4" />Reports</TabsTrigger>
         </TabsList>
+
+        {/* ===== REPORTS TAB ===== */}
+        <TabsContent value="reports">
+          <UniformIssuanceReports />
+        </TabsContent>
 
         {/* ===== POS TAB ===== */}
         <TabsContent value="pos" className="space-y-4">
