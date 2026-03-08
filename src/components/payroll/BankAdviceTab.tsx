@@ -207,7 +207,7 @@ export default function BankAdviceTab({ runs, schoolName }: BankAdviceTabProps) 
           </Card>
         ))}
 
-        {selectedRunId && bankGroups.length === 0 && (
+        {selectedRunId && filteredGroups.length === 0 && (
           <p className="text-center py-8 text-muted-foreground">No entries found for this payroll run. Ensure staff have bank details configured.</p>
         )}
       </CardContent>
