@@ -44,12 +44,14 @@ export const FeesManagementModule = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isBulkDebitOpen, setIsBulkDebitOpen] = useState(false);
+  const [isRolloverOpen, setIsRolloverOpen] = useState(false);
   const [statementStudentId, setStatementStudentId] = useState<number | null>(null);
   const [manualAllocMode, setManualAllocMode] = useState(false);
   const [manualAllocations, setManualAllocations] = useState<Record<number, string>>({});
 
   const currentTerm = TermManager.getCurrentTerm();
   const currentYear = TermManager.getCurrentYear();
+  const [rolloverForm, setRolloverForm] = useState({ term: currentTerm.toString(), year: currentYear.toString() });
 
   const [paymentForm, setPaymentForm] = useState({
     student_id: '', amount: '', mode: 'cash', reference: '',
@@ -201,7 +203,6 @@ export const FeesManagementModule = () => {
     }
   };
 
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -255,7 +256,47 @@ export const FeesManagementModule = () => {
             </DialogContent>
           </Dialog>
 
-          {/* Collect Payment Dialog */}
+          {/* Term Rollover Dialog */}
+          <Dialog open={isRolloverOpen} onOpenChange={setIsRolloverOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline"><ArrowUpDown className="mr-2 h-4 w-4" />Term Rollover</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Roll Forward Balances</DialogTitle></DialogHeader>
+              <p className="text-sm text-muted-foreground">
+                Carry forward outstanding balances (arrears) or overpayments (prepayments) from one term to the next as opening balances.
+              </p>
+              <div className="space-y-4 pt-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div><Label>From Term</Label>
+                    <Select value={rolloverForm.term} onValueChange={v => setRolloverForm(p => ({ ...p, term: v }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent><SelectItem value="1">Term 1</SelectItem><SelectItem value="2">Term 2</SelectItem><SelectItem value="3">Term 3</SelectItem></SelectContent>
+                    </Select>
+                  </div>
+                  <div><Label>Year</Label><Input type="number" value={rolloverForm.year} onChange={e => setRolloverForm(p => ({ ...p, year: e.target.value }))} /></div>
+                </div>
+                <div className="p-3 bg-muted rounded-lg text-sm">
+                  <strong>Target:</strong> {parseInt(rolloverForm.term) === 3
+                    ? `Term 1, ${parseInt(rolloverForm.year) + 1}`
+                    : `Term ${parseInt(rolloverForm.term) + 1}, ${rolloverForm.year}`}
+                </div>
+                <Button onClick={async () => {
+                  try {
+                    const result = await feesService.rolloverTermBalances(parseInt(rolloverForm.term), parseInt(rolloverForm.year));
+                    toast({ title: 'Rollover complete', description: `${result.studentsProcessed} students, ${result.balancesCreated} balance entries carried forward.` });
+                    setIsRolloverOpen(false);
+                    queryClient.invalidateQueries({ queryKey: ['fees-stats'] });
+                    queryClient.invalidateQueries({ queryKey: ['student-ledgers'] });
+                    queryClient.invalidateQueries({ queryKey: ['fees-register'] });
+                  } catch (e: any) {
+                    toast({ title: 'Error', description: e.message, variant: 'destructive' });
+                  }
+                }} className="w-full">Roll Forward Balances</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
           <Dialog open={isPaymentOpen} onOpenChange={(open) => { setIsPaymentOpen(open); if (!open) { setManualAllocMode(false); setManualAllocations({}); } }}>
             <DialogTrigger asChild>
               <Button><Plus className="mr-2 h-4 w-4" />Collect Payment</Button>

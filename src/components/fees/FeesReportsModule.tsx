@@ -62,7 +62,7 @@ export function FeesReportsModule() {
 
       const { data: balances } = await supabase
         .from('fees_feebalance')
-        .select('student_id, vote_head_id, amount_invoiced, amount_paid, closing_balance')
+        .select('student_id, vote_head_id, opening_balance, amount_invoiced, amount_paid, closing_balance')
         .in('student_id', studentIds)
         .eq('term', term)
         .eq('year', year);
@@ -73,14 +73,17 @@ export function FeesReportsModule() {
       });
 
       const rows = students.map(s => {
-        const vhData: Record<number, { invoiced: number; paid: number; balance: number }> = {};
-        let totalInvoiced = 0, totalPaid = 0, totalBalance = 0;
+        const vhData: Record<number, { opening: number; invoiced: number; paid: number; balance: number }> = {};
+        let totalOpening = 0, totalInvoiced = 0, totalPaid = 0, totalBalance = 0;
         (voteheads || []).forEach(vh => {
           const b = balanceMap[`${s.id}-${vh.id}`];
+          const opening = b ? Number(b.opening_balance) : 0;
           const invoiced = b ? Number(b.amount_invoiced) : 0;
           const paid = b ? Number(b.amount_paid) : 0;
-          const balance = b ? Number(b.closing_balance) : 0;
-          vhData[vh.id] = { invoiced, paid, balance };
+          // Correct balance = opening + invoiced - paid
+          const balance = opening + invoiced - paid;
+          vhData[vh.id] = { opening, invoiced, paid, balance };
+          totalOpening += opening;
           totalInvoiced += invoiced;
           totalPaid += paid;
           totalBalance += balance;
@@ -90,6 +93,7 @@ export function FeesReportsModule() {
           full_name: s.full_name,
           admission_number: s.admission_number,
           voteheads: vhData,
+          totalOpening,
           totalInvoiced,
           totalPaid,
           totalBalance,
@@ -553,8 +557,9 @@ export function FeesReportsModule() {
                         {registerData.voteheads.map((vh: any) => (
                           <TableHead key={vh.id} className="text-right min-w-[100px]">{vh.name}</TableHead>
                         ))}
-                        <TableHead className="text-right min-w-[100px] font-bold">Total Invoiced</TableHead>
-                        <TableHead className="text-right min-w-[100px] font-bold">Total Paid</TableHead>
+                        <TableHead className="text-right min-w-[90px] font-bold">B/F</TableHead>
+                        <TableHead className="text-right min-w-[100px] font-bold">Invoiced</TableHead>
+                        <TableHead className="text-right min-w-[100px] font-bold">Paid</TableHead>
                         <TableHead className="text-right min-w-[100px] font-bold">Balance</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -570,16 +575,18 @@ export function FeesReportsModule() {
                             const vd = row.voteheads[vh.id];
                             return (
                               <TableCell key={vh.id} className="text-right text-sm">
-                                {vd && vd.invoiced > 0 ? (
+                                {vd && (vd.invoiced > 0 || vd.opening > 0) ? (
                                   <div>
+                                    {vd.opening > 0 && <div className="text-xs text-amber-600">B/F {formatCurrency(vd.opening)}</div>}
                                     <div>{formatCurrency(vd.invoiced)}</div>
                                     {vd.paid > 0 && <div className="text-xs text-green-600">-{formatCurrency(vd.paid)}</div>}
-                                    {vd.balance > 0 && <div className="text-xs font-semibold text-destructive">{formatCurrency(vd.balance)}</div>}
+                                    {vd.balance !== 0 && <div className={`text-xs font-semibold ${vd.balance > 0 ? 'text-destructive' : 'text-green-600'}`}>{formatCurrency(vd.balance)}</div>}
                                   </div>
                                 ) : '-'}
                               </TableCell>
                             );
                           })}
+                          <TableCell className="text-right text-sm text-amber-600">{row.totalOpening > 0 ? formatCurrency(row.totalOpening) : '-'}</TableCell>
                           <TableCell className="text-right font-medium">{formatCurrency(row.totalInvoiced)}</TableCell>
                           <TableCell className="text-right font-medium text-green-600">{formatCurrency(row.totalPaid)}</TableCell>
                           <TableCell className={`text-right font-bold ${row.totalBalance > 0 ? 'text-destructive' : 'text-green-600'}`}>
@@ -595,6 +602,7 @@ export function FeesReportsModule() {
                           const totalVh = (registerData.rows as any[]).reduce((s: number, r: any) => s + (r.voteheads[vh.id]?.balance || 0), 0);
                           return <TableCell key={vh.id} className="text-right">{formatCurrency(totalVh)}</TableCell>;
                         })}
+                        <TableCell className="text-right text-amber-600">{formatCurrency((registerData.rows as any[]).reduce((s: number, r: any) => s + r.totalOpening, 0))}</TableCell>
                         <TableCell className="text-right">{formatCurrency((registerData.rows as any[]).reduce((s: number, r: any) => s + r.totalInvoiced, 0))}</TableCell>
                         <TableCell className="text-right text-green-600">{formatCurrency((registerData.rows as any[]).reduce((s: number, r: any) => s + r.totalPaid, 0))}</TableCell>
                         <TableCell className="text-right text-destructive">{formatCurrency((registerData.rows as any[]).reduce((s: number, r: any) => s + r.totalBalance, 0))}</TableCell>
