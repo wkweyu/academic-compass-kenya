@@ -74,8 +74,8 @@ export default function FleetVehiclesTab() {
       year_of_manufacture: form.year_of_manufacture ? parseInt(form.year_of_manufacture) : null,
       engine_number: form.engine_number, chassis_number: form.chassis_number,
       insurance_expiry: form.insurance_expiry || null, inspection_expiry: form.inspection_expiry || null,
-      assigned_route_id: form.assigned_route_id ? parseInt(form.assigned_route_id) : null,
-      assigned_driver_id: form.assigned_driver_id ? parseInt(form.assigned_driver_id) : null,
+      assigned_route_id: form.assigned_route_id && form.assigned_route_id !== '__none__' ? parseInt(form.assigned_route_id) : null,
+      assigned_driver_id: form.assigned_driver_id && form.assigned_driver_id !== '__none__' ? parseInt(form.assigned_driver_id) : null,
       status: form.status, fuel_type: form.fuel_type,
       current_mileage: parseInt(form.current_mileage) || 0,
     };
@@ -194,7 +194,7 @@ export default function FleetVehiclesTab() {
               <Select value={form.assigned_route_id} onValueChange={(v) => setForm({ ...form, assigned_route_id: v })}>
                 <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="__none__">None</SelectItem>
                   {routes.map((r) => <SelectItem key={r.id} value={String(r.id)}>{r.name}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -203,7 +203,7 @@ export default function FleetVehiclesTab() {
               <Select value={form.assigned_driver_id} onValueChange={(v) => setForm({ ...form, assigned_driver_id: v })}>
                 <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="__none__">None</SelectItem>
                   {drivers.filter(d => d.is_active).map((d) => <SelectItem key={d.id} value={String(d.id)}>{d.full_name}</SelectItem>)}
                 </SelectContent>
               </Select>

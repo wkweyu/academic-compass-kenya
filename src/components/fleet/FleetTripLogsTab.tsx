@@ -49,7 +49,7 @@ function TripLogView() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<TripLog | null>(null);
   const [form, setForm] = useState(emptyForm);
-  const [filters, setFilters] = useState({ vehicleId: '', dateFrom: '', dateTo: '', tripType: 'all' });
+  const [filters, setFilters] = useState({ vehicleId: '__all__', dateFrom: '', dateTo: '', tripType: 'all' });
 
   const { data: vehicles = [] } = useQuery({ queryKey: ['fleet-vehicles'], queryFn: getFleetVehicles });
   const { data: drivers = [] } = useQuery({ queryKey: ['fleet-drivers'], queryFn: getFleetDrivers });
@@ -57,7 +57,7 @@ function TripLogView() {
   const { data: trips = [], isLoading } = useQuery({
     queryKey: ['fleet-trips', filters],
     queryFn: () => getTripLogs({
-      vehicleId: filters.vehicleId ? parseInt(filters.vehicleId) : undefined,
+      vehicleId: filters.vehicleId && filters.vehicleId !== '__all__' ? parseInt(filters.vehicleId) : undefined,
       dateFrom: filters.dateFrom || undefined,
       dateTo: filters.dateTo || undefined,
       tripType: filters.tripType !== 'all' ? filters.tripType : undefined,
@@ -109,8 +109,8 @@ function TripLogView() {
     if (!form.vehicle_id) { toast.error('Vehicle is required'); return; }
     const payload: any = {
       vehicle_id: parseInt(form.vehicle_id),
-      driver_id: form.driver_id ? parseInt(form.driver_id) : null,
-      route_id: form.route_id ? parseInt(form.route_id) : null,
+      driver_id: form.driver_id && form.driver_id !== '__none__' ? parseInt(form.driver_id) : null,
+      route_id: form.route_id && form.route_id !== '__none__' ? parseInt(form.route_id) : null,
       trip_date: form.trip_date, trip_type: form.trip_type,
       departure_time: form.departure_time || null, arrival_time: form.arrival_time || null,
       departure_location: form.departure_location, arrival_location: form.arrival_location,
@@ -133,7 +133,7 @@ function TripLogView() {
           <Select value={filters.vehicleId} onValueChange={(v) => setFilters({ ...filters, vehicleId: v })}>
             <SelectTrigger className="w-[160px]"><SelectValue placeholder="All Vehicles" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Vehicles</SelectItem>
+              <SelectItem value="__all__">All Vehicles</SelectItem>
               {vehicles.map(v => <SelectItem key={v.id} value={String(v.id)}>{v.registration_number}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -230,7 +230,7 @@ function TripLogView() {
               <Select value={form.driver_id} onValueChange={(v) => setForm({ ...form, driver_id: v })}>
                 <SelectTrigger><SelectValue placeholder="Select driver" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="__none__">None</SelectItem>
                   {drivers.filter(d => d.is_active).map(d => <SelectItem key={d.id} value={String(d.id)}>{d.full_name}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -240,7 +240,7 @@ function TripLogView() {
               <Select value={form.route_id} onValueChange={(v) => setForm({ ...form, route_id: v })}>
                 <SelectTrigger><SelectValue placeholder="Select route" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="__none__">None</SelectItem>
                   {routes.map(r => <SelectItem key={r.id} value={String(r.id)}>{r.name}</SelectItem>)}
                 </SelectContent>
               </Select>

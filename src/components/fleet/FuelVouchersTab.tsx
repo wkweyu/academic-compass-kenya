@@ -52,7 +52,7 @@ function IssueVoucherView() {
   const issueMut = useMutation({
     mutationFn: () => issueVoucher({
       vehicle_id: parseInt(form.vehicle_id),
-      driver_id: form.driver_id ? parseInt(form.driver_id) : null,
+      driver_id: form.driver_id && form.driver_id !== '__none__' ? parseInt(form.driver_id) : null,
       mileage_at_issue: parseInt(form.mileage_at_issue) || 0,
       authorized_amount: parseFloat(form.authorized_amount) || 0,
       authorized_litres: form.authorized_litres ? parseFloat(form.authorized_litres) : null,
@@ -102,7 +102,7 @@ function IssueVoucherView() {
             <Select value={form.driver_id} onValueChange={(v) => setForm({ ...form, driver_id: v })}>
               <SelectTrigger><SelectValue placeholder="Select driver" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None</SelectItem>
+                <SelectItem value="__none__">None</SelectItem>
                 {drivers.filter(d => d.is_active).map(d => (
                   <SelectItem key={d.id} value={String(d.id)}>{d.full_name}</SelectItem>
                 ))}
@@ -281,13 +281,13 @@ function PendingVouchersView() {
 
 function VoucherHistoryView() {
   const { data: vehicles = [] } = useQuery({ queryKey: ['fleet-vehicles'], queryFn: getFleetVehicles });
-  const [filters, setFilters] = useState({ status: 'all', vehicleId: '', dateFrom: '', dateTo: '' });
+  const [filters, setFilters] = useState({ status: 'all', vehicleId: '__all__', dateFrom: '', dateTo: '' });
 
   const { data: vouchers = [], isLoading } = useQuery({
     queryKey: ['fleet-vouchers', 'history', filters],
     queryFn: () => getVouchers({
       status: filters.status !== 'all' ? filters.status : undefined,
-      vehicleId: filters.vehicleId ? parseInt(filters.vehicleId) : undefined,
+      vehicleId: filters.vehicleId && filters.vehicleId !== '__all__' ? parseInt(filters.vehicleId) : undefined,
       dateFrom: filters.dateFrom || undefined,
       dateTo: filters.dateTo || undefined,
     }),
@@ -316,7 +316,7 @@ function VoucherHistoryView() {
           <Select value={filters.vehicleId} onValueChange={(v) => setFilters({ ...filters, vehicleId: v })}>
             <SelectTrigger className="w-[180px]"><SelectValue placeholder="All Vehicles" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Vehicles</SelectItem>
+              <SelectItem value="__all__">All Vehicles</SelectItem>
               {vehicles.map(v => <SelectItem key={v.id} value={String(v.id)}>{v.registration_number}</SelectItem>)}
             </SelectContent>
           </Select>

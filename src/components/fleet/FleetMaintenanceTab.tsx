@@ -48,13 +48,13 @@ function ServiceHistoryView() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<MaintenanceRecord | null>(null);
   const [form, setForm] = useState(emptyForm);
-  const [filters, setFilters] = useState({ vehicleId: '', dateFrom: '', dateTo: '' });
+  const [filters, setFilters] = useState({ vehicleId: '__all__', dateFrom: '', dateTo: '' });
 
   const { data: vehicles = [] } = useQuery({ queryKey: ['fleet-vehicles'], queryFn: getFleetVehicles });
   const { data: records = [], isLoading } = useQuery({
     queryKey: ['fleet-maintenance', filters],
     queryFn: () => getMaintenanceRecords({
-      vehicleId: filters.vehicleId ? parseInt(filters.vehicleId) : undefined,
+      vehicleId: filters.vehicleId && filters.vehicleId !== '__all__' ? parseInt(filters.vehicleId) : undefined,
       dateFrom: filters.dateFrom || undefined,
       dateTo: filters.dateTo || undefined,
     }),
@@ -120,7 +120,7 @@ function ServiceHistoryView() {
           <Select value={filters.vehicleId} onValueChange={(v) => setFilters({ ...filters, vehicleId: v })}>
             <SelectTrigger className="w-[180px]"><SelectValue placeholder="All Vehicles" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Vehicles</SelectItem>
+              <SelectItem value="__all__">All Vehicles</SelectItem>
               {vehicles.map(v => <SelectItem key={v.id} value={String(v.id)}>{v.registration_number}</SelectItem>)}
             </SelectContent>
           </Select>
