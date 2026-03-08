@@ -281,7 +281,7 @@ function PendingVouchersView() {
 
 function VoucherHistoryView() {
   const { data: vehicles = [] } = useQuery({ queryKey: ['fleet-vehicles'], queryFn: getFleetVehicles });
-  const [filters, setFilters] = useState({ status: 'all', vehicleId: '', dateFrom: '', dateTo: '' });
+  const [filters, setFilters] = useState({ status: 'all', vehicleId: '__all__', dateFrom: '', dateTo: '' });
 
   const { data: vouchers = [], isLoading } = useQuery({
     queryKey: ['fleet-vouchers', 'history', filters],
