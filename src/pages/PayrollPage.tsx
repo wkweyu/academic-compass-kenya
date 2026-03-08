@@ -145,12 +145,12 @@ export default function PayrollPage() {
     } catch (e: any) { toast({ title: 'Error', description: e.message, variant: 'destructive' }); }
   };
 
-  const handleCreateSalary = async () => {
+  const handleSaveSalary = async () => {
     if (!salaryForm.staff_id || !salaryForm.basic_salary) {
       toast({ title: 'Select staff and enter basic salary', variant: 'destructive' }); return;
     }
     try {
-      await payrollService.createSalaryStructure({
+      const payload: any = {
         staff_id: parseInt(salaryForm.staff_id),
         basic_salary: parseFloat(salaryForm.basic_salary),
         house_allowance: parseFloat(salaryForm.house_allowance) || 0,
@@ -167,14 +167,57 @@ export default function PayrollPage() {
         other_deductions: parseFloat(salaryForm.other_deductions) || 0,
         effective_from: salaryForm.effective_from,
         is_active: true,
-      });
-      toast({ title: 'Salary structure created with statutory deductions auto-calculated' });
+      };
+
+      if (editingStructureId) {
+        // Recalculate statutory if autoCalc
+        const gross = payload.basic_salary + payload.house_allowance + payload.transport_allowance +
+          payload.medical_allowance + payload.responsibility_allowance + payload.other_allowances;
+        const stat = calculateStatutoryDeductions(gross);
+        if (autoCalc) {
+          payload.nhif_deduction = stat.nhif;
+          payload.nssf_deduction = stat.nssf;
+          payload.paye_deduction = stat.paye;
+          payload.housing_levy = stat.housingLevy;
+          payload.nita_levy = stat.nitaLevy;
+        }
+        await payrollService.updateSalaryStructure(editingStructureId, payload);
+        toast({ title: 'Salary structure updated' });
+      } else {
+        await payrollService.createSalaryStructure(payload);
+        toast({ title: 'Salary structure created with statutory deductions auto-calculated' });
+      }
+
       setIsSalaryOpen(false);
-      setSalaryForm({ staff_id: '', basic_salary: '', house_allowance: '0', transport_allowance: '0', medical_allowance: '0', responsibility_allowance: '0', other_allowances: '0', nhif_deduction: '0', nssf_deduction: '0', paye_deduction: '0', housing_levy: '0', nita_levy: '0', loan_deduction: '0', other_deductions: '0', effective_from: new Date().toISOString().split('T')[0] });
+      setEditingStructureId(null);
+      setSalaryForm(emptySalaryForm);
       refetchStructures();
       queryClient.invalidateQueries({ queryKey: ['payroll-stats'] });
       queryClient.invalidateQueries({ queryKey: ['uncovered-staff'] });
     } catch (e: any) { toast({ title: 'Error', description: e.message, variant: 'destructive' }); }
+  };
+
+  const handleEditStructure = (s: any) => {
+    setEditingStructureId(s.id);
+    setSalaryForm({
+      staff_id: s.staff_id?.toString() || '',
+      basic_salary: s.basic_salary?.toString() || '',
+      house_allowance: s.house_allowance?.toString() || '0',
+      transport_allowance: s.transport_allowance?.toString() || '0',
+      medical_allowance: s.medical_allowance?.toString() || '0',
+      responsibility_allowance: s.responsibility_allowance?.toString() || '0',
+      other_allowances: s.other_allowances?.toString() || '0',
+      nhif_deduction: s.nhif_deduction?.toString() || '0',
+      nssf_deduction: s.nssf_deduction?.toString() || '0',
+      paye_deduction: s.paye_deduction?.toString() || '0',
+      housing_levy: s.housing_levy?.toString() || '0',
+      nita_levy: s.nita_levy?.toString() || '0',
+      loan_deduction: s.loan_deduction?.toString() || '0',
+      other_deductions: s.other_deductions?.toString() || '0',
+      effective_from: s.effective_from || new Date().toISOString().split('T')[0],
+    });
+    setAutoCalc(false); // Show current values, let user toggle auto-calc
+    setIsSalaryOpen(true);
   };
 
   const handleDeleteStructure = async (id: number) => {
