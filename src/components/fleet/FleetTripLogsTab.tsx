@@ -240,7 +240,7 @@ function TripLogView() {
               <Select value={form.route_id} onValueChange={(v) => setForm({ ...form, route_id: v })}>
                 <SelectTrigger><SelectValue placeholder="Select route" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="__none__">None</SelectItem>
                   {routes.map(r => <SelectItem key={r.id} value={String(r.id)}>{r.name}</SelectItem>)}
                 </SelectContent>
               </Select>

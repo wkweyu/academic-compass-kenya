@@ -287,7 +287,7 @@ function VoucherHistoryView() {
     queryKey: ['fleet-vouchers', 'history', filters],
     queryFn: () => getVouchers({
       status: filters.status !== 'all' ? filters.status : undefined,
-      vehicleId: filters.vehicleId ? parseInt(filters.vehicleId) : undefined,
+      vehicleId: filters.vehicleId && filters.vehicleId !== '__all__' ? parseInt(filters.vehicleId) : undefined,
       dateFrom: filters.dateFrom || undefined,
       dateTo: filters.dateTo || undefined,
     }),

@@ -120,7 +120,7 @@ function ServiceHistoryView() {
           <Select value={filters.vehicleId} onValueChange={(v) => setFilters({ ...filters, vehicleId: v })}>
             <SelectTrigger className="w-[180px]"><SelectValue placeholder="All Vehicles" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Vehicles</SelectItem>
+              <SelectItem value="__all__">All Vehicles</SelectItem>
               {vehicles.map(v => <SelectItem key={v.id} value={String(v.id)}>{v.registration_number}</SelectItem>)}
             </SelectContent>
           </Select>
