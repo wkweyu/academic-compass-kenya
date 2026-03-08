@@ -1,32 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { SmtpClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
-
-async function sendSmtpEmail(to: string, subject: string, htmlBody: string) {
-  const client = new SmtpClient();
-
-  await client.connectTLS({
-    hostname: Deno.env.get("SMTP_HOST")!,
-    port: Number(Deno.env.get("SMTP_PORT") || "465"),
-    username: Deno.env.get("SMTP_USERNAME")!,
-    password: Deno.env.get("SMTP_PASSWORD")!,
-  });
-
-  await client.send({
-    from: Deno.env.get("SMTP_USERNAME")!,
-    to,
-    subject,
-    content: "Please view this email in an HTML-capable client.",
-    html: htmlBody,
-  });
-
-  await client.close();
-}
 
 function buildEmailHtml(
   schoolName: string,
@@ -123,6 +101,7 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const brevoApiKey = Deno.env.get("BREVO_API_KEY");
 
     // Verify auth
     const authHeader = req.headers.get("Authorization");
@@ -162,9 +141,8 @@ Deno.serve(async (req) => {
 
     const results: { email_sent: boolean; email_error?: string } = { email_sent: false };
 
-    // Validate SMTP config
-    if (!Deno.env.get("SMTP_HOST") || !Deno.env.get("SMTP_USERNAME") || !Deno.env.get("SMTP_PASSWORD")) {
-      results.email_error = "SMTP credentials not configured";
+    if (!brevoApiKey) {
+      results.email_error = "BREVO_API_KEY not configured";
       return new Response(JSON.stringify(results), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -180,14 +158,33 @@ Deno.serve(async (req) => {
     }
 
     const loginUrl = `${req.headers.get("origin") || "https://academic-compass-kenya.lovable.app"}/auth`;
-
     const htmlBody = buildEmailHtml(school_name, school_code, contact_person, loginUrl, admin_email, admin_password);
 
     try {
-      await sendSmtpEmail(email, `Welcome to SkoolTrack Pro — Your School Login Details`, htmlBody);
-      results.email_sent = true;
+      const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+          "accept": "application/json",
+          "api-key": brevoApiKey,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          sender: { name: "SkoolTrack Pro", email: "info@concoctsystem.com" },
+          to: [{ email, name: contact_person || "Administrator" }],
+          subject: `Welcome to SkoolTrack Pro — Your School Login Details`,
+          htmlContent: htmlBody,
+        }),
+      });
+
+      if (brevoRes.ok) {
+        results.email_sent = true;
+      } else {
+        const errBody = await brevoRes.text();
+        console.error("Brevo API error:", errBody);
+        results.email_error = errBody;
+      }
     } catch (e: any) {
-      console.error("SMTP send error:", e);
+      console.error("Email send error:", e);
       results.email_error = e.message;
     }
 
