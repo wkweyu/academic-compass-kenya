@@ -549,23 +549,6 @@ export const feesService = {
       }
     }
 
-        // Add to existing allocation for same votehead or create new
-        const existingAlloc = allocations.find(a => a.vote_head_id === vh.id);
-        if (existingAlloc) {
-          existingAlloc.amount += allocate;
-        } else {
-          allocations.push({
-            id: (alloc as any)?.id || 0,
-            receipt_id: receiptId,
-            vote_head_id: vh.id,
-            vote_head_name: vh.name,
-            amount: allocate,
-          });
-        }
-
-        remaining -= allocate;
-      }
-    }
 
     // If there's remaining amount (overpayment), record as excess on first votehead
     if (remaining > 0) {
