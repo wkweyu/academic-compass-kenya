@@ -11,7 +11,8 @@ export const getStudents = async (
       .select(`
         *,
         classes:current_class_id(id, name, grade_level),
-        streams:current_stream_id(id, name)
+        streams:current_stream_id(id, name),
+        transport_transportroute:transport_route_id(id, name, one_way_charge, two_way_charge)
       `);
     
     if (params.search) {
