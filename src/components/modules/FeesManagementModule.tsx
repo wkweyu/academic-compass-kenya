@@ -706,6 +706,11 @@ export const FeesManagementModule = () => {
         <TabsContent value="reports">
           <FeesReportsModule />
         </TabsContent>
+
+        {/* Uniform POS */}
+        <TabsContent value="uniform-pos">
+          <UniformPOS />
+        </TabsContent>
       </Tabs>
     </div>
   );
