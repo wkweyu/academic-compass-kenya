@@ -1,4 +1,5 @@
 import { useForm } from 'react-hook-form';
+import { escapeHtml } from '@/utils/escapeHtml';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -741,7 +742,7 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
                         printWindow.document.write(`
                           <html>
                             <head>
-                              <title>Admission Form - ${submittedStudent.full_name}</title>
+                              <title>Admission Form - ${escapeHtml(submittedStudent.full_name)}</title>
                               <style>
                                 body { 
                                   font-family: Arial, sans-serif; 

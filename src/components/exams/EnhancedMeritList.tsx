@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { escapeHtml } from '@/utils/escapeHtml';
 import { useQuery } from '@tanstack/react-query';
 import { Download, Loader2, Printer, Users, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -134,7 +135,7 @@ export function EnhancedMeritList({ sessionId, classes }: EnhancedMeritListProps
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Merit List - ${selectedClassName}</title>
+          <title>Merit List - ${escapeHtml(selectedClassName)}</title>
           <style>
             body { font-family: Arial, sans-serif; padding: 20px; }
             h1 { text-align: center; margin-bottom: 5px; }
@@ -157,7 +158,7 @@ export function EnhancedMeritList({ sessionId, classes }: EnhancedMeritListProps
         </head>
         <body>
           <h1>${viewType === 'stream' ? 'Stream' : 'Class'} Merit List</h1>
-          <h2>${selectedClassName}${streamName ? ` - ${streamName}` : ''}</h2>
+          <h2>${escapeHtml(selectedClassName)}${streamName ? ` - ${escapeHtml(streamName)}` : ''}</h2>
           
           <div class="stats">
             <div class="stat">
@@ -169,7 +170,7 @@ export function EnhancedMeritList({ sessionId, classes }: EnhancedMeritListProps
               <div class="stat-label">CLASS AVERAGE</div>
             </div>
             <div class="stat">
-              <div class="stat-value">${statistics.topPerformer?.full_name || '-'}</div>
+              <div class="stat-value">${escapeHtml(statistics.topPerformer?.full_name || '-')}</div>
               <div class="stat-label">TOP PERFORMER</div>
             </div>
           </div>
@@ -191,9 +192,9 @@ export function EnhancedMeritList({ sessionId, classes }: EnhancedMeritListProps
               ${meritList.map(entry => `
                 <tr>
                   <td class="position">${entry.position || '-'}</td>
-                  <td>${entry.admission_number}</td>
-                  <td>${entry.full_name}</td>
-                  ${viewType === 'class' ? `<td>${entry.stream_name || '-'}</td>` : ''}
+                  <td>${escapeHtml(entry.admission_number)}</td>
+                  <td>${escapeHtml(entry.full_name)}</td>
+                  ${viewType === 'class' ? `<td>${escapeHtml(entry.stream_name || '-')}</td>` : ''}
                   <td style="text-align: right;">${entry.total_marks}/${entry.total_possible}</td>
                   <td style="text-align: right;">${entry.percentage.toFixed(1)}%</td>
                   <td style="text-align: right;">${entry.average_points.toFixed(2)}</td>

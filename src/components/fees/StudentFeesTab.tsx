@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { escapeHtml } from '@/utils/escapeHtml';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -109,7 +110,7 @@ export function StudentFeesTab({ studentId, studentName, admissionNumber, classN
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
     printWindow.document.write(`
-      <html><head><title>Fee Statement - ${studentName}</title>
+      <html><head><title>Fee Statement - ${escapeHtml(studentName)}</title>
       <style>
         body { font-family: Arial, sans-serif; padding: 20px; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
@@ -126,7 +127,7 @@ export function StudentFeesTab({ studentId, studentName, admissionNumber, classN
       </style></head><body>
       <div class="header">
         <h2>STUDENT FEE STATEMENT</h2>
-        <p><strong>${studentName}</strong> | Adm: ${admissionNumber} | Class: ${className}</p>
+        <p><strong>${escapeHtml(studentName)}</strong> | Adm: ${escapeHtml(admissionNumber)} | Class: ${escapeHtml(className)}</p>
         <p>Statement Date: ${new Date().toLocaleDateString()}</p>
       </div>
       <table>
@@ -135,8 +136,8 @@ export function StudentFeesTab({ studentId, studentName, admissionNumber, classN
           ${entries.map(e => `
             <tr>
               <td>${new Date(e.date).toLocaleDateString()}</td>
-              <td>${e.description}</td>
-              <td>${e.reference}</td>
+              <td>${escapeHtml(e.description)}</td>
+              <td>${escapeHtml(e.reference)}</td>
               <td class="text-right debit">${e.debit > 0 ? formatCurrency(e.debit) : ''}</td>
               <td class="text-right credit">${e.credit > 0 ? formatCurrency(e.credit) : ''}</td>
               <td class="text-right bold">${formatCurrency(e.balance)}</td>

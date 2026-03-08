@@ -1,4 +1,5 @@
 import { Receipt } from '@/services/feesService';
+import { escapeHtml } from '@/utils/escapeHtml';
 
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES', minimumFractionDigits: 0 }).format(amount);
@@ -37,13 +38,13 @@ export function printReceipt(props: PaymentReceiptPrintProps) {
   
   const allocationsHtml = (receipt.allocations || []).map(a => `
     <tr>
-      <td style="padding: 6px 12px; border-bottom: 1px solid #eee;">${a.vote_head_name || 'Fee'}</td>
+      <td style="padding: 6px 12px; border-bottom: 1px solid #eee;">${escapeHtml(a.vote_head_name || 'Fee')}</td>
       <td style="padding: 6px 12px; border-bottom: 1px solid #eee; text-align: right;">${formatCurrency(Number(a.amount))}</td>
     </tr>
   `).join('');
 
   printWindow.document.write(`
-    <html><head><title>Receipt ${receipt.receipt_no}</title>
+    <html><head><title>Receipt ${escapeHtml(receipt.receipt_no)}</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body { font-family: Arial, sans-serif; padding: 30px; max-width: 800px; margin: 0 auto; }
@@ -72,22 +73,22 @@ export function printReceipt(props: PaymentReceiptPrintProps) {
     </style></head><body>
     <div class="receipt">
       <div class="header">
-        <h1>${schoolName}</h1>
-        ${schoolAddress ? `<p>${schoolAddress}</p>` : ''}
-        ${schoolPhone ? `<p>Tel: ${schoolPhone}</p>` : ''}
-        ${schoolEmail ? `<p>Email: ${schoolEmail}</p>` : ''}
+        <h1>${escapeHtml(schoolName)}</h1>
+        ${schoolAddress ? `<p>${escapeHtml(schoolAddress)}</p>` : ''}
+        ${schoolPhone ? `<p>Tel: ${escapeHtml(schoolPhone)}</p>` : ''}
+        ${schoolEmail ? `<p>Email: ${escapeHtml(schoolEmail)}</p>` : ''}
       </div>
       
       <div class="receipt-title">OFFICIAL RECEIPT</div>
       
       <div class="info-grid">
-        <div class="info-item"><label>Receipt No:</label> ${receipt.receipt_no}</div>
+        <div class="info-item"><label>Receipt No:</label> ${escapeHtml(receipt.receipt_no)}</div>
         <div class="info-item"><label>Date:</label> ${new Date(receipt.created_at).toLocaleDateString()}</div>
-        <div class="info-item"><label>Student:</label> ${receipt.student_name || ''}</div>
-        <div class="info-item"><label>Adm No:</label> ${receipt.admission_number || ''}</div>
-        <div class="info-item"><label>Payment Mode:</label> ${receipt.payment_mode.toUpperCase()}</div>
-        <div class="info-item"><label>Reference:</label> ${receipt.reference || '-'}</div>
-        <div class="info-item"><label>Term/Year:</label> Term ${receipt.term} / ${receipt.year}</div>
+        <div class="info-item"><label>Student:</label> ${escapeHtml(receipt.student_name || '')}</div>
+        <div class="info-item"><label>Adm No:</label> ${escapeHtml(receipt.admission_number || '')}</div>
+        <div class="info-item"><label>Payment Mode:</label> ${escapeHtml(receipt.payment_mode.toUpperCase())}</div>
+        <div class="info-item"><label>Reference:</label> ${escapeHtml(receipt.reference || '-')}</div>
+        <div class="info-item"><label>Term/Year:</label> Term ${escapeHtml(receipt.term)} / ${escapeHtml(receipt.year)}</div>
       </div>
       
       ${allocationsHtml ? `
@@ -115,7 +116,7 @@ export function printReceipt(props: PaymentReceiptPrintProps) {
         <strong>Balance After Payment: ${formatCurrency(balance)}</strong>
       </div>
       
-      ${receipt.remarks ? `<p style="font-size: 12px; color: #555; margin: 10px 0;"><strong>Remarks:</strong> ${receipt.remarks}</p>` : ''}
+      ${receipt.remarks ? `<p style="font-size: 12px; color: #555; margin: 10px 0;"><strong>Remarks:</strong> ${escapeHtml(receipt.remarks)}</p>` : ''}
       
       <div class="footer">
         <div class="signature">

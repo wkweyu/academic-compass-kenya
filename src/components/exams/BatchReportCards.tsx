@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { escapeHtml } from '@/utils/escapeHtml';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -219,20 +220,20 @@ export function BatchReportCards({ session }: BatchReportCardsProps) {
       printContent += `
         <div class="report-card" style="page-break-after: always;">
           <div class="header">
-            <h1>${school?.name || 'School Name'}</h1>
-            ${school?.motto ? `<p class="motto">"${school.motto}"</p>` : ''}
-            ${school?.address ? `<p class="address">${school.address}</p>` : ''}
+            <h1>${escapeHtml(school?.name || 'School Name')}</h1>
+            ${school?.motto ? `<p class="motto">"${escapeHtml(school.motto)}"</p>` : ''}
+            ${school?.address ? `<p class="address">${escapeHtml(school.address)}</p>` : ''}
           </div>
           
           <div class="title">
             <h2>ACADEMIC REPORT CARD</h2>
-            <p>${session.name} • ${session.academic_year}</p>
+            <p>${escapeHtml(session.name)} • ${escapeHtml(session.academic_year)}</p>
           </div>
           
           <div class="student-info">
-            <div><strong>Adm No:</strong> ${student.admission_number}</div>
-            <div><strong>Name:</strong> ${student.full_name}</div>
-            <div><strong>Class:</strong> ${student.class_name}${student.stream_name ? ` (${student.stream_name})` : ''}</div>
+            <div><strong>Adm No:</strong> ${escapeHtml(student.admission_number)}</div>
+            <div><strong>Name:</strong> ${escapeHtml(student.full_name)}</div>
+            <div><strong>Class:</strong> ${escapeHtml(student.class_name)}${student.stream_name ? ` (${escapeHtml(student.stream_name)})` : ''}</div>
           </div>
           
           <div class="summary-cards">
@@ -240,7 +241,7 @@ export function BatchReportCards({ session }: BatchReportCardsProps) {
             <div class="card"><span class="value">${student.stream_position || '-'}</span><span class="label">Stream Rank</span></div>
             <div class="card"><span class="value">${student.average_percentage.toFixed(1)}%</span><span class="label">Average</span></div>
             <div class="card"><span class="value">${student.average_points.toFixed(2)}</span><span class="label">Points</span></div>
-            <div class="card grade-${student.overall_grade.toLowerCase()}"><span class="value">${student.overall_grade}</span><span class="label">Grade</span></div>
+            <div class="card grade-${escapeHtml(student.overall_grade.toLowerCase())}"><span class="value">${escapeHtml(student.overall_grade)}</span><span class="label">Grade</span></div>
           </div>
           
           <table>
@@ -257,7 +258,7 @@ export function BatchReportCards({ session }: BatchReportCardsProps) {
             <tbody>
               ${marks.map(m => `
                 <tr>
-                  <td>${m.subject_name} (${m.subject_code})</td>
+                  <td>${escapeHtml(m.subject_name)} (${escapeHtml(m.subject_code)})</td>
                   <td class="center">${m.marks}</td>
                   <td class="center">${m.max_marks}</td>
                   <td class="center">${((m.marks / m.max_marks) * 100).toFixed(0)}%</td>
@@ -298,7 +299,7 @@ export function BatchReportCards({ session }: BatchReportCardsProps) {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Report Cards - ${session.name}</title>
+          <title>Report Cards - ${escapeHtml(session.name)}</title>
           <style>
             * { box-sizing: border-box; margin: 0; padding: 0; }
             body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; line-height: 1.4; }

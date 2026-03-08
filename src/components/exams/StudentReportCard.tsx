@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { escapeHtml } from '@/utils/escapeHtml';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -181,7 +182,7 @@ export function StudentReportCard({ session }: StudentReportCardProps) {
         printWindow.document.write(`
           <html>
             <head>
-              <title>Report Card - ${selectedStudent?.full_name}</title>
+              <title>Report Card - ${escapeHtml(selectedStudent?.full_name)}</title>
               <style>
                 body { font-family: Arial, sans-serif; padding: 20px; }
                 table { width: 100%; border-collapse: collapse; margin: 20px 0; }

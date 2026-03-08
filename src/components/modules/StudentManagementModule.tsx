@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { escapeHtml } from '@/utils/escapeHtml';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
@@ -1113,7 +1114,7 @@ const StudentManagementModule = () => {
                         printWindow.document.write(`
                           <html>
                             <head>
-                              <title>Admission Form - ${printStudentData.full_name}</title>
+                              <title>Admission Form - ${escapeHtml(printStudentData.full_name)}</title>
                               <style>
                                 body { 
                                   font-family: Arial, sans-serif; 

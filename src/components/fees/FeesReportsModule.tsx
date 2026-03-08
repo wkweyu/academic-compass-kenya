@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { escapeHtml } from '@/utils/escapeHtml';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -145,12 +146,12 @@ export function FeesReportsModule() {
     if (!content) return;
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
-    printWindow.document.write(`<html><head><title>${title}</title>
+    printWindow.document.write(`<html><head><title>${escapeHtml(title)}</title>
       <style>body{font-family:Arial,sans-serif;padding:20px}table{width:100%;border-collapse:collapse;margin-top:10px}
       th,td{border:1px solid #ddd;padding:8px;text-align:left;font-size:12px}th{background:#f5f5f5}
       .text-right{text-align:right}.header{text-align:center;margin-bottom:20px}
       @media print{body{margin:0}}</style></head><body>
-      <div class="header"><h2>${title}</h2><p>Generated: ${new Date().toLocaleString()}</p></div>
+      <div class="header"><h2>${escapeHtml(title)}</h2><p>Generated: ${new Date().toLocaleString()}</p></div>
       ${content.innerHTML}</body></html>`);
     printWindow.document.close();
     printWindow.print();

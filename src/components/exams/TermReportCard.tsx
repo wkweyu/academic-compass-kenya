@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { escapeHtml } from '@/utils/escapeHtml';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -447,26 +448,26 @@ export function TermReportCard({ classId, termId, academicYear }: TermReportCard
             ${schoolInfo?.logo ? `<img src="${schoolInfo.logo}" alt="School Logo" />` : '<div class="logo-placeholder">🎓</div>'}
           </div>
           <div class="school-info">
-            <h1>${schoolInfo?.name || 'School Name'}</h1>
-            <p class="motto">${schoolInfo?.motto || ''}</p>
-            <p>${schoolInfo?.address || ''}</p>
-            <p>${schoolInfo?.phone || ''} | ${schoolInfo?.email || ''}</p>
+            <h1>${escapeHtml(schoolInfo?.name || 'School Name')}</h1>
+            <p class="motto">${escapeHtml(schoolInfo?.motto || '')}</p>
+            <p>${escapeHtml(schoolInfo?.address || '')}</p>
+            <p>${escapeHtml(schoolInfo?.phone || '')} | ${escapeHtml(schoolInfo?.email || '')}</p>
           </div>
         </div>
         
         <div class="title-bar">
           <h2>COMBINED TERM REPORT CARD</h2>
-          <p>Term ${selectedTermInfo?.term || ''} - ${selectedYear}</p>
+          <p>Term ${escapeHtml(selectedTermInfo?.term || '')} - ${escapeHtml(selectedYear)}</p>
         </div>
 
         <div class="student-info">
           <div class="info-row">
-            <div class="info-item"><span class="label">Name:</span> <span class="value">${student.full_name}</span></div>
-            <div class="info-item"><span class="label">Adm No:</span> <span class="value">${student.admission_number}</span></div>
+            <div class="info-item"><span class="label">Name:</span> <span class="value">${escapeHtml(student.full_name)}</span></div>
+            <div class="info-item"><span class="label">Adm No:</span> <span class="value">${escapeHtml(student.admission_number)}</span></div>
           </div>
           <div class="info-row">
-            <div class="info-item"><span class="label">Class:</span> <span class="value">${selectedClassName}</span></div>
-            <div class="info-item"><span class="label">Stream:</span> <span class="value">${student.stream_name || '-'}</span></div>
+            <div class="info-item"><span class="label">Class:</span> <span class="value">${escapeHtml(selectedClassName)}</span></div>
+            <div class="info-item"><span class="label">Stream:</span> <span class="value">${escapeHtml(student.stream_name || '-')}</span></div>
           </div>
         </div>
 
@@ -475,7 +476,7 @@ export function TermReportCard({ classId, termId, academicYear }: TermReportCard
           <div class="exam-list">
             ${student.exams.map(e => `
               <div class="exam-item">
-                <span class="exam-name">${e.session_name}</span>
+                <span class="exam-name">${escapeHtml(e.session_name)}</span>
                 <span class="exam-score">${e.average_percentage.toFixed(1)}% (${e.overall_grade})</span>
               </div>
             `).join('')}
@@ -486,7 +487,7 @@ export function TermReportCard({ classId, termId, academicYear }: TermReportCard
           <thead>
             <tr>
               <th>Subject</th>
-              ${student.exams.map(e => `<th>${e.session_name}</th>`).join('')}
+              ${student.exams.map(e => `<th>${escapeHtml(e.session_name)}</th>`).join('')}
               <th>Average</th>
               <th>Grade</th>
             </tr>
@@ -494,7 +495,7 @@ export function TermReportCard({ classId, termId, academicYear }: TermReportCard
           <tbody>
             ${student.subjects.map(subject => `
               <tr>
-                <td>${subject.subject_name}</td>
+                <td>${escapeHtml(subject.subject_name)}</td>
                 ${student.exams.map(exam => {
                   const subjectExam = subject.exams.find(se => se.session_id === exam.session_id);
                   return `<td class="center">${subjectExam ? `${subjectExam.percentage.toFixed(0)}%` : '-'}</td>`;
@@ -568,7 +569,7 @@ export function TermReportCard({ classId, termId, academicYear }: TermReportCard
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Term Report Cards - ${selectedClassName}</title>
+          <title>Term Report Cards - ${escapeHtml(selectedClassName)}</title>
           <style>
             * { box-sizing: border-box; margin: 0; padding: 0; }
             body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 11px; line-height: 1.4; color: #1a1a1a; }
