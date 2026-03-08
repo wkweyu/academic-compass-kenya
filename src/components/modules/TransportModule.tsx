@@ -11,20 +11,23 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Bus, Users, FileText } from 'lucide-react';
+import { Plus, Pencil, Trash2, Bus, Users, FileText, Search, Receipt } from 'lucide-react';
+import { TermManager } from '@/utils/termManager';
 import {
   getTransportRoutes,
   createTransportRoute,
   updateTransportRoute,
   deleteTransportRoute,
   getTransportStudents,
+  assignStudentToRoute,
   unassignStudentFromRoute,
+  postTransportDebit,
   getTransportBillingReport,
   TransportRoute,
 } from '@/services/transportService';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function TransportModule() {
-  const qc = useQueryClient();
   const [tab, setTab] = useState('routes');
 
   return (
@@ -89,7 +92,7 @@ function RoutesTab() {
       one_way_charge: parseFloat(form.one_way_charge),
       two_way_charge: parseFloat(form.two_way_charge),
       description: form.description || null,
-      school_id: 0, // will be overridden
+      school_id: 0,
     };
     if (!form.name || !form.one_way_charge || !form.two_way_charge) { toast.error('Fill all required fields'); return; }
     if (editing) {
@@ -167,6 +170,10 @@ function RoutesTab() {
 function StudentsTab() {
   const qc = useQueryClient();
   const [filterRoute, setFilterRoute] = useState('all');
+  const [showAssign, setShowAssign] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [assignForm, setAssignForm] = useState({ studentId: 0, routeId: '', transportType: 'two_way' as 'one_way' | 'two_way' });
+  const [selectedStudentName, setSelectedStudentName] = useState('');
 
   const { data: students = [], isLoading } = useQuery({
     queryKey: ['transport-students'],
@@ -178,11 +185,79 @@ function StudentsTab() {
     queryFn: getTransportRoutes,
   });
 
+  // Search for students not yet on transport
+  const { data: searchResults = [], isFetching: isSearching } = useQuery({
+    queryKey: ['transport-student-search', searchTerm],
+    queryFn: async () => {
+      if (searchTerm.length < 2) return [];
+      const { data, error } = await supabase
+        .from('students')
+        .select('id, admission_number, full_name, classes:current_class_id(name), streams:current_stream_id(name)')
+        .eq('is_active', true)
+        .eq('is_on_transport', false)
+        .or(`full_name.ilike.%${searchTerm}%,admission_number.ilike.%${searchTerm}%`)
+        .order('full_name')
+        .limit(10);
+      if (error) throw error;
+      return (data || []).map((s: any) => ({
+        id: s.id,
+        admission_number: s.admission_number,
+        full_name: s.full_name,
+        class_name: s.classes?.name || '',
+        stream_name: s.streams?.name || '',
+      }));
+    },
+    enabled: searchTerm.length >= 2 && showAssign,
+  });
+
   const unassignMut = useMutation({
     mutationFn: unassignStudentFromRoute,
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['transport-students'] }); toast.success('Student removed from transport'); },
     onError: (e: any) => toast.error(e.message),
   });
+
+  const assignMut = useMutation({
+    mutationFn: async () => {
+      const routeId = parseInt(assignForm.routeId);
+      const route = routes.find(r => r.id === routeId);
+      if (!route) throw new Error('Route not found');
+
+      // 1. Assign student to route
+      await assignStudentToRoute(assignForm.studentId, routeId, assignForm.transportType);
+
+      // 2. Post transport debit (invoice)
+      const charge = assignForm.transportType === 'two_way' ? route.two_way_charge : route.one_way_charge;
+      const currentTerm = TermManager.getCurrentTerm();
+      const currentYear = TermManager.getCurrentYear();
+      await postTransportDebit(assignForm.studentId, charge, route.name, currentTerm, currentYear);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['transport-students'] });
+      qc.invalidateQueries({ queryKey: ['transport-billing'] });
+      toast.success('Student assigned to transport and invoiced');
+      closeAssign();
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const openAssign = () => {
+    setAssignForm({ studentId: 0, routeId: '', transportType: 'two_way' });
+    setSearchTerm('');
+    setSelectedStudentName('');
+    setShowAssign(true);
+  };
+  const closeAssign = () => { setShowAssign(false); setSearchTerm(''); setSelectedStudentName(''); };
+
+  const selectStudent = (s: any) => {
+    setAssignForm({ ...assignForm, studentId: s.id });
+    setSelectedStudentName(`${s.full_name} (${s.admission_number}) — ${s.class_name} ${s.stream_name}`);
+    setSearchTerm('');
+  };
+
+  const selectedRoute = routes.find(r => String(r.id) === assignForm.routeId);
+  const estimatedCharge = selectedRoute
+    ? (assignForm.transportType === 'two_way' ? selectedRoute.two_way_charge : selectedRoute.one_way_charge)
+    : 0;
 
   const filtered = filterRoute === 'all'
     ? students
@@ -201,13 +276,14 @@ function StudentsTab() {
               {routes.map((r) => <SelectItem key={r.id} value={String(r.id)}>{r.name}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Button onClick={openAssign} className="gap-1"><Plus className="h-4 w-4" /> Add Student</Button>
         </div>
       </CardHeader>
       <CardContent>
         {isLoading ? (
           <p className="text-muted-foreground">Loading...</p>
         ) : filtered.length === 0 ? (
-          <p className="text-muted-foreground text-center py-8">No students assigned to transport. Assign students via the Student Management module.</p>
+          <p className="text-muted-foreground text-center py-8">No students assigned to transport. Click "Add Student" to assign one.</p>
         ) : (
           <Table>
             <TableHeader>
@@ -245,6 +321,102 @@ function StudentsTab() {
           </Table>
         )}
       </CardContent>
+
+      {/* Assign Student Dialog */}
+      <Dialog open={showAssign} onOpenChange={setShowAssign}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Assign Student to Transport</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            {/* Student Search */}
+            <div>
+              <Label>Student *</Label>
+              {selectedStudentName ? (
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="flex-1 rounded-md border px-3 py-2 text-sm bg-muted">{selectedStudentName}</div>
+                  <Button size="sm" variant="ghost" onClick={() => { setAssignForm({ ...assignForm, studentId: 0 }); setSelectedStudentName(''); }}>Change</Button>
+                </div>
+              ) : (
+                <div className="relative mt-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search by name or admission number..."
+                    className="pl-9"
+                  />
+                  {searchTerm.length >= 2 && (
+                    <div className="absolute z-10 mt-1 w-full rounded-md border bg-popover shadow-lg max-h-48 overflow-y-auto">
+                      {isSearching ? (
+                        <p className="p-3 text-sm text-muted-foreground">Searching...</p>
+                      ) : searchResults.length === 0 ? (
+                        <p className="p-3 text-sm text-muted-foreground">No students found (or already on transport)</p>
+                      ) : (
+                        searchResults.map((s: any) => (
+                          <button
+                            key={s.id}
+                            onClick={() => selectStudent(s)}
+                            className="w-full text-left px-3 py-2 hover:bg-accent text-sm border-b last:border-b-0"
+                          >
+                            <span className="font-medium">{s.full_name}</span>
+                            <span className="text-muted-foreground ml-2">({s.admission_number})</span>
+                            <span className="text-muted-foreground ml-2">— {s.class_name} {s.stream_name}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Route */}
+            <div>
+              <Label>Route *</Label>
+              <Select value={assignForm.routeId} onValueChange={(v) => setAssignForm({ ...assignForm, routeId: v })}>
+                <SelectTrigger><SelectValue placeholder="Select route" /></SelectTrigger>
+                <SelectContent>
+                  {routes.map((r) => (
+                    <SelectItem key={r.id} value={String(r.id)}>
+                      {r.name} (1-way: {r.one_way_charge.toLocaleString()}, 2-way: {r.two_way_charge.toLocaleString()})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Transport Type */}
+            <div>
+              <Label>Transport Type *</Label>
+              <Select value={assignForm.transportType} onValueChange={(v) => setAssignForm({ ...assignForm, transportType: v as 'one_way' | 'two_way' })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="one_way">One Way</SelectItem>
+                  <SelectItem value="two_way">Two Way</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Charge Preview */}
+            {selectedRoute && (
+              <div className="rounded-md border p-3 bg-muted/50">
+                <p className="text-sm text-muted-foreground">Charge for current term (Term {TermManager.getCurrentTerm()}, {TermManager.getCurrentYear()})</p>
+                <p className="text-lg font-bold">{estimatedCharge.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">This amount will be invoiced to the student's fee account under the Transport votehead.</p>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={closeAssign}>Cancel</Button>
+              <Button
+                onClick={() => assignMut.mutate()}
+                disabled={!assignForm.studentId || !assignForm.routeId || assignMut.isPending}
+              >
+                {assignMut.isPending ? 'Assigning...' : 'Assign & Invoice'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
@@ -252,8 +424,9 @@ function StudentsTab() {
 // ─── Reports Tab ───
 
 function ReportsTab() {
+  const qc = useQueryClient();
   const currentYear = new Date().getFullYear();
-  const [term, setTerm] = useState('1');
+  const [term, setTerm] = useState(String(TermManager.getCurrentTerm()));
   const [year, setYear] = useState(String(currentYear));
 
   const { data: report = [], isLoading } = useQuery({
@@ -262,7 +435,6 @@ function ReportsTab() {
     enabled: !!term && !!year,
   });
 
-  // Also fetch all transport students (even those without billing yet)
   const { data: transportStudents = [] } = useQuery({
     queryKey: ['transport-students'],
     queryFn: getTransportStudents,
@@ -271,6 +443,47 @@ function ReportsTab() {
   const { data: routes = [] } = useQuery({
     queryKey: ['transport-routes'],
     queryFn: getTransportRoutes,
+  });
+
+  // Bulk invoice mutation
+  const bulkInvoiceMut = useMutation({
+    mutationFn: async () => {
+      const termNum = parseInt(term);
+      const yearNum = parseInt(year);
+
+      // Find students who are on transport but not yet invoiced for this term
+      const billingMap = new Map<number, any>();
+      report.forEach((r: any) => billingMap.set(r.student_id, r));
+
+      const uninvoiced = transportStudents.filter(s => {
+        const billing = billingMap.get(s.id);
+        return !billing || billing.invoiced === 0;
+      });
+
+      if (uninvoiced.length === 0) throw new Error('All transport students are already invoiced for this term.');
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const student of uninvoiced) {
+        try {
+          const charge = student.charge || 0;
+          if (charge <= 0) continue;
+          await postTransportDebit(student.id, charge, student.route_name || 'Transport', termNum, yearNum);
+          successCount++;
+        } catch (err) {
+          console.error(`Failed to invoice student ${student.id}:`, err);
+          errorCount++;
+        }
+      }
+
+      return { successCount, errorCount };
+    },
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ['transport-billing'] });
+      toast.success(`Invoiced ${result.successCount} student(s)${result.errorCount > 0 ? `, ${result.errorCount} failed` : ''}`);
+    },
+    onError: (e: any) => toast.error(e.message),
   });
 
   // Merge: for each transport student, overlay billing data if it exists
@@ -292,7 +505,7 @@ function ReportsTab() {
         charge: s.charge || 0,
         invoiced: billing?.invoiced || 0,
         paid: billing?.paid || 0,
-        balance: billing?.balance || (s.charge || 0),
+        balance: billing ? billing.balance : (s.charge || 0),
       };
     });
 
@@ -324,9 +537,7 @@ function ReportsTab() {
       grouped[key].push(s);
     });
 
-    // Sort students within each route
     Object.values(grouped).forEach((list) => list.sort((a, b) => a.full_name.localeCompare(b.full_name)));
-
     return grouped;
   }, [report, transportStudents]);
 
@@ -337,6 +548,15 @@ function ReportsTab() {
       charge += s.charge; invoiced += s.invoiced; paid += s.paid; balance += s.balance;
     }));
     return { charge, invoiced, paid, balance };
+  }, [mergedByRoute, routeNames]);
+
+  // Count uninvoiced students
+  const uninvoicedCount = useMemo(() => {
+    let count = 0;
+    routeNames.forEach(rn => mergedByRoute[rn].forEach(s => {
+      if (s.invoiced === 0 && s.charge > 0) count++;
+    }));
+    return count;
   }, [mergedByRoute, routeNames]);
 
   const handlePrint = () => {
@@ -354,10 +574,7 @@ function ReportsTab() {
         .subtotal-row{background:#f8f8f8;font-weight:600}
         .grand-total{background:#e0e0e0;font-weight:bold;font-size:13px}
         h2{margin-bottom:4px}
-        .summary{display:flex;gap:24px;margin-bottom:12px}
-        .summary-card{border:1px solid #ccc;padding:8px 16px;border-radius:4px;text-align:center}
-        .summary-card .label{font-size:11px;color:#666}
-        .summary-card .value{font-size:18px;font-weight:bold}
+        .not-invoiced{color:#c00;font-style:italic}
       </style>
     </head><body>${el.innerHTML}</body></html>`);
     w.document.close();
@@ -387,6 +604,20 @@ function ReportsTab() {
               ))}
             </SelectContent>
           </Select>
+          {uninvoicedCount > 0 && (
+            <Button
+              variant="default"
+              onClick={() => {
+                if (confirm(`Post transport invoices for ${uninvoicedCount} un-invoiced student(s) for Term ${term}, ${year}?`))
+                  bulkInvoiceMut.mutate();
+              }}
+              disabled={bulkInvoiceMut.isPending}
+              className="gap-1"
+            >
+              <Receipt className="h-4 w-4" />
+              {bulkInvoiceMut.isPending ? 'Posting...' : `Invoice ${uninvoicedCount} Student${uninvoicedCount !== 1 ? 's' : ''}`}
+            </Button>
+          )}
           <Button variant="outline" onClick={handlePrint} disabled={!hasData}>Print</Button>
         </div>
       </CardHeader>
@@ -462,7 +693,9 @@ function ReportsTab() {
                               </Badge>
                             </TableCell>
                             <TableCell className="text-right">{s.charge.toLocaleString()}</TableCell>
-                            <TableCell className="text-right">{s.invoiced.toLocaleString()}</TableCell>
+                            <TableCell className={`text-right ${s.invoiced === 0 ? 'text-destructive italic' : ''}`}>
+                              {s.invoiced === 0 ? 'Not invoiced' : s.invoiced.toLocaleString()}
+                            </TableCell>
                             <TableCell className="text-right">{s.paid.toLocaleString()}</TableCell>
                             <TableCell className="text-right font-medium">{s.balance.toLocaleString()}</TableCell>
                           </TableRow>
