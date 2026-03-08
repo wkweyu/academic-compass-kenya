@@ -544,7 +544,7 @@ export default function PayrollPage() {
                         <div className="flex justify-between text-base border-t pt-2"><span className="font-bold">NET PAY:</span><span className="font-bold text-lg">{formatCurrency(grossPreview - deductionsPreview)}</span></div>
                       </div>
 
-                      <Button onClick={handleCreateSalary} className="w-full">Create Salary Structure</Button>
+                      <Button onClick={handleSaveSalary} className="w-full">{editingStructureId ? 'Update Salary Structure' : 'Create Salary Structure'}</Button>
                     </div>
                   </DialogContent>
                 </Dialog>
