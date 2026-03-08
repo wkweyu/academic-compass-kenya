@@ -1,4 +1,5 @@
 import { Receipt } from '@/services/feesService';
+import { escapeHtml } from '@/utils/escapeHtml';
 
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES', minimumFractionDigits: 0 }).format(amount);
