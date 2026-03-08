@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Bus, Users, FileText, Search, Receipt, Truck, UserCheck, Fuel, BarChart3 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Bus, Users, FileText, Search, Receipt, Truck, UserCheck, Fuel, BarChart3, Wrench } from 'lucide-react';
 import { TermManager } from '@/utils/termManager';
 import {
   getTransportRoutes,
@@ -30,6 +30,7 @@ import FleetVehiclesTab from '@/components/fleet/FleetVehiclesTab';
 import FleetDriversTab from '@/components/fleet/FleetDriversTab';
 import FuelVouchersTab from '@/components/fleet/FuelVouchersTab';
 import FleetReportsTab from '@/components/fleet/FleetReportsTab';
+import FleetMaintenanceTab from '@/components/fleet/FleetMaintenanceTab';
 
 export default function TransportModule() {
   const [tab, setTab] = useState('routes');
@@ -44,6 +45,7 @@ export default function TransportModule() {
           <TabsTrigger value="fleet" className="gap-1"><Truck className="h-4 w-4" /> Fleet</TabsTrigger>
           <TabsTrigger value="drivers" className="gap-1"><UserCheck className="h-4 w-4" /> Drivers</TabsTrigger>
           <TabsTrigger value="vouchers" className="gap-1"><Fuel className="h-4 w-4" /> Fuel Vouchers</TabsTrigger>
+          <TabsTrigger value="maintenance" className="gap-1"><Wrench className="h-4 w-4" /> Maintenance</TabsTrigger>
           <TabsTrigger value="fleet-reports" className="gap-1"><BarChart3 className="h-4 w-4" /> Fleet Reports</TabsTrigger>
         </TabsList>
 
@@ -53,6 +55,7 @@ export default function TransportModule() {
         <TabsContent value="fleet"><FleetVehiclesTab /></TabsContent>
         <TabsContent value="drivers"><FleetDriversTab /></TabsContent>
         <TabsContent value="vouchers"><FuelVouchersTab /></TabsContent>
+        <TabsContent value="maintenance"><FleetMaintenanceTab /></TabsContent>
         <TabsContent value="fleet-reports"><FleetReportsTab /></TabsContent>
       </Tabs>
     </div>
