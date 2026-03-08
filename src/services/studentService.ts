@@ -324,7 +324,7 @@ export const updateStudent = async (id: string, studentData: Partial<Student>): 
       status: data.status,
       is_active: data.is_active,
       is_on_transport: data.is_on_transport,
-      transport_route: data.transport_route,
+      transport_route: data.transport_route_id,
       transport_type: data.transport_type,
       stream: data.streams?.name || '',
       photo: data.photo,
