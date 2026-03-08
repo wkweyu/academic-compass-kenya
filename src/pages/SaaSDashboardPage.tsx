@@ -32,13 +32,11 @@ const SaaSDashboardPage = () => {
     if (authLoading) return;
     if (!user) { navigate("/saas/login", { replace: true }); return; }
     
-    const timer = setTimeout(() => {
-      saasService.isPlatformAdmin().then((isAdmin) => {
-        if (!isAdmin) navigate("/saas/login", { replace: true });
-        else setAuthorized(true);
-      });
-    }, 300);
-    return () => clearTimeout(timer);
+    // Use user.id directly to avoid getUser() race condition
+    saasService.isPlatformAdmin(user.id).then((isAdmin) => {
+      if (!isAdmin) navigate("/saas/login", { replace: true });
+      else setAuthorized(true);
+    });
   }, [user, authLoading, navigate]);
 
   const { data: analytics } = useQuery({

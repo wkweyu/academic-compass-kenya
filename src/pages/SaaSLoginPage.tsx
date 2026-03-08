@@ -26,23 +26,19 @@ const SaaSLoginPage = () => {
     setChecking(true);
     setError(null);
     
-    // Small delay to ensure session is fully propagated
-    const timer = setTimeout(() => {
-      saasService.isPlatformAdmin().then((isAdmin) => {
-        if (isAdmin) {
-          navigate("/saas/dashboard", { replace: true });
-        } else {
-          setError("You do not have platform administrator access. Ensure the 'platform_admin' role is assigned to your account in the user_roles table.");
-          setChecking(false);
-        }
-      }).catch((err) => {
-        console.error("Platform admin check failed:", err);
-        setError(`Failed to verify admin access: ${err.message}`);
+    // Use user.id directly from auth context to avoid getUser() race condition
+    saasService.isPlatformAdmin(user.id).then((isAdmin) => {
+      if (isAdmin) {
+        navigate("/saas/dashboard", { replace: true });
+      } else {
+        setError("You do not have platform administrator access. Ensure the 'platform_admin' role is assigned to your account in the user_roles table.");
         setChecking(false);
-      });
-    }, 300);
-    
-    return () => clearTimeout(timer);
+      }
+    }).catch((err) => {
+      console.error("Platform admin check failed:", err);
+      setError(`Failed to verify admin access: ${err.message}`);
+      setChecking(false);
+    });
   }, [user, loading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
