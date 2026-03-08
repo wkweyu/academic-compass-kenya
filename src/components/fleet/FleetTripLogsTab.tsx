@@ -109,8 +109,8 @@ function TripLogView() {
     if (!form.vehicle_id) { toast.error('Vehicle is required'); return; }
     const payload: any = {
       vehicle_id: parseInt(form.vehicle_id),
-      driver_id: form.driver_id ? parseInt(form.driver_id) : null,
-      route_id: form.route_id ? parseInt(form.route_id) : null,
+      driver_id: form.driver_id && form.driver_id !== '__none__' ? parseInt(form.driver_id) : null,
+      route_id: form.route_id && form.route_id !== '__none__' ? parseInt(form.route_id) : null,
       trip_date: form.trip_date, trip_type: form.trip_type,
       departure_time: form.departure_time || null, arrival_time: form.arrival_time || null,
       departure_location: form.departure_location, arrival_location: form.arrival_location,
