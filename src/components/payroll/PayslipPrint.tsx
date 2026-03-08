@@ -65,6 +65,8 @@ export default function PayslipPrint({ entry, month, year, schoolName }: Payslip
               <tr className="border-b"><td className="py-1">PAYE (Tax)</td><td className="text-right py-1">{formatCurrency(Number(entry.paye_deduction))}</td></tr>
               <tr className="border-b"><td className="py-1">NHIF</td><td className="text-right py-1">{formatCurrency(Number(entry.nhif_deduction))}</td></tr>
               <tr className="border-b"><td className="py-1">NSSF</td><td className="text-right py-1">{formatCurrency(Number(entry.nssf_deduction))}</td></tr>
+              <tr className="border-b"><td className="py-1">Housing Levy (1.5%)</td><td className="text-right py-1">{formatCurrency(Number(entry.housing_levy || 0))}</td></tr>
+              <tr className="border-b"><td className="py-1">NITA Levy</td><td className="text-right py-1">{formatCurrency(Number(entry.nita_levy || 0))}</td></tr>
               {Number(entry.loan_deduction) > 0 && (
                 <tr className="border-b"><td className="py-1">Loan Deduction</td><td className="text-right py-1">{formatCurrency(Number(entry.loan_deduction))}</td></tr>
               )}
