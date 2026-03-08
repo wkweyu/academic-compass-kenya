@@ -438,6 +438,7 @@ export const FeesManagementModule = () => {
           <TabsTrigger value="balances">Ledgers</TabsTrigger>
           <TabsTrigger value="statement">Statement</TabsTrigger>
           <TabsTrigger value="reports">Reports</TabsTrigger>
+          <TabsTrigger value="uniform-pos">Uniform POS</TabsTrigger>
         </TabsList>
 
         {/* Overview */}
