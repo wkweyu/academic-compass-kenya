@@ -156,7 +156,7 @@ export default function BankAdviceTab({ runs, schoolName }: BankAdviceTabProps) 
           </div>
         )}
 
-        {bankGroups.map(group => (
+        {filteredGroups.map(group => (
           <Card key={group.bank_name} className="border">
             <CardHeader className="pb-3">
               <div className="flex justify-between items-center">
