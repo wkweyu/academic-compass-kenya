@@ -335,7 +335,7 @@ export const feesService = {
         // Update fee balance
         const { data: existing } = await supabase
           .from('fees_feebalance')
-          .select('id, amount_invoiced')
+          .select('id, opening_balance, amount_invoiced, amount_paid')
           .eq('school_id', schoolId)
           .eq('student_id', studentId)
           .eq('vote_head_id', item.vote_head_id)
@@ -344,9 +344,14 @@ export const feesService = {
           .maybeSingle();
 
         if (existing) {
+          const openingBalance = Number((existing as any).opening_balance || 0);
+          const amountPaid = Number((existing as any).amount_paid || 0);
+          const invoicedAmount = Number(item.amount);
+          const normalizedClosing = Math.max(0, openingBalance + invoicedAmount - amountPaid);
+
           await supabase.from('fees_feebalance').update({
-            amount_invoiced: item.amount,
-            closing_balance: Number((existing as any).amount_invoiced) - 0 + Number(item.amount),
+            amount_invoiced: invoicedAmount,
+            closing_balance: normalizedClosing,
           }).eq('id', (existing as any).id);
         } else {
           await supabase.from('fees_feebalance').insert({
@@ -461,12 +466,13 @@ export const feesService = {
       .from('fees_votehead')
       .select('id, name, priority')
       .eq('fee_applicable', true)
-      .order('priority');
+      .order('priority')
+      .order('id');
 
     const allocations: Allocation[] = [];
     let remaining = amount;
 
-    // First pass: allocate to matching term/year balances by votehead priority
+    // Allocate to balances by votehead priority using normalized outstanding (amount_invoiced - amount_paid)
     for (const vh of (voteheads || [])) {
       if (remaining <= 0) break;
 
@@ -476,7 +482,6 @@ export const feesService = {
         .eq('school_id', schoolId)
         .eq('student_id', studentId)
         .eq('vote_head_id', vh.id)
-        .gt('closing_balance', 0)
         .order('year', { ascending: true })
         .order('term', { ascending: true });
 
@@ -484,10 +489,23 @@ export const feesService = {
 
       for (const balance of balances) {
         if (remaining <= 0) break;
-        const outstanding = Number((balance as any).closing_balance);
-        if (outstanding <= 0) continue;
 
-        const allocate = Math.min(remaining, outstanding);
+        const invoiced = Number((balance as any).amount_invoiced || 0);
+        const paid = Number((balance as any).amount_paid || 0);
+        const normalizedOutstanding = Math.max(0, invoiced - paid);
+
+        if (normalizedOutstanding <= 0) {
+          // Heal stale closing balance records so future reads stay accurate
+          if (Number((balance as any).closing_balance || 0) !== 0) {
+            await supabase
+              .from('fees_feebalance')
+              .update({ closing_balance: 0 })
+              .eq('id', (balance as any).id);
+          }
+          continue;
+        }
+
+        const allocate = Math.min(remaining, normalizedOutstanding);
 
         // Create allocation record
         const { data: alloc } = await supabase
@@ -501,11 +519,17 @@ export const feesService = {
           .select()
           .single();
 
-        // Update fee balance
-        await supabase.from('fees_feebalance').update({
-          amount_paid: Number((balance as any).amount_paid) + allocate,
-          closing_balance: outstanding - allocate,
-        }).eq('id', (balance as any).id);
+        const newPaid = paid + allocate;
+        const newClosing = Math.max(0, invoiced - newPaid);
+
+        // Update fee balance with normalized values
+        await supabase
+          .from('fees_feebalance')
+          .update({
+            amount_paid: newPaid,
+            closing_balance: newClosing,
+          })
+          .eq('id', (balance as any).id);
 
         // Add to existing allocation for same votehead or create new
         const existingAlloc = allocations.find(a => a.vote_head_id === vh.id);
@@ -524,6 +548,7 @@ export const feesService = {
         remaining -= allocate;
       }
     }
+
 
     // If there's remaining amount (overpayment), record as excess on first votehead
     if (remaining > 0) {
