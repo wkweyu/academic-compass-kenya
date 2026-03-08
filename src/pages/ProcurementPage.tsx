@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { procurementService } from '@/services/procurementService';
 import SuppliersTab from '@/components/procurement/SuppliersTab';
+import ReportsTab from '@/components/procurement/ReportsTab';
 import ItemsTab from '@/components/procurement/ItemsTab';
 import LPOsTab from '@/components/procurement/LPOsTab';
 import VouchersTab from '@/components/procurement/VouchersTab';
