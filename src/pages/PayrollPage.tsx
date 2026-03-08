@@ -577,6 +577,7 @@ export default function PayrollPage() {
                         <TableCell>
                           <div className="font-medium">{s.staff_name}</div>
                           <div className="text-xs text-muted-foreground">{s.employee_no} • {s.department}</div>
+                          {!s.bank_name && <div className="text-xs text-destructive">⚠ No bank details</div>}
                         </TableCell>
                         <TableCell className="text-right">{formatCurrency(Number(s.basic_salary))}</TableCell>
                         <TableCell className="text-right">{formatCurrency(allowances)}</TableCell>
