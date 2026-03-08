@@ -28,6 +28,8 @@ export default function PayrollPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('runs');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterYear, setFilterYear] = useState<string>('all');
   const [isRunOpen, setIsRunOpen] = useState(false);
   const [isSalaryOpen, setIsSalaryOpen] = useState(false);
   const [editingStructureId, setEditingStructureId] = useState<number | null>(null);
