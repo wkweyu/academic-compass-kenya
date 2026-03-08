@@ -419,6 +419,40 @@ export default function PayrollPage() {
               </div>
             </CardHeader>
             <CardContent>
+              {/* Filters */}
+              <div className="flex flex-wrap items-center gap-3 mb-4">
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm text-muted-foreground whitespace-nowrap">Status:</Label>
+                  <Select value={filterStatus} onValueChange={setFilterStatus}>
+                    <SelectTrigger className="w-[130px] h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="draft">Draft</SelectItem>
+                      <SelectItem value="approved">Approved</SelectItem>
+                      <SelectItem value="paid">Paid</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm text-muted-foreground whitespace-nowrap">Year:</Label>
+                  <Select value={filterYear} onValueChange={setFilterYear}>
+                    <SelectTrigger className="w-[110px] h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Years</SelectItem>
+                      {availableYears.map(y => (
+                        <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {(filterStatus !== 'all' || filterYear !== 'all') && (
+                  <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setFilterStatus('all'); setFilterYear('all'); }}>
+                    Clear Filters
+                  </Button>
+                )}
+                <span className="text-xs text-muted-foreground ml-auto">{filteredRuns.length} of {runs.length} runs</span>
+              </div>
+
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -428,7 +462,7 @@ export default function PayrollPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {runs.map(r => (
+                  {filteredRuns.map(r => (
                     <TableRow key={r.id}>
                       <TableCell className="font-medium">{MONTHS[r.month - 1]} {r.year}</TableCell>
                       <TableCell>{r.staff_count}</TableCell>
@@ -441,17 +475,17 @@ export default function PayrollPage() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="flex gap-1">
+                        <div className="flex gap-1 flex-wrap">
                           <Button size="sm" variant="ghost" onClick={() => { setSelectedRunId(r.id); setActiveTab('payslips'); }}>
                             View
                           </Button>
+                          {(r.status === 'draft' || r.status === 'approved') && (
+                            <Button size="sm" variant="outline" onClick={() => handleRefreshRun(r.id)} title="Re-sync entries with current salary structures">
+                              <RefreshCw className="mr-1 h-3 w-3" />Refresh
+                            </Button>
+                          )}
                           {r.status === 'draft' && (
-                            <>
-                              <Button size="sm" variant="outline" onClick={() => handleRefreshRun(r.id)} title="Re-sync with current salary structures">
-                                <RefreshCw className="mr-1 h-3 w-3" />Refresh
-                              </Button>
-                              <Button size="sm" variant="outline" onClick={() => handleApprove(r.id)}>Approve</Button>
-                            </>
+                            <Button size="sm" variant="outline" onClick={() => handleApprove(r.id)}>Approve</Button>
                           )}
                           {r.status === 'approved' && (
                             <>
@@ -467,6 +501,7 @@ export default function PayrollPage() {
                   ))}
                 </TableBody>
               </Table>
+              {filteredRuns.length === 0 && runs.length > 0 && <p className="text-center py-8 text-muted-foreground">No payroll runs match the selected filters.</p>}
               {runs.length === 0 && <p className="text-center py-8 text-muted-foreground">No payroll runs yet. Set up salary structures first, then create a payroll run.</p>}
             </CardContent>
           </Card>
