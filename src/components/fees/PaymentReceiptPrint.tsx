@@ -44,7 +44,7 @@ export function printReceipt(props: PaymentReceiptPrintProps) {
   `).join('');
 
   printWindow.document.write(`
-    <html><head><title>Receipt ${receipt.receipt_no}</title>
+    <html><head><title>Receipt ${escapeHtml(receipt.receipt_no)}</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body { font-family: Arial, sans-serif; padding: 30px; max-width: 800px; margin: 0 auto; }
