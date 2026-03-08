@@ -63,7 +63,7 @@ export function ClassMeritListModule() {
         parseInt(selectedClassId),
         parseInt(selectedTermId),
         academicYear,
-        selectedStreamId ? parseInt(selectedStreamId) : undefined
+        selectedStreamId && selectedStreamId !== '__all__' ? parseInt(selectedStreamId) : undefined
       );
       setMeritList(data);
     } catch (error) {
