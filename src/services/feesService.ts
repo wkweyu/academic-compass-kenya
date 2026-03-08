@@ -391,6 +391,7 @@ export const feesService = {
     term: number;
     year: number;
     remarks?: string;
+    manual_allocations?: { vote_head_id: number; amount: number }[];
   }): Promise<Receipt> {
     const schoolId = await getSchoolId();
     let userId: number | null = null;
@@ -419,10 +420,17 @@ export const feesService = {
       .single();
     if (receiptErr) throw receiptErr;
 
-    // 3. Auto-allocate by votehead priority
-    const allocations = await this._allocatePayment(
-      schoolId, params.student_id, params.amount, params.term, params.year, (receipt as any).id
-    );
+    // 3. Allocate: manual or auto
+    let allocations: Allocation[];
+    if (params.manual_allocations && params.manual_allocations.length > 0) {
+      allocations = await this._manualAllocatePayment(
+        schoolId, params.student_id, params.manual_allocations, (receipt as any).id
+      );
+    } else {
+      allocations = await this._allocatePayment(
+        schoolId, params.student_id, params.amount, params.term, params.year, (receipt as any).id
+      );
+    }
 
     // 4. Update student ledger (credit side)
     await this._updateStudentLedger(schoolId, params.student_id, 0, params.amount);
@@ -454,6 +462,66 @@ export const feesService = {
     });
 
     return { ...(receipt as any), allocations } as Receipt;
+  },
+
+  // ==================== MANUAL PAYMENT ALLOCATION ====================
+
+  async _manualAllocatePayment(
+    schoolId: number, studentId: number, allocItems: { vote_head_id: number; amount: number }[], receiptId: number
+  ): Promise<Allocation[]> {
+    const allocations: Allocation[] = [];
+    const { data: voteheads } = await supabase.from('fees_votehead').select('id, name').order('priority');
+
+    for (const item of allocItems) {
+      const vh = (voteheads || []).find((v: any) => v.id === item.vote_head_id);
+
+      // Create allocation record
+      const { data: alloc } = await supabase
+        .from('fees_allocation')
+        .insert({
+          school_id: schoolId,
+          receipt_id: receiptId,
+          vote_head_id: item.vote_head_id,
+          amount: item.amount,
+        })
+        .select()
+        .single();
+
+      // Update fee balance for this votehead (find oldest outstanding)
+      const { data: balances } = await supabase
+        .from('fees_feebalance')
+        .select('id, amount_invoiced, amount_paid, closing_balance')
+        .eq('school_id', schoolId)
+        .eq('student_id', studentId)
+        .eq('vote_head_id', item.vote_head_id)
+        .gt('closing_balance', 0)
+        .order('year', { ascending: true })
+        .order('term', { ascending: true });
+
+      let remaining = item.amount;
+      for (const bal of (balances || [])) {
+        if (remaining <= 0) break;
+        const outstanding = Math.max(0, Number((bal as any).amount_invoiced) - Number((bal as any).amount_paid));
+        const apply = Math.min(remaining, outstanding);
+        if (apply > 0) {
+          const newPaid = Number((bal as any).amount_paid) + apply;
+          await supabase.from('fees_feebalance').update({
+            amount_paid: newPaid,
+            closing_balance: Math.max(0, Number((bal as any).amount_invoiced) - newPaid),
+          }).eq('id', (bal as any).id);
+          remaining -= apply;
+        }
+      }
+
+      allocations.push({
+        id: (alloc as any)?.id || 0,
+        receipt_id: receiptId,
+        vote_head_id: item.vote_head_id,
+        vote_head_name: vh?.name || 'Fee',
+        amount: item.amount,
+      });
+    }
+    return allocations;
   },
 
   // ==================== PAYMENT ALLOCATION ====================
