@@ -17,11 +17,16 @@ import { accountingService, ChartOfAccount } from '@/services/accountingService'
 const ACCOUNT_TYPES = ['asset', 'liability', 'equity', 'income', 'expense'];
 const typeColors: Record<string, string> = { asset: 'default', liability: 'destructive', equity: 'secondary', income: 'default', expense: 'outline' };
 
-function buildTree(accounts: ChartOfAccount[]): (ChartOfAccount & { children: ChartOfAccount[]; depth: number })[] {
-  const map = new Map<number, ChartOfAccount & { children: ChartOfAccount[] }>();
-  const roots: (ChartOfAccount & { children: ChartOfAccount[] })[] = [];
+interface TreeNode extends ChartOfAccount {
+  children: TreeNode[];
+  depth: number;
+}
 
-  accounts.forEach(a => map.set(a.id, { ...a, children: [] }));
+function buildTree(accounts: ChartOfAccount[]): TreeNode[] {
+  const map = new Map<number, TreeNode>();
+  const roots: TreeNode[] = [];
+
+  accounts.forEach(a => map.set(a.id, { ...a, children: [], depth: 0 }));
   accounts.forEach(a => {
     const node = map.get(a.id)!;
     if (a.parent_id && map.has(a.parent_id)) {
@@ -31,8 +36,8 @@ function buildTree(accounts: ChartOfAccount[]): (ChartOfAccount & { children: Ch
     }
   });
 
-  const flat: (ChartOfAccount & { children: ChartOfAccount[]; depth: number })[] = [];
-  const flatten = (nodes: (ChartOfAccount & { children: ChartOfAccount[] })[], depth: number) => {
+  const flat: TreeNode[] = [];
+  const flatten = (nodes: TreeNode[], depth: number) => {
     nodes.forEach(n => {
       flat.push({ ...n, depth });
       if (n.children.length > 0) flatten(n.children, depth + 1);
