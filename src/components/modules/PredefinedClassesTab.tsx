@@ -7,6 +7,32 @@ import { classService } from '@/services/classService';
 import { SchoolProfile } from '@/types/settings';
 import { CheckCircle, Plus } from 'lucide-react';
 
+const normalizeSchoolType = (schoolType?: string | null) => {
+  const type = schoolType?.trim().toLowerCase();
+  if (!type) return '';
+  if (type.includes('pre') && type.includes('primary')) return 'pre-primary';
+  if (type.includes('senior') && type.includes('secondary')) return 'senior-secondary';
+  if (type.includes('junior') && type.includes('secondary')) return 'junior-secondary';
+  if (type.includes('secondary')) return 'junior-secondary';
+  if (type.includes('primary')) return 'primary';
+  return type;
+};
+
+const getSchoolTypeLabel = (schoolType?: string | null) => {
+  switch (normalizeSchoolType(schoolType)) {
+    case 'pre-primary':
+      return 'Pre-Primary';
+    case 'primary':
+      return 'Primary (Grade 1-6)';
+    case 'junior-secondary':
+      return 'Junior Secondary (Grade 7-9)';
+    case 'senior-secondary':
+      return 'Senior Secondary (Grade 10-12)';
+    default:
+      return schoolType || '';
+  }
+};
+
 export function PredefinedClassesTab() {
   const [loading, setLoading] = useState(false);
   const [schoolProfile, setSchoolProfile] = useState<SchoolProfile | null>(null);
@@ -26,19 +52,11 @@ export function PredefinedClassesTab() {
   };
 
   const getPredefinedClasses = (schoolType: string) => {
-    const type = schoolType?.toLowerCase();
+    const type = normalizeSchoolType(schoolType);
     
     if (type === 'pre-primary' || type === 'preprimary') {
-      return [
-        { name: 'Pre-Primary 1', grade_level: 1, description: 'Pre-Primary Year 1' },
-        { name: 'Pre-Primary 2', grade_level: 2, description: 'Pre-Primary Year 2' },
-      ];
-    } else if (
-      type === 'mixed' ||
-      type === 'primary-secondary' ||
-      type === 'mixed (primary & secondary)' ||
-      type === 'mixed primary & secondary'
-    ) {
+      return [];
+    } else if (type === 'primary') {
       return [
         { name: 'Primary Grade 1', grade_level: 1, description: 'Primary School Grade 1' },
         { name: 'Primary Grade 2', grade_level: 2, description: 'Primary School Grade 2' },
@@ -46,9 +64,18 @@ export function PredefinedClassesTab() {
         { name: 'Primary Grade 4', grade_level: 4, description: 'Primary School Grade 4' },
         { name: 'Primary Grade 5', grade_level: 5, description: 'Primary School Grade 5' },
         { name: 'Primary Grade 6', grade_level: 6, description: 'Primary School Grade 6' },
+      ];
+    } else if (type === 'junior-secondary') {
+      return [
         { name: 'Junior Secondary Grade 7', grade_level: 7, description: 'Junior Secondary School Grade 7' },
         { name: 'Junior Secondary Grade 8', grade_level: 8, description: 'Junior Secondary School Grade 8' },
         { name: 'Junior Secondary Grade 9', grade_level: 9, description: 'Junior Secondary School Grade 9' },
+      ];
+    } else if (type === 'senior-secondary') {
+      return [
+        { name: 'Senior Secondary Grade 10', grade_level: 10, description: 'Senior Secondary School Grade 10' },
+        { name: 'Senior Secondary Grade 11', grade_level: 11, description: 'Senior Secondary School Grade 11' },
+        { name: 'Senior Secondary Grade 12', grade_level: 12, description: 'Senior Secondary School Grade 12' },
       ];
     }
     
@@ -117,10 +144,18 @@ export function PredefinedClassesTab() {
                 Please configure your school type in the <strong>School Profile</strong> tab first to see predefined class options.
               </p>
             </div>
+          ) : normalizeSchoolType(schoolProfile.type) === 'pre-primary' ? (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <p className="text-sm text-amber-800">
+                <strong>Pre-Primary</strong> should be implemented separately from the grade-based class groups already used by the system.
+                To avoid breaking existing modules, predefined class auto-generation is intentionally disabled here until a dedicated
+                pre-primary class structure is introduced.
+              </p>
+            </div>
           ) : predefinedClasses.length === 0 ? (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-sm text-blue-800">
-                No predefined classes are available for school type <strong>{schoolProfile.type}</strong>.
+                No predefined classes are available for school type <strong>{getSchoolTypeLabel(schoolProfile.type)}</strong>.
                 You can manually create classes using the "Add Class" button in the Class Management page.
               </p>
             </div>
@@ -128,7 +163,7 @@ export function PredefinedClassesTab() {
             <>
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h3 className="font-medium text-blue-900 mb-2">
-                  School Type: <strong>{schoolProfile.type}</strong>
+                  School Type: <strong>{getSchoolTypeLabel(schoolProfile.type)}</strong>
                 </h3>
                 <p className="text-sm text-blue-800 mb-3">
                   The following {predefinedClasses.length} classes will be created:

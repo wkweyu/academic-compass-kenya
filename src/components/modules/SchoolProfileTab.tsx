@@ -14,28 +14,48 @@ import { SchoolProfile } from '@/types/settings';
 import { Loader2, Save, Upload } from 'lucide-react';
 
 const SCHOOL_TYPE_OPTIONS = [
-  { value: 'Primary', label: 'Primary School' },
-  { value: 'Secondary', label: 'Secondary School' },
   { value: 'Pre-Primary', label: 'Pre-Primary' },
-  { value: 'Mixed', label: 'Mixed (Primary & Secondary)' },
+  { value: 'Primary', label: 'Primary (Grade 1-6)' },
+  { value: 'Junior Secondary', label: 'Junior Secondary (Grade 7-9)' },
+  { value: 'Senior Secondary', label: 'Senior Secondary (Grade 10-12)' },
 ] as const;
 
 const SCHOOL_TYPE_ALIASES: Record<string, string> = {
-  primary: 'Primary',
-  'primary school': 'Primary',
-  secondary: 'Secondary',
-  'secondary school': 'Secondary',
+  'pre primary': 'Pre-Primary',
   'pre-primary': 'Pre-Primary',
   preprimary: 'Pre-Primary',
-  mixed: 'Mixed',
-  'mixed (primary & secondary)': 'Mixed',
-  'mixed primary & secondary': 'Mixed',
-  'primary-secondary': 'Mixed',
+  primary: 'Primary',
+  'primary school': 'Primary',
+  secondary: 'Junior Secondary',
+  'secondary school': 'Junior Secondary',
+  'junior secondary': 'Junior Secondary',
+  'junior-secondary': 'Junior Secondary',
+  'junior secondary school': 'Junior Secondary',
+  'senior secondary': 'Senior Secondary',
+  'senior-secondary': 'Senior Secondary',
+  'senior secondary school': 'Senior Secondary',
+  mixed: 'Primary',
+  'mixed (primary & secondary)': 'Primary',
+  'mixed primary & secondary': 'Primary',
+  'primary-secondary': 'Primary',
 };
 
 const normalizeSchoolType = (value?: string | null) => {
   if (!value) return '';
-  return SCHOOL_TYPE_ALIASES[value.trim().toLowerCase()] || value;
+  const normalized = value.trim().toLowerCase();
+
+  if (SCHOOL_TYPE_ALIASES[normalized]) {
+    return SCHOOL_TYPE_ALIASES[normalized];
+  }
+
+  if (normalized.includes('mixed')) return 'Primary';
+  if (normalized.includes('pre') && normalized.includes('primary')) return 'Pre-Primary';
+  if (normalized.includes('senior') && normalized.includes('secondary')) return 'Senior Secondary';
+  if (normalized.includes('junior') && normalized.includes('secondary')) return 'Junior Secondary';
+  if (normalized.includes('secondary')) return 'Junior Secondary';
+  if (normalized.includes('primary')) return 'Primary';
+
+  return value.trim();
 };
 
 const getSchoolTypeLabel = (value?: string | null) => {
@@ -171,34 +191,40 @@ export function SchoolProfileTab() {
       setLoading(true);
       
       if (isCreating) {
+        const normalizedType = normalizeSchoolType(data.type);
+
         // Create new school - all fields are validated by zod schema
         await settingsService.createSchoolProfile({
           name: data.name,
           address: data.address,
           phone: data.phone,
           email: data.email,
-          type: normalizeSchoolType(data.type),
+          type: normalizedType,
           motto: data.motto,
           website: data.website,
           logo: data.logo,
         });
+        form.setValue('type', normalizedType, { shouldDirty: false });
         toast({
           title: 'Success',
           description: 'School profile created successfully',
         });
       } else {
+        const normalizedType = normalizeSchoolType(data.type);
+
         // Update existing school
         await settingsService.updateSchoolProfile({
           ...data,
-          type: normalizeSchoolType(data.type),
+          type: normalizedType,
         });
+        form.setValue('type', normalizedType, { shouldDirty: false });
         toast({
           title: 'Success',
           description: 'School profile updated successfully',
         });
       }
       
-      loadSchoolProfile();
+      await loadSchoolProfile();
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -386,6 +412,10 @@ export function SchoolProfileTab() {
                         ))}
                       </SelectContent>
                     </Select>
+                    <p className="text-sm text-muted-foreground">
+                      This setting determines which standard classes are suggested during setup. Pre-Primary creates PP1-PP2,
+                      Primary creates Grades 1-6, Secondary creates Grades 7-9, and Mixed creates Grades 1-9.
+                    </p>
                     <FormMessage />
                   </FormItem>
                 )}
