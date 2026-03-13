@@ -68,15 +68,19 @@ export const settingsService = {
     }
 
     const schoolId = currentProfile[0].id;
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('schools_school')
       .update(profile)
-      .eq('id', schoolId)
-      .select()
-      .single();
+      .eq('id', schoolId);
 
     if (error) throw error;
-    return data as SchoolProfile;
+
+    const refreshedProfile = await settingsService.getSchoolProfile();
+    if (!refreshedProfile) {
+      throw new Error('School profile was updated, but could not be reloaded');
+    }
+
+    return refreshedProfile;
   },
 
   deleteSchoolProfile: async (schoolId: number): Promise<void> => {

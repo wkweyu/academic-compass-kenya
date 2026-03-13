@@ -30,7 +30,6 @@ export function SchoolProfileTab() {
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<SchoolProfile | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<SchoolProfileFormData>({
@@ -83,9 +82,6 @@ export function SchoolProfileTab() {
         description: error?.message || 'Failed to load school profile',
         variant: 'destructive',
       });
-      // Still show the create form if loading fails
-      setProfile(null);
-      setIsCreating(true);
     } finally {
       setLoading(false);
     }
@@ -130,34 +126,6 @@ export function SchoolProfileTab() {
       console.error(`${isCreating ? 'Create' : 'Update'} error:`, error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!profile?.id) return;
-    
-    if (!confirm('Are you sure you want to delete this school profile? This action cannot be undone and will affect all related data.')) {
-      return;
-    }
-
-    try {
-      setIsDeleting(true);
-      await settingsService.deleteSchoolProfile(profile.id);
-      toast({
-        title: 'Success',
-        description: 'School profile deleted successfully',
-      });
-      setProfile(null);
-      setIsCreating(true);
-      form.reset();
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to delete school profile',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsDeleting(false);
     }
   };
 
@@ -221,9 +189,14 @@ export function SchoolProfileTab() {
           <CardTitle>
             {isCreating ? 'Create School Profile' : 'Edit School Profile'}
           </CardTitle>
-          {isCreating && (
+          {isCreating ? (
             <p className="text-sm text-muted-foreground mt-2">
               Welcome! Please create your school profile to get started.
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground mt-2">
+              Your school was created during onboarding. Review the prefilled details below, add the remaining setup information,
+              then save to complete your school profile.
             </p>
           )}
         </CardHeader>
@@ -373,22 +346,7 @@ export function SchoolProfileTab() {
             />
 
             <div className="flex justify-between">
-              <div>
-                {!isCreating && (
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    onClick={handleDelete}
-                    disabled={loading || isDeleting}
-                  >
-                    {isDeleting ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      'Delete School'
-                    )}
-                  </Button>
-                )}
-              </div>
+              <div />
               <div className="flex space-x-4">
                 {!isCreating && (
                   <Button
