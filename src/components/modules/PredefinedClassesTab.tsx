@@ -13,36 +13,52 @@ import {
   hasOnlyPrePrimaryManagedClassGroups,
 } from '@/utils/schoolClassGroups';
 
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return fallback;
+};
+
 export function PredefinedClassesTab() {
   const [loading, setLoading] = useState(false);
   const [schoolProfile, setSchoolProfile] = useState<SchoolProfile | null>(null);
+  const [existingClasses, setExistingClasses] = useState<number[]>([]);
   const [classesCreated, setClassesCreated] = useState(false);
 
   useEffect(() => {
-    loadSchoolProfile();
+    loadData();
   }, []);
 
-  const loadSchoolProfile = async () => {
+  const loadData = async () => {
     try {
-      const profile = await settingsService.getSchoolProfile();
+      const [profile, classes] = await Promise.all([
+        settingsService.getSchoolProfile(),
+        classService.getClasses(),
+      ]);
+
       setSchoolProfile(profile);
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to load school profile');
+      setExistingClasses(classes.map((item) => item.grade_level));
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to load school profile'));
     }
   };
+
+  const predefinedClasses = getPredefinedClassTemplatesForManagedGroups(
+    schoolProfile?.managed_class_groups,
+    schoolProfile?.type,
+  );
+  const pendingClasses = predefinedClasses.filter((classTemplate) => !existingClasses.includes(classTemplate.grade_level));
+  const existingPredefinedCount = predefinedClasses.length - pendingClasses.length;
 
   const handleCreatePredefinedClasses = async () => {
     if (!hasManagedClassGroupConfiguration(schoolProfile)) {
       toast.error('Managed class groups are not configured in the school profile');
       return;
     }
-
-    const predefinedClasses = getPredefinedClassTemplatesForManagedGroups(
-      schoolProfile?.managed_class_groups,
-      schoolProfile?.type,
-    );
     
-    if (predefinedClasses.length === 0) {
+    if (pendingClasses.length === 0) {
       toast.error('No predefined classes are available for the configured class groups');
       return;
     }
@@ -52,11 +68,11 @@ export function PredefinedClassesTab() {
       let successCount = 0;
       let errorCount = 0;
 
-      for (const classData of predefinedClasses) {
+      for (const classData of pendingClasses) {
         try {
           await classService.createClass(classData);
           successCount++;
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error(`Failed to create class ${classData.name}:`, error);
           errorCount++;
         }
@@ -65,22 +81,19 @@ export function PredefinedClassesTab() {
       if (successCount > 0) {
         toast.success(`Created ${successCount} predefined class(es)`);
         setClassesCreated(true);
+        await loadData();
       }
       
       if (errorCount > 0) {
         toast.error(`Failed to create ${errorCount} class(es). They may already exist.`);
       }
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to create predefined classes');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to create predefined classes'));
     } finally {
       setLoading(false);
     }
   };
 
-  const predefinedClasses = getPredefinedClassTemplatesForManagedGroups(
-    schoolProfile?.managed_class_groups,
-    schoolProfile?.type,
-  );
   const managedClassGroupsLabel = getManagedClassGroupSummary(schoolProfile);
   const prePrimaryOnly = hasOnlyPrePrimaryManagedClassGroups(
     schoolProfile?.managed_class_groups,
@@ -126,10 +139,17 @@ export function PredefinedClassesTab() {
                   Managed Class Groups: <strong>{managedClassGroupsLabel}</strong>
                 </h3>
                 <p className="text-sm text-blue-800 mb-3">
-                  The following {predefinedClasses.length} classes will be created:
+                  {pendingClasses.length === 0
+                    ? 'All predefined classes for the selected class groups already exist.'
+                    : `The following ${pendingClasses.length} missing class(es) will be created:`}
                 </p>
+                {existingPredefinedCount > 0 && (
+                  <p className="text-sm text-blue-800 mb-3">
+                    Already available: <strong>{existingPredefinedCount}</strong> of <strong>{predefinedClasses.length}</strong> predefined classes.
+                  </p>
+                )}
                 <ul className="space-y-2">
-                  {predefinedClasses.map((cls, index) => (
+                  {pendingClasses.map((cls, index) => (
                     <li key={index} className="flex items-center gap-2 text-sm text-blue-900">
                       <CheckCircle className="h-4 w-4" />
                       <strong>{cls.name}</strong> - Grade Level {cls.grade_level}
@@ -140,20 +160,20 @@ export function PredefinedClassesTab() {
 
               <Button
                 onClick={handleCreatePredefinedClasses}
-                disabled={loading || classesCreated}
+                disabled={loading || pendingClasses.length === 0 || classesCreated}
                 className="w-full"
               >
                 {loading ? (
                   'Creating Classes...'
-                ) : classesCreated ? (
+                ) : pendingClasses.length === 0 || classesCreated ? (
                   <>
                     <CheckCircle className="h-4 w-4 mr-2" />
-                    Classes Created
+                    Predefined Classes Ready
                   </>
                 ) : (
                   <>
                     <Plus className="h-4 w-4 mr-2" />
-                    Create Predefined Classes
+                    Create Missing Predefined Classes
                   </>
                 )}
               </Button>
