@@ -15,6 +15,7 @@ import {
   Receipt,
   Truck,
   ShoppingCart,
+  Sprout,
   DollarSign,
   CreditCard,
   Settings,
@@ -117,6 +118,7 @@ const navGroups: { label: string; items: NavItem[] }[] = [
     label: 'Finance',
     items: [
       { id: 'fees', title: 'Fees', url: '/fees', icon: Receipt },
+      { id: 'iga', title: 'IGA', url: '/iga', icon: Sprout },
       { id: 'payroll', title: 'Payroll', url: '/payroll', icon: DollarSign },
       { id: 'accounting', title: 'Accounting', url: '/accounting', icon: CreditCard },
       { id: 'procurement', title: 'Procurement', url: '/procurement', icon: ShoppingCart },
