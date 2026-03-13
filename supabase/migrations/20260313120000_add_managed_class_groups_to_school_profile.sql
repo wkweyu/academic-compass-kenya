@@ -14,6 +14,10 @@ SET managed_class_groups = CASE
   ELSE managed_class_groups
 END;
 
+DROP FUNCTION IF EXISTS public.create_school_profile(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT);
+DROP FUNCTION IF EXISTS public.create_school_profile(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT[], TEXT, TEXT, TEXT);
+DROP FUNCTION IF EXISTS public.get_or_create_school_profile();
+
 CREATE OR REPLACE FUNCTION public.create_school_profile(
   p_name TEXT,
   p_address TEXT,
