@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ChangeEvent } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -12,6 +12,36 @@ import { useToast } from '@/hooks/use-toast';
 import { settingsService } from '@/services/settingsService';
 import { SchoolProfile } from '@/types/settings';
 import { Loader2, Save, Upload } from 'lucide-react';
+
+const SCHOOL_TYPE_OPTIONS = [
+  { value: 'Primary', label: 'Primary School' },
+  { value: 'Secondary', label: 'Secondary School' },
+  { value: 'Pre-Primary', label: 'Pre-Primary' },
+  { value: 'Mixed', label: 'Mixed (Primary & Secondary)' },
+] as const;
+
+const SCHOOL_TYPE_ALIASES: Record<string, string> = {
+  primary: 'Primary',
+  'primary school': 'Primary',
+  secondary: 'Secondary',
+  'secondary school': 'Secondary',
+  'pre-primary': 'Pre-Primary',
+  preprimary: 'Pre-Primary',
+  mixed: 'Mixed',
+  'mixed (primary & secondary)': 'Mixed',
+  'mixed primary & secondary': 'Mixed',
+  'primary-secondary': 'Mixed',
+};
+
+const normalizeSchoolType = (value?: string | null) => {
+  if (!value) return '';
+  return SCHOOL_TYPE_ALIASES[value.trim().toLowerCase()] || value;
+};
+
+const getSchoolTypeLabel = (value?: string | null) => {
+  const normalizedValue = normalizeSchoolType(value);
+  return SCHOOL_TYPE_OPTIONS.find((option) => option.value === normalizedValue)?.label || normalizedValue;
+};
 
 const schoolProfileSchema = z.object({
   name: z.string().min(1, 'School name is required'),
@@ -30,6 +60,7 @@ export function SchoolProfileTab() {
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<SchoolProfile | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<SchoolProfileFormData>({
@@ -65,7 +96,7 @@ export function SchoolProfileTab() {
           address: data.address,
           phone: data.phone,
           email: data.email,
-          type: data.type || '',
+          type: normalizeSchoolType(data.type),
           motto: data.motto || '',
           website: data.website || '',
           logo: data.logo || '',
@@ -87,6 +118,54 @@ export function SchoolProfileTab() {
     }
   };
 
+  const handleLogoUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'Invalid file',
+        description: 'Please upload an image file for the school logo.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        title: 'File too large',
+        description: 'Please upload a logo smaller than 2 MB.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setUploadingLogo(true);
+      const fileDataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('Unable to read the selected file'));
+        reader.readAsDataURL(file);
+      });
+
+      form.setValue('logo', fileDataUrl, { shouldDirty: true, shouldValidate: true });
+      toast({
+        title: 'Logo ready',
+        description: `${file.name} will be saved as your school logo.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Upload failed',
+        description: error.message || 'Unable to process the selected logo.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploadingLogo(false);
+      event.target.value = '';
+    }
+  };
+
   const onSubmit = async (data: SchoolProfileFormData) => {
     try {
       setLoading(true);
@@ -98,7 +177,7 @@ export function SchoolProfileTab() {
           address: data.address,
           phone: data.phone,
           email: data.email,
-          type: data.type,
+          type: normalizeSchoolType(data.type),
           motto: data.motto,
           website: data.website,
           logo: data.logo,
@@ -109,7 +188,10 @@ export function SchoolProfileTab() {
         });
       } else {
         // Update existing school
-        await settingsService.updateSchoolProfile(data);
+        await settingsService.updateSchoolProfile({
+          ...data,
+          type: normalizeSchoolType(data.type),
+        });
         toast({
           title: 'Success',
           description: 'School profile updated successfully',
@@ -160,7 +242,15 @@ export function SchoolProfileTab() {
               </div>
               {profile.type && (
                 <div>
-                  <span className="font-semibold">Type:</span> {profile.type}
+                  <span className="font-semibold">Type:</span> {getSchoolTypeLabel(profile.type)}
+                </div>
+              )}
+              {profile.logo && (
+                <div className="md:col-span-2">
+                  <span className="font-semibold">Logo:</span>
+                  <div className="mt-2">
+                    <img src={profile.logo} alt="School logo" className="h-20 w-20 rounded-md border object-contain p-1" />
+                  </div>
                 </div>
               )}
               {profile.website && (
@@ -291,10 +381,9 @@ export function SchoolProfileTab() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="Primary">Primary School</SelectItem>
-                        <SelectItem value="Secondary">Secondary School</SelectItem>
-                        <SelectItem value="Pre-Primary">Pre-Primary</SelectItem>
-                        <SelectItem value="Mixed">Mixed (Primary & Secondary)</SelectItem>
+                        {SCHOOL_TYPE_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -336,10 +425,34 @@ export function SchoolProfileTab() {
               name="logo"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>School Logo URL</FormLabel>
+                  <FormLabel>School Logo</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter logo URL" {...field} />
+                    <div className="space-y-3">
+                      {field.value ? (
+                        <div className="flex items-center gap-4 rounded-md border p-3">
+                          <img src={field.value} alt="Selected school logo" className="h-16 w-16 rounded-md border object-contain p-1" />
+                          <div className="space-y-2">
+                            <p className="text-sm text-muted-foreground">Upload a clear square logo for best results.</p>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => form.setValue('logo', '', { shouldDirty: true, shouldValidate: true })}
+                            >
+                              Remove Logo
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed px-4 py-6 text-sm text-muted-foreground hover:bg-muted/50">
+                          {uploadingLogo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                          <span>{uploadingLogo ? 'Preparing logo...' : 'Choose logo image'}</span>
+                          <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} disabled={uploadingLogo} />
+                        </label>
+                      )}
+                    </div>
                   </FormControl>
+                  <p className="text-sm text-muted-foreground">Upload PNG, JPG, or SVG up to 2 MB.</p>
                   <FormMessage />
                 </FormItem>
               )}

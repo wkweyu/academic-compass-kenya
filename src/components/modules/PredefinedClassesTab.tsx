@@ -33,7 +33,12 @@ export function PredefinedClassesTab() {
         { name: 'Pre-Primary 1', grade_level: 1, description: 'Pre-Primary Year 1' },
         { name: 'Pre-Primary 2', grade_level: 2, description: 'Pre-Primary Year 2' },
       ];
-    } else if (type === 'mixed' || type === 'primary-secondary') {
+    } else if (
+      type === 'mixed' ||
+      type === 'primary-secondary' ||
+      type === 'mixed (primary & secondary)' ||
+      type === 'mixed primary & secondary'
+    ) {
       return [
         { name: 'Primary Grade 1', grade_level: 1, description: 'Primary School Grade 1' },
         { name: 'Primary Grade 2', grade_level: 2, description: 'Primary School Grade 2' },
