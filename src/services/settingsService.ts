@@ -1,5 +1,14 @@
 import { supabase } from "@/integrations/supabase/client";
 import { SchoolProfile, TermSetting, AcademicYearSetting, SystemSettings, GradingSystemSettings } from "@/types/settings";
+import { classService } from "@/services/classService";
+
+export interface SchoolSetupStatus {
+  profileReady: boolean;
+  termsReady: boolean;
+  classesReady: boolean;
+  streamsReady: boolean;
+  complete: boolean;
+}
 
 export const settingsService = {
   getSchoolProfile: async (): Promise<SchoolProfile | null> => {
@@ -201,5 +210,25 @@ export const settingsService = {
   updateGradingSettings: async (settings: Partial<GradingSystemSettings>): Promise<GradingSystemSettings> => {
     // TODO: Implement backend endpoint
     throw new Error("Not implemented yet");
+  },
+
+  getSchoolSetupStatus: async (): Promise<SchoolSetupStatus> => {
+    const [profile, terms, classes, streams] = await Promise.all([
+      settingsService.getSchoolProfile(),
+      settingsService.getTermSettings(),
+      classService.getClasses(),
+      classService.getStreams(),
+    ]);
+
+    const status: SchoolSetupStatus = {
+      profileReady: Boolean(profile?.name && profile?.address && profile?.phone && profile?.email && profile?.type),
+      termsReady: terms.length > 0,
+      classesReady: classes.length > 0,
+      streamsReady: streams.length > 0,
+      complete: false,
+    };
+
+    status.complete = status.profileReady && status.termsReady && status.classesReady && status.streamsReady;
+    return status;
   },
 };
