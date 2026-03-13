@@ -60,6 +60,24 @@ export function SchoolProfileTab() {
     loadSchoolProfile();
   }, []);
 
+  const syncFormWithProfile = (data: SchoolProfile) => {
+    const managedClassGroups = normalizeManagedClassGroups(data.managed_class_groups, data.type);
+
+    setProfile(data);
+    setIsCreating(false);
+    form.reset({
+      name: data.name,
+      address: data.address,
+      phone: data.phone,
+      email: data.email,
+      type: getLegacySchoolTypeFromManagedClassGroups(managedClassGroups, data.type),
+      managed_class_groups: managedClassGroups,
+      motto: data.motto || '',
+      website: data.website || '',
+      logo: data.logo || '',
+    });
+  };
+
   const loadSchoolProfile = async () => {
     try {
       setLoading(true);
@@ -68,20 +86,7 @@ export function SchoolProfileTab() {
       
       if (data) {
         console.log('Profile loaded:', data);
-        setProfile(data);
-        setIsCreating(false);
-        const managedClassGroups = normalizeManagedClassGroups(data.managed_class_groups, data.type);
-        form.reset({
-          name: data.name,
-          address: data.address,
-          phone: data.phone,
-          email: data.email,
-          type: getLegacySchoolTypeFromManagedClassGroups(managedClassGroups, data.type),
-          managed_class_groups: managedClassGroups,
-          motto: data.motto || '',
-          website: data.website || '',
-          logo: data.logo || '',
-        });
+        syncFormWithProfile(data);
       } else {
         console.log('No profile found, showing create form');
         setProfile(null);
@@ -155,7 +160,7 @@ export function SchoolProfileTab() {
       
       if (isCreating) {
         // Create new school - all fields are validated by zod schema
-        await settingsService.createSchoolProfile({
+        const savedProfile = await settingsService.createSchoolProfile({
           name: data.name,
           address: data.address,
           phone: data.phone,
@@ -166,28 +171,24 @@ export function SchoolProfileTab() {
           website: data.website,
           logo: data.logo,
         });
-        form.setValue('type', derivedType, { shouldDirty: false });
-        form.setValue('managed_class_groups', managedClassGroups, { shouldDirty: false });
+        syncFormWithProfile(savedProfile);
         toast({
           title: 'Success',
           description: 'School profile created successfully',
         });
       } else {
         // Update existing school
-        await settingsService.updateSchoolProfile({
+        const savedProfile = await settingsService.updateSchoolProfile({
           ...data,
           type: derivedType,
           managed_class_groups: managedClassGroups,
         });
-        form.setValue('type', derivedType, { shouldDirty: false });
-        form.setValue('managed_class_groups', managedClassGroups, { shouldDirty: false });
+        syncFormWithProfile(savedProfile);
         toast({
           title: 'Success',
           description: 'School profile updated successfully',
         });
       }
-      
-      await loadSchoolProfile();
     } catch (error: any) {
       toast({
         title: 'Error',

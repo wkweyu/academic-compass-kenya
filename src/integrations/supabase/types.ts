@@ -6495,6 +6495,34 @@ export type Database = {
         Returns: undefined
       }
       reverse_journal_entry: { Args: { p_entry_id: number }; Returns: number }
+      update_school_profile: {
+        Args: {
+          p_address?: string
+          p_email?: string
+          p_logo?: string
+          p_managed_class_groups?: string[]
+          p_motto?: string
+          p_name?: string
+          p_phone?: string
+          p_type?: string
+          p_website?: string
+        }
+        Returns: {
+          active: boolean
+          address: string
+          code: string
+          created_at: string
+          email: string
+          id: number
+          logo: string
+          managed_class_groups: string[]
+          motto: string
+          name: string
+          phone: string
+          type: string
+          website: string
+        }[]
+      }
       user_can_create_school: { Args: never; Returns: boolean }
       verify_user_school: { Args: { p_school_id: number }; Returns: boolean }
     }

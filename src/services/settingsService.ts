@@ -99,25 +99,25 @@ export const settingsService = {
 
   updateSchoolProfile: async (profile: Partial<SchoolProfile>): Promise<SchoolProfile> => {
     const payload = buildSchoolProfilePayload(profile);
-    const { data: currentProfile } = await supabase.rpc('get_or_create_school_profile');
-    if (!currentProfile || currentProfile.length === 0) {
-      throw new Error('No school profile found to update');
-    }
-
-    const schoolId = currentProfile[0].id;
-    const { error } = await supabase
-      .from('schools_school')
-      .update(payload)
-      .eq('id', schoolId);
+    const { data, error } = await supabase.rpc('update_school_profile', {
+      p_name: payload.name,
+      p_address: payload.address,
+      p_phone: payload.phone,
+      p_email: payload.email,
+      p_type: payload.type || '',
+      p_managed_class_groups: payload.managed_class_groups || [],
+      p_motto: payload.motto || '',
+      p_website: payload.website || '',
+      p_logo: payload.logo || '',
+    });
 
     if (error) throw error;
 
-    const refreshedProfile = await settingsService.getSchoolProfile();
-    if (!refreshedProfile) {
-      throw new Error('School profile was updated, but could not be reloaded');
+    if (!data || data.length === 0) {
+      throw new Error('School profile was updated, but no data was returned');
     }
 
-    return refreshedProfile;
+    return normalizeSchoolProfile(data[0] as SchoolProfile);
   },
 
   deleteSchoolProfile: async (schoolId: number): Promise<void> => {
