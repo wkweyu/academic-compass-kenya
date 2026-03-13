@@ -49,6 +49,16 @@ export interface SubscriptionStatus {
   school_name: string;
 }
 
+export interface SchoolAdminAccessPayload {
+  schoolId: number;
+  schoolCode: string;
+  schoolName: string;
+  schoolEmail: string;
+  contactPerson?: string;
+  adminEmail: string;
+  adminPassword: string;
+}
+
 export const saasService = {
   async lookupSchoolByCode(code: string) {
     const { data, error } = await supabase.rpc("lookup_school_by_code", { p_code: code });
@@ -212,6 +222,20 @@ export const saasService = {
       throw new Error(msg);
     }
     return data;
+  },
+
+  async provisionSchoolAdminAccess(payload: SchoolAdminAccessPayload) {
+    await this.createSchoolAdmin(payload.schoolId, payload.adminEmail, payload.adminPassword);
+
+    await this.sendOnboardingNotification(
+      payload.schoolId,
+      payload.schoolCode,
+      payload.schoolName,
+      payload.schoolEmail,
+      payload.contactPerson || "",
+      payload.adminEmail,
+      payload.adminPassword,
+    );
   },
 
   async updateSchoolDetails(schoolId: number, details: {

@@ -32,8 +32,10 @@ const SchoolDetailDialog = ({
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", phone: "", city: "", country: "" });
+  const [adminAccess, setAdminAccess] = useState({ adminEmail: "", adminPassword: "" });
   const [saving, setSaving] = useState(false);
   const [resending, setResending] = useState(false);
+  const [repairingAdmin, setRepairingAdmin] = useState(false);
 
   useEffect(() => {
     if (school) {
@@ -41,9 +43,19 @@ const SchoolDetailDialog = ({
         name: school.name, email: school.email, phone: school.phone,
         city: school.city, country: school.country,
       });
+      setAdminAccess({ adminEmail: school.email, adminPassword: "" });
       setEditing(false);
     }
   }, [school, open]);
+
+  const generatePassword = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$";
+    const array = new Uint8Array(12);
+    crypto.getRandomValues(array);
+    let pass = "";
+    for (let i = 0; i < 12; i += 1) pass += chars.charAt(array[i] % chars.length);
+    setAdminAccess((prev) => ({ ...prev, adminPassword: pass }));
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -71,6 +83,31 @@ const SchoolDetailDialog = ({
       toast.error(err.message || "Failed to resend email");
     } finally {
       setResending(false);
+    }
+  };
+
+  const handleRepairAndResendAdmin = async () => {
+    if (!adminAccess.adminEmail || !adminAccess.adminPassword) {
+      toast.error("Enter the admin email and a temporary password first");
+      return;
+    }
+
+    setRepairingAdmin(true);
+    try {
+      await saasService.provisionSchoolAdminAccess({
+        schoolId: school.id,
+        schoolCode: school.code,
+        schoolName: form.name || school.name,
+        schoolEmail: form.email || school.email,
+        contactPerson: "",
+        adminEmail: adminAccess.adminEmail,
+        adminPassword: adminAccess.adminPassword,
+      });
+      toast.success(`Admin access updated and emailed to ${adminAccess.adminEmail}`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to resend admin access");
+    } finally {
+      setRepairingAdmin(false);
     }
   };
 
@@ -147,6 +184,49 @@ const SchoolDetailDialog = ({
                   </Badge>
                   <p className="text-xs text-muted-foreground mt-1">Plan</p>
                 </div>
+              </div>
+              <Separator />
+              <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Admin access</p>
+                    <p className="text-xs text-muted-foreground">
+                      Repair the linked admin account and resend fresh login details.
+                    </p>
+                  </div>
+                  <Button type="button" variant="outline" size="sm" onClick={generatePassword}>
+                    Generate Password
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Admin Email</Label>
+                    <Input
+                      type="email"
+                      value={adminAccess.adminEmail}
+                      onChange={(e) => setAdminAccess((prev) => ({ ...prev, adminEmail: e.target.value }))}
+                      placeholder="admin@school.com"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Temporary Password</Label>
+                    <Input
+                      value={adminAccess.adminPassword}
+                      onChange={(e) => setAdminAccess((prev) => ({ ...prev, adminPassword: e.target.value }))}
+                      placeholder="Set a temporary password"
+                    />
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleRepairAndResendAdmin}
+                  disabled={repairingAdmin}
+                  className="gap-1.5"
+                >
+                  {repairingAdmin ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Shield className="w-3.5 h-3.5" />}
+                  Repair & Resend Admin Access
+                </Button>
               </div>
             </div>
           )}
@@ -576,25 +656,39 @@ const OnboardForm = ({ onSuccess }: { onSuccess: () => void }) => {
       setResult(res);
       toast.success(`School onboarded! Code: ${res.school_code}`);
 
+      let adminCredentialsReady = false;
+
       if (createAdmin && form.admin_email && form.admin_password) {
         try {
-          await saasService.createSchoolAdmin(res.school_id, form.admin_email, form.admin_password);
-          toast.success("School admin account created");
+          await saasService.provisionSchoolAdminAccess({
+            schoolId: res.school_id,
+            schoolCode: res.school_code,
+            schoolName: form.name,
+            schoolEmail: form.email,
+            contactPerson: form.contact_person,
+            adminEmail: form.admin_email,
+            adminPassword: form.admin_password,
+          });
+          adminCredentialsReady = true;
+          setNotificationSent(true);
+          toast.success("School admin account created and emailed");
         } catch (adminErr: any) {
           toast.error(`Admin account creation failed: ${adminErr.message}`);
         }
       }
 
-      try {
-        await saasService.sendOnboardingNotification(
-          res.school_id, res.school_code, form.name, form.email, form.contact_person,
-          createAdmin ? form.admin_email : undefined,
-          createAdmin ? form.admin_password : undefined
-        );
-        setNotificationSent(true);
-        toast.success("Onboarding email sent");
-      } catch {
-        toast.error("School created, but notification email failed");
+      if (!adminCredentialsReady) {
+        try {
+          await saasService.sendOnboardingNotification(
+            res.school_id, res.school_code, form.name, form.email, form.contact_person,
+            undefined,
+            undefined
+          );
+          setNotificationSent(true);
+          toast.success("Onboarding email sent");
+        } catch {
+          toast.error("School created, but notification email failed");
+        }
       }
 
       onSuccess();
