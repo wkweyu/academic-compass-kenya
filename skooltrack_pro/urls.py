@@ -115,6 +115,7 @@ urlpatterns = [
     path('api/fees/', include('apps.fees.urls')),
     path('api/transport/', include('apps.transport.urls')),
     path('api/procurement/', include('apps.procurement.urls')),
+    path('api/iga/', include('apps.iga.urls')),
     path('api/attendance/', include('apps.attendance.urls')),
     path('api/students/', include('apps.students.api_urls')),
     path('api/teachers/', include('apps.teachers.api_urls')),

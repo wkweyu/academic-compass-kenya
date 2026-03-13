@@ -17,6 +17,7 @@ import {
   CalendarCheck,
   Truck,
   ShoppingCart,
+  Sprout,
   FileCheck,
   FileClock
 } from 'lucide-react';
@@ -96,6 +97,7 @@ const financeNavigation = [
   { id: 'fees', title: 'Fees Management', url: '/fees', icon: Receipt },
   { id: 'transport', title: 'Transport', url: '/transport', icon: Truck },
   { id: 'procurement', title: 'Procurement', url: '/procurement', icon: ShoppingCart },
+  { id: 'iga', title: 'IGA Management', url: '/iga', icon: Sprout },
   { id: 'payroll', title: 'Payroll', url: '/payroll', icon: DollarSign },
   { id: 'accounting', title: 'Accounting', url: '/accounting', icon: CreditCard },
 ];

@@ -86,6 +86,20 @@ interface ApiResponse {
   [key: string]: any;
 }
 
+export interface AuthenticatedUserProfile {
+  id: number;
+  username: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  role: string;
+  school: {
+    id: number;
+    name: string;
+  } | null;
+}
+
 export async function signIn(email: string, password: string) {
   try {
     const response = await api.post<ApiResponse>("/api-token-auth/", {
@@ -111,10 +125,10 @@ export async function signIn(email: string, password: string) {
   }
 }
 
-export async function getCurrentUser() {
+export async function getCurrentUser(): Promise<AuthenticatedUserProfile> {
   try {
     // Try the correct Django user endpoint
-    const response = await api.get("/api/users/me/");
+    const response = await api.get<AuthenticatedUserProfile>("/api/users/me/");
     return response.data;
   } catch (err: any) {
     if (import.meta.env.DEV) {

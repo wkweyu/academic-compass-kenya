@@ -33,6 +33,7 @@ import StaffProfilePage from "./pages/StaffProfilePage";
 import ProcurementPage from "./pages/ProcurementPage";
 import AccountingPage from "./pages/AccountingPage";
 import PayrollPage from "./pages/PayrollPage";
+import IGAPage from "./pages/IGAPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -86,6 +87,7 @@ const App = () => (
                 <Route path="/grading" element={<ComingSoonPage title="Grading" />} />
                 <Route path="/transport" element={<TransportPage />} />
                 <Route path="/procurement" element={<ProcurementPage />} />
+                <Route path="/iga" element={<IGAPage />} />
                 <Route path="/payroll" element={<PayrollPage />} />
                 <Route path="/accounting" element={<AccountingPage />} />
                 <Route path="/settings" element={<SettingsPage />} />

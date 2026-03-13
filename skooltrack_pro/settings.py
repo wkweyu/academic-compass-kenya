@@ -12,7 +12,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Security settings
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-this-in-production')
 DEBUG = config('DEBUG', default=True, cast=bool)
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=lambda v: [s.strip() for s in v.split(',')])
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,testserver', cast=lambda v: [s.strip() for s in v.split(',')])
 
 # Applications
 DJANGO_APPS = [
@@ -50,6 +50,7 @@ LOCAL_APPS = [
     'apps.fees.apps.FeesConfig',
     'apps.transport.apps.TransportConfig',
     'apps.procurement.apps.ProcurementConfig',
+    'apps.iga.apps.IgaConfig',
     'apps.core.apps.CoreConfig',
     'apps.attendance.apps.AttendanceConfig',
 ]

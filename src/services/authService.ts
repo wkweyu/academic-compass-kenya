@@ -1,5 +1,5 @@
 // Authentication service for debugging and testing
-import { api } from "@/api/api";
+import { api, type AuthenticatedUserProfile } from "@/api/api";
 
 export const authService = {
   // Test if we can authenticate
@@ -36,9 +36,9 @@ export const authService = {
   },
 
   // Get user info
-  async getCurrentUser() {
+  async getCurrentUser(): Promise<AuthenticatedUserProfile> {
     try {
-      const response = await api.get("/api/auth/user/");
+      const response = await api.get<AuthenticatedUserProfile>("/api/users/me/");
       return response.data;
     } catch (error) {
       if (import.meta.env.DEV) {
