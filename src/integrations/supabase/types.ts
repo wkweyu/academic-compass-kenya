@@ -3786,6 +3786,7 @@ export type Database = {
           email: string
           id: number
           logo: string | null
+          managed_class_groups: string[] | null
           max_students: number | null
           max_users: number | null
           motto: string | null
@@ -3810,6 +3811,7 @@ export type Database = {
           email: string
           id?: number
           logo?: string | null
+          managed_class_groups?: string[] | null
           max_students?: number | null
           max_users?: number | null
           motto?: string | null
@@ -3834,6 +3836,7 @@ export type Database = {
           email?: string
           id?: number
           logo?: string | null
+          managed_class_groups?: string[] | null
           max_students?: number | null
           max_users?: number | null
           motto?: string | null
@@ -6256,6 +6259,7 @@ export type Database = {
           p_address: string
           p_email: string
           p_logo?: string
+          p_managed_class_groups?: string[]
           p_motto?: string
           p_name: string
           p_phone: string
@@ -6270,6 +6274,7 @@ export type Database = {
           email: string
           id: number
           logo: string
+          managed_class_groups: string[]
           motto: string
           name: string
           phone: string
@@ -6389,6 +6394,7 @@ export type Database = {
           email: string
           id: number
           logo: string
+          managed_class_groups: string[]
           motto: string
           name: string
           phone: string

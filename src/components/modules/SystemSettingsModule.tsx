@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { hasManagedClassGroupConfiguration } from '@/utils/schoolClassGroups';
 import { TermSettingsTab } from './TermSettingsTab';
 import { SchoolProfileTab } from './SchoolProfileTab';
 import { AcademicYearTab } from './AcademicYearTab';
@@ -48,7 +49,7 @@ export function SystemSettingsModule() {
       ]);
 
       setSetupStatus({
-        profileReady: Boolean(profile?.name && profile?.address && profile?.phone && profile?.email && profile?.type),
+        profileReady: Boolean(profile?.name && profile?.address && profile?.phone && profile?.email && hasManagedClassGroupConfiguration(profile)),
         termsReady: terms.length > 0,
         classesReady: classes.length > 0,
         streamsReady: streams.length > 0,
@@ -69,7 +70,7 @@ export function SystemSettingsModule() {
     {
       key: 'profileReady',
       title: 'Complete school profile',
-      description: 'Review the onboarding details, add your school type, motto, website, and confirm contact details.',
+      description: 'Review the onboarding details, select the managed class groups, add the motto or website, and confirm contact details.',
       tab: 'school-profile',
     },
     {
@@ -81,7 +82,7 @@ export function SystemSettingsModule() {
     {
       key: 'classesReady',
       title: 'Create classes',
-      description: 'Generate the standard classes for your school type so admissions and teaching can begin.',
+      description: 'Generate the standard classes for the managed class groups so admissions and teaching can begin.',
       tab: 'predefined-classes',
     },
     {

@@ -1,6 +1,11 @@
 import { supabase } from "@/integrations/supabase/client";
 import { SchoolProfile, TermSetting, AcademicYearSetting, SystemSettings, GradingSystemSettings } from "@/types/settings";
 import { classService } from "@/services/classService";
+import {
+  getLegacySchoolTypeFromManagedClassGroups,
+  hasManagedClassGroupConfiguration,
+  normalizeManagedClassGroups,
+} from "@/utils/schoolClassGroups";
 
 export interface SchoolSetupStatus {
   profileReady: boolean;
@@ -9,6 +14,26 @@ export interface SchoolSetupStatus {
   streamsReady: boolean;
   complete: boolean;
 }
+
+const normalizeSchoolProfile = (profile: SchoolProfile): SchoolProfile => {
+  const managedClassGroups = normalizeManagedClassGroups(profile.managed_class_groups, profile.type);
+
+  return {
+    ...profile,
+    managed_class_groups: managedClassGroups,
+    type: getLegacySchoolTypeFromManagedClassGroups(managedClassGroups, profile.type),
+  };
+};
+
+const buildSchoolProfilePayload = (profile: Partial<SchoolProfile>) => {
+  const managedClassGroups = normalizeManagedClassGroups(profile.managed_class_groups, profile.type);
+
+  return {
+    ...profile,
+    managed_class_groups: managedClassGroups,
+    type: getLegacySchoolTypeFromManagedClassGroups(managedClassGroups, profile.type),
+  };
+};
 
 export const settingsService = {
   getSchoolProfile: async (): Promise<SchoolProfile | null> => {
@@ -23,7 +48,7 @@ export const settingsService = {
         return null;
       }
       
-      return data[0] as SchoolProfile;
+      return normalizeSchoolProfile(data[0] as SchoolProfile);
     } catch (error: any) {
       if (import.meta.env.DEV) {
         console.error('Error fetching school profile:', error);
@@ -34,6 +59,7 @@ export const settingsService = {
 
   createSchoolProfile: async (profile: Omit<SchoolProfile, "id" | "code" | "created_at" | "active">): Promise<SchoolProfile> => {
     try {
+      const payload = buildSchoolProfilePayload(profile);
       const { data: userData, error: userError } = await supabase.auth.getUser();
       
       if (userError || !userData?.user) {
@@ -42,14 +68,15 @@ export const settingsService = {
       
       // Use RPC function to create school with elevated privileges
       const { data, error } = await supabase.rpc('create_school_profile', {
-        p_name: profile.name,
-        p_address: profile.address,
-        p_phone: profile.phone,
-        p_email: profile.email,
-        p_type: profile.type || '',
-        p_motto: profile.motto || '',
-        p_website: profile.website || '',
-        p_logo: profile.logo || ''
+        p_name: payload.name,
+        p_address: payload.address,
+        p_phone: payload.phone,
+        p_email: payload.email,
+        p_type: payload.type || '',
+        p_managed_class_groups: payload.managed_class_groups || [],
+        p_motto: payload.motto || '',
+        p_website: payload.website || '',
+        p_logo: payload.logo || ''
       });
 
       if (error) {
@@ -61,7 +88,7 @@ export const settingsService = {
         throw new Error('School created but no data returned');
       }
       
-      return data[0] as SchoolProfile;
+      return normalizeSchoolProfile(data[0] as SchoolProfile);
     } catch (error) {
       if (import.meta.env.DEV) {
         console.error('Failed to create school:', error);
@@ -71,6 +98,7 @@ export const settingsService = {
   },
 
   updateSchoolProfile: async (profile: Partial<SchoolProfile>): Promise<SchoolProfile> => {
+    const payload = buildSchoolProfilePayload(profile);
     const { data: currentProfile } = await supabase.rpc('get_or_create_school_profile');
     if (!currentProfile || currentProfile.length === 0) {
       throw new Error('No school profile found to update');
@@ -79,7 +107,7 @@ export const settingsService = {
     const schoolId = currentProfile[0].id;
     const { error } = await supabase
       .from('schools_school')
-      .update(profile)
+      .update(payload)
       .eq('id', schoolId);
 
     if (error) throw error;
@@ -221,7 +249,7 @@ export const settingsService = {
     ]);
 
     const status: SchoolSetupStatus = {
-      profileReady: Boolean(profile?.name && profile?.address && profile?.phone && profile?.email && profile?.type),
+      profileReady: Boolean(profile?.name && profile?.address && profile?.phone && profile?.email && hasManagedClassGroupConfiguration(profile)),
       termsReady: terms.length > 0,
       classesReady: classes.length > 0,
       streamsReady: streams.length > 0,

@@ -3,65 +3,22 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { settingsService } from '@/services/settingsService';
 import { SchoolProfile } from '@/types/settings';
 import { Loader2, Save, Upload } from 'lucide-react';
-
-const SCHOOL_TYPE_OPTIONS = [
-  { value: 'Pre-Primary', label: 'Pre-Primary' },
-  { value: 'Primary', label: 'Primary (Grade 1-6)' },
-  { value: 'Junior Secondary', label: 'Junior Secondary (Grade 7-9)' },
-  { value: 'Senior Secondary', label: 'Senior Secondary (Grade 10-12)' },
-] as const;
-
-const SCHOOL_TYPE_ALIASES: Record<string, string> = {
-  'pre primary': 'Pre-Primary',
-  'pre-primary': 'Pre-Primary',
-  preprimary: 'Pre-Primary',
-  primary: 'Primary',
-  'primary school': 'Primary',
-  secondary: 'Junior Secondary',
-  'secondary school': 'Junior Secondary',
-  'junior secondary': 'Junior Secondary',
-  'junior-secondary': 'Junior Secondary',
-  'junior secondary school': 'Junior Secondary',
-  'senior secondary': 'Senior Secondary',
-  'senior-secondary': 'Senior Secondary',
-  'senior secondary school': 'Senior Secondary',
-  mixed: 'Primary',
-  'mixed (primary & secondary)': 'Primary',
-  'mixed primary & secondary': 'Primary',
-  'primary-secondary': 'Primary',
-};
-
-const normalizeSchoolType = (value?: string | null) => {
-  if (!value) return '';
-  const normalized = value.trim().toLowerCase();
-
-  if (SCHOOL_TYPE_ALIASES[normalized]) {
-    return SCHOOL_TYPE_ALIASES[normalized];
-  }
-
-  if (normalized.includes('mixed')) return 'Primary';
-  if (normalized.includes('pre') && normalized.includes('primary')) return 'Pre-Primary';
-  if (normalized.includes('senior') && normalized.includes('secondary')) return 'Senior Secondary';
-  if (normalized.includes('junior') && normalized.includes('secondary')) return 'Junior Secondary';
-  if (normalized.includes('secondary')) return 'Junior Secondary';
-  if (normalized.includes('primary')) return 'Primary';
-
-  return value.trim();
-};
-
-const getSchoolTypeLabel = (value?: string | null) => {
-  const normalizedValue = normalizeSchoolType(value);
-  return SCHOOL_TYPE_OPTIONS.find((option) => option.value === normalizedValue)?.label || normalizedValue;
-};
+import {
+  getLegacySchoolTypeFromManagedClassGroups,
+  getManagedClassGroupSummary,
+  hasManagedClassGroupConfiguration,
+  MANAGED_CLASS_GROUP_OPTIONS,
+  normalizeManagedClassGroups,
+} from '@/utils/schoolClassGroups';
 
 const schoolProfileSchema = z.object({
   name: z.string().min(1, 'School name is required'),
@@ -69,6 +26,7 @@ const schoolProfileSchema = z.object({
   phone: z.string().min(1, 'Phone number is required'),
   email: z.string().min(1, 'Email is required').email('Invalid email address'),
   type: z.string().optional(),
+  managed_class_groups: z.array(z.string()).default([]),
   motto: z.string().optional(),
   website: z.string().url('Invalid URL').optional().or(z.literal('')),
   logo: z.string().optional(),
@@ -91,6 +49,7 @@ export function SchoolProfileTab() {
       phone: '',
       email: '',
       type: '',
+      managed_class_groups: [],
       motto: '',
       website: '',
       logo: '',
@@ -111,12 +70,14 @@ export function SchoolProfileTab() {
         console.log('Profile loaded:', data);
         setProfile(data);
         setIsCreating(false);
+        const managedClassGroups = normalizeManagedClassGroups(data.managed_class_groups, data.type);
         form.reset({
           name: data.name,
           address: data.address,
           phone: data.phone,
           email: data.email,
-          type: normalizeSchoolType(data.type),
+          type: getLegacySchoolTypeFromManagedClassGroups(managedClassGroups, data.type),
+          managed_class_groups: managedClassGroups,
           motto: data.motto || '',
           website: data.website || '',
           logo: data.logo || '',
@@ -189,35 +150,37 @@ export function SchoolProfileTab() {
   const onSubmit = async (data: SchoolProfileFormData) => {
     try {
       setLoading(true);
+      const managedClassGroups = normalizeManagedClassGroups(data.managed_class_groups, data.type);
+      const derivedType = getLegacySchoolTypeFromManagedClassGroups(managedClassGroups, data.type);
       
       if (isCreating) {
-        const normalizedType = normalizeSchoolType(data.type);
-
         // Create new school - all fields are validated by zod schema
         await settingsService.createSchoolProfile({
           name: data.name,
           address: data.address,
           phone: data.phone,
           email: data.email,
-          type: normalizedType,
+          type: derivedType,
+          managed_class_groups: managedClassGroups,
           motto: data.motto,
           website: data.website,
           logo: data.logo,
         });
-        form.setValue('type', normalizedType, { shouldDirty: false });
+        form.setValue('type', derivedType, { shouldDirty: false });
+        form.setValue('managed_class_groups', managedClassGroups, { shouldDirty: false });
         toast({
           title: 'Success',
           description: 'School profile created successfully',
         });
       } else {
-        const normalizedType = normalizeSchoolType(data.type);
-
         // Update existing school
         await settingsService.updateSchoolProfile({
           ...data,
-          type: normalizedType,
+          type: derivedType,
+          managed_class_groups: managedClassGroups,
         });
-        form.setValue('type', normalizedType, { shouldDirty: false });
+        form.setValue('type', derivedType, { shouldDirty: false });
+        form.setValue('managed_class_groups', managedClassGroups, { shouldDirty: false });
         toast({
           title: 'Success',
           description: 'School profile updated successfully',
@@ -266,9 +229,14 @@ export function SchoolProfileTab() {
               <div>
                 <span className="font-semibold">Phone:</span> {profile.phone}
               </div>
+              {hasManagedClassGroupConfiguration(profile) && (
+                <div>
+                  <span className="font-semibold">Managed Class Groups:</span> {getManagedClassGroupSummary(profile)}
+                </div>
+              )}
               {profile.type && (
                 <div>
-                  <span className="font-semibold">Type:</span> {getSchoolTypeLabel(profile.type)}
+                  <span className="font-semibold">Legacy Type:</span> {profile.type}
                 </div>
               )}
               {profile.logo && (
@@ -396,26 +364,49 @@ export function SchoolProfileTab() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="type"
+                name="managed_class_groups"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>School Type</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select school type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {SCHOOL_TYPE_OPTIONS.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormLabel>Managed Class Groups</FormLabel>
+                    <FormControl>
+                      <div className="space-y-3 rounded-md border p-4">
+                        {MANAGED_CLASS_GROUP_OPTIONS.map((option) => {
+                          const selectedValues = field.value || [];
+                          const isChecked = selectedValues.includes(option.value);
+
+                          return (
+                            <label
+                              key={option.value}
+                              className="flex items-start gap-3 rounded-md border p-3 transition-colors hover:bg-muted/40"
+                            >
+                              <Checkbox
+                                checked={isChecked}
+                                onCheckedChange={(checked) => {
+                                  const nextValues = checked
+                                    ? [...selectedValues, option.value]
+                                    : selectedValues.filter((value) => value !== option.value);
+
+                                  field.onChange(normalizeManagedClassGroups(nextValues));
+                                }}
+                              />
+                              <div className="space-y-1">
+                                <p className="text-sm font-medium leading-none">{option.label}</p>
+                                <p className="text-sm text-muted-foreground">{option.description}</p>
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </FormControl>
                     <p className="text-sm text-muted-foreground">
-                      This setting determines which standard classes are suggested during setup. Pre-Primary creates PP1-PP2,
-                      Primary creates Grades 1-6, Secondary creates Grades 7-9, and Mixed creates Grades 1-9.
+                      Select every section your school manages together. Existing modules keep using the current grade-based class
+                      logic, while setup and defaults now read this safe multi-select configuration first.
                     </p>
+                    {(field.value?.length || 0) > 0 && (
+                      <p className="text-sm text-muted-foreground">
+                        Legacy fallback type: <strong>{getLegacySchoolTypeFromManagedClassGroups(field.value)}</strong>
+                      </p>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
