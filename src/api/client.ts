@@ -17,6 +17,89 @@ function resolveApiBaseUrl() {
 
 const API_URL = resolveApiBaseUrl();
 
+function buildApiUrl(endpoint: string) {
+  return `${API_URL}/${endpoint}`;
+}
+
+async function readResponseBody(response: Response) {
+  const contentType = response.headers.get('content-type') || '';
+  const rawText = await response.text();
+  const trimmedText = rawText.trim();
+  const isJson = contentType.includes('application/json') || contentType.includes('application/problem+json');
+
+  if (!trimmedText) {
+    return {
+      contentType,
+      rawText,
+      parsed: undefined as unknown,
+      isJson,
+    };
+  }
+
+  if (isJson) {
+    try {
+      return {
+        contentType,
+        rawText,
+        parsed: JSON.parse(trimmedText) as unknown,
+        isJson,
+      };
+    } catch {
+      return {
+        contentType,
+        rawText,
+        parsed: undefined as unknown,
+        isJson,
+      };
+    };
+  }
+
+  return {
+    contentType,
+    rawText,
+    parsed: undefined as unknown,
+    isJson,
+  };
+}
+
+function looksLikeHtmlDocument(body: string) {
+  return /<(?:!doctype html|html|head|body)\b/i.test(body);
+}
+
+function buildUnexpectedResponseError({
+  endpoint,
+  response,
+  body,
+  contentType,
+}: {
+  endpoint: string;
+  response: Response;
+  body: string;
+  contentType: string;
+}) {
+  const targetUrl = buildApiUrl(endpoint);
+  const htmlResponse = looksLikeHtmlDocument(body);
+  const responseKind = htmlResponse ? 'HTML' : contentType || 'non-JSON';
+
+  const standardError: StandardError = {
+    code: 'INVALID_API_RESPONSE',
+    message: htmlResponse
+      ? 'The request reached a web page instead of the API. Check the deployed backend URL or API proxy configuration.'
+      : 'The API returned an unexpected response format.',
+    category: ErrorCategory.NETWORK,
+    severity: ErrorSeverity.CRITICAL,
+    timestamp: new Date().toISOString(),
+    action: import.meta.env.DEV
+      ? 'Verify the backend route and confirm it returns JSON.'
+      : 'Configure VITE_API_URL or expose the backend API under /api on the deployed host.',
+    details: import.meta.env.DEV
+      ? `Expected JSON from ${targetUrl} but received ${responseKind} (status ${response.status}).\n\nBody preview:\n${body.slice(0, 400)}`
+      : `Expected JSON from ${targetUrl} but received ${responseKind} (status ${response.status}).`,
+  };
+
+  return new ApiError(standardError, response.status);
+}
+
 export class ApiError extends Error {
   public standardError: StandardError;
   public status?: number;
@@ -50,15 +133,20 @@ async function client<T>(
       config.body = JSON.stringify(data);
     }
 
-    const response = await fetch(`${API_URL}/${endpoint}`, config);
+    const response = await fetch(buildApiUrl(endpoint), config);
+    const { contentType, rawText, parsed, isJson } = await readResponseBody(response);
 
     if (!response.ok) {
-      let errorData;
-      try {
-        errorData = await response.json();
-      } catch {
-        errorData = { message: response.statusText };
+      if (!isJson && rawText) {
+        throw buildUnexpectedResponseError({
+          endpoint,
+          response,
+          body: rawText,
+          contentType,
+        });
       }
+
+      const errorData = (parsed as Record<string, unknown> | undefined) || { message: response.statusText };
 
       const standardError = parseError(
         { 
@@ -77,7 +165,25 @@ async function client<T>(
       return Promise.resolve(undefined as T);
     }
 
-    return response.json();
+    if (!isJson) {
+      throw buildUnexpectedResponseError({
+        endpoint,
+        response,
+        body: rawText,
+        contentType,
+      });
+    }
+
+    if (typeof parsed === 'undefined' && rawText) {
+      throw buildUnexpectedResponseError({
+        endpoint,
+        response,
+        body: rawText,
+        contentType,
+      });
+    }
+
+    return parsed as T;
   } catch (error) {
     // If it's already an ApiError, rethrow it
     if (error instanceof ApiError) {
@@ -86,7 +192,7 @@ async function client<T>(
 
     // Check if this is a network error (Django not running)
     if (error instanceof Error && error.message === 'Failed to fetch') {
-      const targetUrl = `${API_URL}/${endpoint}`;
+      const targetUrl = buildApiUrl(endpoint);
       const networkError: StandardError = {
         message: import.meta.env.DEV
           ? 'Backend server is not running. Please start Django with: python manage.py runserver'
