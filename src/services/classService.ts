@@ -63,21 +63,19 @@ export const classService = {
   },
 
   async createClass(data: Omit<Class, "id" | "created_at" | "total_streams" | "total_students" | "capacity" | "school">): Promise<Class> {
-    const { data: schoolId } = await supabase.rpc('get_user_school_id');
-    
-    const { data: newClass, error } = await supabase
-      .from('classes')
-      .insert({
-        name: data.name,
-        grade_level: data.grade_level,
-        description: data.description || '',
-        school_id: schoolId
-      })
-      .select()
-      .single();
+    const { data: newClass, error } = await supabase.rpc('create_school_class', {
+      p_name: data.name,
+      p_grade_level: data.grade_level,
+      p_description: data.description || '',
+    });
     
     if (error) throw error;
-    return newClass as Class;
+
+    if (!newClass || newClass.length === 0) {
+      throw new Error('Class could not be created');
+    }
+
+    return newClass[0] as Class;
   },
 
   async updateClass(id: string, data: Partial<Class>): Promise<Class | null> {

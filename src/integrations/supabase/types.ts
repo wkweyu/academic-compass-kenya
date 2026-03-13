@@ -6282,6 +6282,21 @@ export type Database = {
           website: string
         }[]
       }
+      create_school_class: {
+        Args: {
+          p_description?: string
+          p_grade_level: number
+          p_name: string
+        }
+        Returns: {
+          created_at: string
+          description: string
+          grade_level: number
+          id: number
+          name: string
+          school_id: number
+        }[]
+      }
       create_student: {
         Args: {
           p_admission_year: number
