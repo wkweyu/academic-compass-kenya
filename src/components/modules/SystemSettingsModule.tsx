@@ -15,6 +15,7 @@ import { BiometricIntegration } from '@/pages/Attendance/BiometricIntegration';
 import { SmsIntegration } from '@/pages/Attendance/SmsIntegration';
 import { settingsService } from '@/services/settingsService';
 import { classService } from '@/services/classService';
+import { streamSettingsService } from '@/services/streamSettingsService';
 import { CheckCircle2, Circle, Loader2, RefreshCcw } from 'lucide-react';
 
 type SetupStatus = {
@@ -41,18 +42,18 @@ export function SystemSettingsModule() {
   const loadSetupStatus = async () => {
     try {
       setLoadingSetupStatus(true);
-      const [profile, terms, classes, streams] = await Promise.all([
+      const [profile, terms, classes, streamNames] = await Promise.all([
         settingsService.getSchoolProfile(),
         settingsService.getTermSettings(),
         classService.getClasses(),
-        classService.getStreams(),
+        streamSettingsService.getStreamNames(),
       ]);
 
       setSetupStatus({
         profileReady: Boolean(profile?.name && profile?.address && profile?.phone && profile?.email && hasManagedClassGroupConfiguration(profile)),
         termsReady: terms.length > 0,
         classesReady: classes.length > 0,
-        streamsReady: streams.length > 0,
+        streamsReady: streamNames.length > 0,
       });
     } catch (error) {
       setSetupStatus({
@@ -87,8 +88,8 @@ export function SystemSettingsModule() {
     },
     {
       key: 'streamsReady',
-      title: 'Create streams',
-      description: 'Set up stream naming and create streams for each class to organize students correctly.',
+      title: 'Configure stream names',
+      description: 'Set up the stream names your school uses so classes can be organized consistently during stream creation.',
       tab: 'stream-naming',
     },
   ] as const;

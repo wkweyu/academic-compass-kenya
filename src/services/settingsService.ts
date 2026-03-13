@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { SchoolProfile, TermSetting, AcademicYearSetting, SystemSettings, GradingSystemSettings } from "@/types/settings";
 import { classService } from "@/services/classService";
+import { streamSettingsService } from "@/services/streamSettingsService";
 import {
   getLegacySchoolTypeFromManagedClassGroups,
   hasManagedClassGroupConfiguration,
@@ -241,18 +242,18 @@ export const settingsService = {
   },
 
   getSchoolSetupStatus: async (): Promise<SchoolSetupStatus> => {
-    const [profile, terms, classes, streams] = await Promise.all([
+    const [profile, terms, classes, streamNames] = await Promise.all([
       settingsService.getSchoolProfile(),
       settingsService.getTermSettings(),
       classService.getClasses(),
-      classService.getStreams(),
+      streamSettingsService.getStreamNames(),
     ]);
 
     const status: SchoolSetupStatus = {
       profileReady: Boolean(profile?.name && profile?.address && profile?.phone && profile?.email && hasManagedClassGroupConfiguration(profile)),
       termsReady: terms.length > 0,
       classesReady: classes.length > 0,
-      streamsReady: streams.length > 0,
+      streamsReady: streamNames.length > 0,
       complete: false,
     };
 
