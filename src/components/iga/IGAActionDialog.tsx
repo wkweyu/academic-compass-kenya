@@ -10,6 +10,7 @@ export function IGAActionDialog({
   title,
   description,
   triggerLabel,
+  hideTrigger = false,
   onSubmit,
   submitting,
   children,
@@ -19,18 +20,21 @@ export function IGAActionDialog({
   title: string;
   description: string;
   triggerLabel: string;
+  hideTrigger?: boolean;
   onSubmit: () => void | Promise<unknown>;
   submitting: boolean;
   children: ReactNode;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          {triggerLabel}
-        </Button>
-      </DialogTrigger>
+      {!hideTrigger ? (
+        <DialogTrigger asChild>
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            {triggerLabel}
+          </Button>
+        </DialogTrigger>
+      ) : null}
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>

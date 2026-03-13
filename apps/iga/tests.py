@@ -250,6 +250,33 @@ class IGAModuleTests(TestCase):
         self.assertEqual(movement.movement_type, InventoryMovementType.INTERNAL_USE)
         self.assertEqual(movement.accounting_entry['entry_type'], 'iga_internal_consumption')
 
+    def test_inventory_adjustment_api_updates_stock_and_records_movement(self):
+        self.authenticate(self.admin_user)
+        record_production(
+            school=self.school,
+            activity=self.activity,
+            product=self.product,
+            quantity=Decimal('20.00'),
+            recorded_by=self.farm_manager,
+        )
+
+        response = self.client.post(
+            reverse('iga-adjust-inventory'),
+            {
+                'activity': self.activity.id,
+                'product': self.product.id,
+                'quantity_delta': '-2.00',
+                'reference': 'ADJ-001',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(InventoryStock.objects.get(product=self.product, school=self.school).quantity_available, Decimal('18.00'))
+        movement = InventoryMovement.objects.get(id=response.data['movement_id'])
+        self.assertEqual(movement.movement_type, InventoryMovementType.ADJUSTMENT)
+        self.assertEqual(movement.reference, 'ADJ-001')
+
     def test_expense_approval_action_updates_status_and_accounting(self):
         self.authenticate(self.accountant)
         expense_response = self.client.post(
@@ -386,7 +413,9 @@ class IGAModuleTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('summary', response.data)
         self.assertIn('profitability', response.data)
+        self.assertIn('production', response.data)
         self.assertIn('inventory', response.data)
+        self.assertIn('income_vs_expenditure', response.data)
         self.assertIn('recent_movements', response.data)
         self.assertEqual(response.data['summary']['activity_count'], 1)
         self.assertEqual(response.data['summary']['pending_expense_count'], 1)

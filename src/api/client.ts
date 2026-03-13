@@ -1,7 +1,21 @@
 import { authHeaders } from './api';
 import { parseError, StandardError, ErrorCategory, ErrorSeverity } from '@/utils/errorHandler';
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
+function resolveApiBaseUrl() {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+
+  if (typeof window === 'undefined') {
+    return 'http://localhost:8000/api';
+  }
+
+  const { origin, hostname } = window.location;
+  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+  return isLocalhost ? 'http://localhost:8000/api' : `${origin}/api`;
+}
+
+const API_URL = resolveApiBaseUrl();
 
 export class ApiError extends Error {
   public standardError: StandardError;
@@ -72,14 +86,21 @@ async function client<T>(
 
     // Check if this is a network error (Django not running)
     if (error instanceof Error && error.message === 'Failed to fetch') {
+      const targetUrl = `${API_URL}/${endpoint}`;
       const networkError: StandardError = {
-        message: 'Backend server is not running. Please start Django with: python manage.py runserver',
+        message: import.meta.env.DEV
+          ? 'Backend server is not running. Please start Django with: python manage.py runserver'
+          : 'Unable to reach the application API. Check the deployed API URL or reverse proxy configuration.',
         code: 'BACKEND_NOT_RUNNING',
         category: ErrorCategory.NETWORK,
         severity: ErrorSeverity.CRITICAL,
         timestamp: new Date().toISOString(),
-        action: 'Start Django server with: python manage.py runserver',
-        details: '⚠️ Django Backend Not Running!\n\nPlease start the Django server:\n1. Open a terminal\n2. Run: python manage.py runserver\n3. Keep the terminal open\n4. Try again'
+        action: import.meta.env.DEV
+          ? 'Start Django server with: python manage.py runserver'
+          : 'Configure VITE_API_URL or expose /api from the deployed host',
+        details: import.meta.env.DEV
+          ? '⚠️ Django Backend Not Running!\n\nPlease start the Django server:\n1. Open a terminal\n2. Run: python manage.py runserver\n3. Keep the terminal open\n4. Try again'
+          : `⚠️ API Unreachable\n\nThe frontend tried to call:\n${targetUrl}\n\nSet VITE_API_URL to the live backend origin, or proxy /api on the deployed host.`
       };
       throw new ApiError(networkError);
     }

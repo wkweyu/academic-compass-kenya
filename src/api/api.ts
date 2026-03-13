@@ -1,6 +1,20 @@
 import axios from "axios";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+function resolveApiBaseUrl() {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+
+  if (typeof window === 'undefined') {
+    return 'http://localhost:8000';
+  }
+
+  const { origin, hostname } = window.location;
+  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+  return isLocalhost ? 'http://localhost:8000' : origin;
+}
+
+const API_URL = resolveApiBaseUrl();
 
 // Axios instance
 const axiosInstance = axios.create({

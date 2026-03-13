@@ -34,6 +34,34 @@ export function IGAOverviewTab({ overview, loading }: { overview?: IGAOverviewRe
         />
       </div>
 
+      <div className="grid gap-4 xl:grid-cols-2">
+        <IGATableCard
+          title="Production summary"
+          description="Grouped output totals by day, activity, and product."
+          headers={['Date', 'Activity', 'Product', 'Quantity']}
+          rows={(overview?.production || []).map((item) => [
+            item.production_date,
+            item.activity__name,
+            item.product__name,
+            `${formatNumber(item.total_quantity)} ${item.unit}`,
+          ])}
+          emptyText={loading ? 'Loading production report...' : 'No production report data yet.'}
+        />
+        <IGATableCard
+          title="Income vs expenditure"
+          description="Approved expenses compared with recorded produce sales."
+          headers={['Metric', 'Amount']}
+          rows={overview?.income_vs_expenditure
+            ? [
+                ['Total income', formatCurrency(overview.income_vs_expenditure.total_income)],
+                ['Total expenses', formatCurrency(overview.income_vs_expenditure.total_expenses)],
+                ['Net income', formatCurrency(overview.income_vs_expenditure.net_income)],
+              ]
+            : []}
+          emptyText={loading ? 'Loading income report...' : 'No income and expenditure data yet.'}
+        />
+      </div>
+
       <IGATableCard
         title="Recent inventory movements"
         description="Latest production, sale, spoilage, and adjustment activity."

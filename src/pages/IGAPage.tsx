@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { IGAActivitiesTab } from '@/components/iga/IGAActivitiesTab';
 import { IGAExpensesTab } from '@/components/iga/IGAExpensesTab';
+import { IGAInventoryTab } from '@/components/iga/IGAInventoryTab';
 import { IGAOverviewTab } from '@/components/iga/IGAOverviewTab';
 import { IGAProductsTab } from '@/components/iga/IGAProductsTab';
 import { IGAProductionTab } from '@/components/iga/IGAProductionTab';
@@ -18,6 +19,8 @@ import {
   type CreateActivityPayload,
   type CreateProductPayload,
   type ExpensePayload,
+  type InventoryActionPayload,
+  type InventoryAdjustmentPayload,
   type ProductionPayload,
   type SalePayload,
 } from '@/services/igaService';
@@ -41,12 +44,13 @@ export default function IGAPage() {
   const { data: activities = [], isLoading: activitiesLoading } = useQuery({ queryKey: ['iga-activities'], queryFn: () => igaService.getActivities() });
   const { data: products = [], isLoading: productsLoading } = useQuery({ queryKey: ['iga-products'], queryFn: () => igaService.getProducts() });
   const { data: productionRecords = [] } = useQuery({ queryKey: ['iga-production'], queryFn: () => igaService.getProductionRecords() });
+  const { data: inventoryMovements = [] } = useQuery({ queryKey: ['iga-inventory-movements'], queryFn: () => igaService.getInventoryMovements() });
   const { data: sales = [] } = useQuery({ queryKey: ['iga-sales'], queryFn: () => igaService.getSales() });
   const { data: expenses = [] } = useQuery({ queryKey: ['iga-expenses'], queryFn: () => igaService.getExpenses() });
   const { data: budgets = [] } = useQuery({ queryKey: ['iga-budgets'], queryFn: () => igaService.getBudgets() });
   const { data: currentUser } = useQuery({ queryKey: ['current-user'], queryFn: () => authService.getCurrentUser() });
 
-  const refreshKeys = ['iga-overview', 'iga-activities', 'iga-products', 'iga-production', 'iga-sales', 'iga-expenses', 'iga-budgets'] as const;
+  const refreshKeys = ['iga-overview', 'iga-activities', 'iga-products', 'iga-production', 'iga-inventory-movements', 'iga-sales', 'iga-expenses', 'iga-budgets'] as const;
   const invalidateIgaQueries = async () => {
     await Promise.all(refreshKeys.map((key) => queryClient.invalidateQueries({ queryKey: [key] })));
   };
@@ -114,6 +118,33 @@ export default function IGAPage() {
     onError: (error) => toast({ title: 'Unable to record expense', description: getErrorMessage(error), variant: 'destructive' }),
   });
 
+  const recordSpoilageMutation = useMutation({
+    mutationFn: (payload: InventoryActionPayload) => igaService.recordSpoilage(payload),
+    onSuccess: async () => {
+      toast({ title: 'Spoilage recorded', description: 'Inventory and loss tracking were updated.' });
+      await invalidateIgaQueries();
+    },
+    onError: (error) => toast({ title: 'Unable to record spoilage', description: getErrorMessage(error), variant: 'destructive' }),
+  });
+
+  const recordInternalUseMutation = useMutation({
+    mutationFn: (payload: InventoryActionPayload) => igaService.recordInternalUse(payload),
+    onSuccess: async () => {
+      toast({ title: 'Internal use recorded', description: 'Inventory was updated for internal consumption.' });
+      await invalidateIgaQueries();
+    },
+    onError: (error) => toast({ title: 'Unable to record internal use', description: getErrorMessage(error), variant: 'destructive' }),
+  });
+
+  const adjustInventoryMutation = useMutation({
+    mutationFn: (payload: InventoryAdjustmentPayload) => igaService.adjustInventory(payload),
+    onSuccess: async () => {
+      toast({ title: 'Inventory adjusted', description: 'Stock balances were adjusted successfully.' });
+      await invalidateIgaQueries();
+    },
+    onError: (error) => toast({ title: 'Unable to adjust inventory', description: getErrorMessage(error), variant: 'destructive' }),
+  });
+
   const approveExpenseMutation = useMutation({
     mutationFn: (expenseId: number) => igaService.approveExpense(expenseId),
     onSuccess: async () => {
@@ -179,6 +210,7 @@ export default function IGAPage() {
           <TabsTrigger value="activities">Activities</TabsTrigger>
           <TabsTrigger value="products">Products</TabsTrigger>
           <TabsTrigger value="production">Production</TabsTrigger>
+          <TabsTrigger value="inventory">Inventory</TabsTrigger>
           <TabsTrigger value="sales">Sales</TabsTrigger>
           <TabsTrigger value="expenses">Expenses</TabsTrigger>
         </TabsList>
@@ -206,6 +238,21 @@ export default function IGAPage() {
 
         <TabsContent value="production">
           <IGAProductionTab productionRecords={productionRecords} />
+        </TabsContent>
+
+        <TabsContent value="inventory">
+          <IGAInventoryTab
+            inventory={overview?.inventory || []}
+            movements={inventoryMovements}
+            activities={activities}
+            products={products}
+            spoilagePending={recordSpoilageMutation.isPending}
+            internalUsePending={recordInternalUseMutation.isPending}
+            adjustmentPending={adjustInventoryMutation.isPending}
+            onRecordSpoilage={recordSpoilageMutation.mutateAsync}
+            onRecordInternalUse={recordInternalUseMutation.mutateAsync}
+            onAdjustInventory={adjustInventoryMutation.mutateAsync}
+          />
         </TabsContent>
 
         <TabsContent value="sales">

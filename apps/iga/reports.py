@@ -182,6 +182,11 @@ def get_iga_overview_report(*, school, start_date=None, end_date=None):
         start_date=start_date,
         end_date=end_date,
     )
+    production = get_production_report(
+        school=school,
+        start_date=start_date,
+        end_date=end_date,
+    )
     inventory = get_inventory_report(school=school)
     income_vs_expenditure = get_income_vs_expenditure_report(
         school=school,
@@ -221,7 +226,9 @@ def get_iga_overview_report(*, school, start_date=None, end_date=None):
             **income_vs_expenditure,
         },
         'profitability': profitability,
+        'production': production,
         'inventory': inventory,
+        'income_vs_expenditure': income_vs_expenditure,
         'budget_vs_actual': budget_vs_actual,
         'recent_movements': recent_movements,
     }

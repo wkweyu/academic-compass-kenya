@@ -50,6 +50,20 @@ export interface IGAProfitabilityRecord {
   net_profit_loss: string;
 }
 
+export interface IGAProductionSummaryRecord {
+  production_date: string;
+  activity__name: string;
+  product__name: string;
+  unit: string;
+  total_quantity: string;
+}
+
+export interface IGAIncomeExpenditureReport {
+  total_income: string;
+  total_expenses: string;
+  net_income: string;
+}
+
 export interface IGABudgetActualRecord {
   budget_id: number;
   activity_id: number;
@@ -87,7 +101,9 @@ export interface IGAOverviewReport {
     net_income: string;
   };
   profitability: IGAProfitabilityRecord[];
+  production: IGAProductionSummaryRecord[];
   inventory: IGAInventoryRecord[];
+  income_vs_expenditure: IGAIncomeExpenditureReport;
   budget_vs_actual: IGABudgetActualRecord[];
   recent_movements: IGAMovementSummary[];
 }
@@ -209,6 +225,22 @@ export interface BudgetPayload {
   notes?: string;
 }
 
+export interface InventoryActionPayload {
+  product: number;
+  activity?: number | null;
+  quantity: string;
+  reference?: string;
+  notes?: string;
+}
+
+export interface InventoryAdjustmentPayload {
+  product: number;
+  activity?: number | null;
+  quantity_delta: string;
+  reference?: string;
+  notes?: string;
+}
+
 export const igaService = {
   getOverview() {
     return client<IGAOverviewReport>('iga/reports/');
@@ -230,6 +262,9 @@ export const igaService = {
   },
   getBudgets() {
     return client<IGABudget[]>('iga/budgets/');
+  },
+  getInventoryMovements() {
+    return client<IGAMovementSummary[]>('iga/inventory-movements/');
   },
   createActivity(payload: CreateActivityPayload) {
     return client<IGAActivity>('iga/activities/', { method: 'POST', data: payload });
@@ -263,5 +298,14 @@ export const igaService = {
   },
   updateBudget(budgetId: number, payload: BudgetPayload) {
     return client<IGABudget>(`iga/budgets/${budgetId}/`, { method: 'PUT', data: payload });
+  },
+  recordSpoilage(payload: InventoryActionPayload) {
+    return client<{ detail: string; movement_id: number }>('iga/inventory/spoilage/', { method: 'POST', data: payload });
+  },
+  recordInternalUse(payload: InventoryActionPayload) {
+    return client<{ detail: string; movement_id: number }>('iga/inventory/internal-use/', { method: 'POST', data: payload });
+  },
+  adjustInventory(payload: InventoryAdjustmentPayload) {
+    return client<{ detail: string; movement_id: number; stock_id: number }>('iga/inventory/adjust/', { method: 'POST', data: payload });
   },
 };
