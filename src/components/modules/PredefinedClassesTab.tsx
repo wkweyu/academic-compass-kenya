@@ -67,6 +67,7 @@ export function PredefinedClassesTab() {
     try {
       let successCount = 0;
       let errorCount = 0;
+      let firstErrorMessage = '';
 
       for (const classData of pendingClasses) {
         try {
@@ -75,6 +76,9 @@ export function PredefinedClassesTab() {
         } catch (error: unknown) {
           console.error(`Failed to create class ${classData.name}:`, error);
           errorCount++;
+          if (!firstErrorMessage) {
+            firstErrorMessage = getErrorMessage(error, `Failed to create ${classData.name}`);
+          }
         }
       }
 
@@ -85,7 +89,7 @@ export function PredefinedClassesTab() {
       }
       
       if (errorCount > 0) {
-        toast.error(`Failed to create ${errorCount} class(es). They may already exist.`);
+        toast.error(firstErrorMessage || `Failed to create ${errorCount} class(es).`);
       }
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, 'Failed to create predefined classes'));
