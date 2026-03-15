@@ -1,7 +1,3 @@
-ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'support';
-ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'account_manager';
-ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'marketer';
-
 CREATE TABLE IF NOT EXISTS public.school_portfolio_assignments (
   id BIGSERIAL PRIMARY KEY,
   school_id BIGINT NOT NULL UNIQUE REFERENCES public.schools_school(id) ON DELETE CASCADE,
