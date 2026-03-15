@@ -90,7 +90,46 @@ export interface SchoolAdminAccessPayload {
 export const saasService = {
   async getAccessProfile(): Promise<PlatformAccessProfile | null> {
     const { data, error } = await supabase.rpc("get_platform_access_profile");
-    if (error) throw error;
+    if (error) {
+      const message = String(error.message || "").toLowerCase();
+      const details = String((error as { details?: string })?.details || "").toLowerCase();
+      const isMissingProfileRpc =
+        message.includes("get_platform_access_profile") ||
+        details.includes("get_platform_access_profile") ||
+        message.includes("schema cache") ||
+        details.includes("schema cache");
+
+      if (!isMissingProfileRpc) {
+        throw error;
+      }
+
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData.user?.id;
+      if (!userId) {
+        return null;
+      }
+
+      const isAdmin = await this.isPlatformAdmin(userId);
+      if (!isAdmin) {
+        return null;
+      }
+
+      return {
+        user_id: userId,
+        roles: ["platform_admin"],
+        primary_role: "platform_admin",
+        scope: "global",
+        can_view_dashboard: true,
+        can_onboard_schools: true,
+        can_manage_school_status: true,
+        can_manage_subscriptions: true,
+        can_manage_portfolios: true,
+        can_edit_school_details: true,
+        can_resend_admin_access: true,
+        can_view_audit_logs: true,
+        accessible_school_count: 0,
+      };
+    }
     return (data?.[0] as PlatformAccessProfile) || null;
   },
 
