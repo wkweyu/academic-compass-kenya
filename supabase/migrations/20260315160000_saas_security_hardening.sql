@@ -1,5 +1,21 @@
 -- Final Security Sweep for SaaS Platform Console
 
+-- 0. Helper Functions for RBAC
+CREATE OR REPLACE FUNCTION public.is_platform_admin(p_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.user_roles 
+    WHERE user_id = p_user_id AND role = 'platform_admin'
+  );
+END;
+$$;
+
 -- 1. Ensure only users with platform roles can see the console-specific views
 -- This hardens existing policies to prevent lateral movement
 
