@@ -64,7 +64,26 @@ CREATE POLICY "Admins can manage roles" ON public.user_roles
   FOR ALL TO authenticated USING (public.is_platform_admin(auth.uid()));
 
 -- 3. Secure RPCs by ensuring internally they still check for proper scope
--- (v2 function already defined above)
+CREATE OR REPLACE FUNCTION public.get_all_schools_v2()
+RETURNS SETOF public.schools_school
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+BEGIN
+  IF NOT public.can_view_platform_console(auth.uid()) THEN
+    RAISE EXCEPTION 'Unauthorized';
+  END IF;
+
+  RETURN QUERY
+  SELECT * FROM public.schools_school
+  WHERE public.is_platform_admin(auth.uid()) 
+     OR public.user_has_any_role(auth.uid(), ARRAY['support']::public.app_role[])
+     OR id IN (SELECT school_id FROM public.get_accessible_platform_school_ids(auth.uid()))
+  ORDER BY name ASC;
+END;
+$$;
 
 -- 4. Audit Trail for Security: Log all unauthorized access attempts
 CREATE OR REPLACE FUNCTION public.log_unauthorized_access()
