@@ -391,6 +391,27 @@ export const saasService = {
     return data as { school_id: number; school_name: string; end_date: string; days_left: number }[];
   },
 
+  async processOverdueInvoices(): Promise<number> {
+    const { data, error } = await supabase.rpc("process_overdue_invoices");
+    if (error) throw error;
+    return data as number;
+  },
+
+  async autoGenerateRenewalInvoices(): Promise<{ school_id: number; invoice_id: number; amount: number }[]> {
+    const { data, error } = await supabase.rpc("auto_generate_renewal_invoices");
+    if (error) throw error;
+    return (data || []) as any[];
+  },
+
+  async recordInvoicePayment(params: { invoiceId: number; method?: string; reference?: string }): Promise<void> {
+    const { error } = await supabase.rpc("record_invoice_payment", {
+      p_invoice_id: params.invoiceId,
+      p_payment_method: params.method || "Manual",
+      p_reference: params.reference,
+    });
+    if (error) throw error;
+  },
+
   async logAudit(action: string, module: string, entityType = "", entityId = "", oldValues = {}, newValues = {}) {
     await supabase.rpc("log_audit_event", {
       p_action: action,

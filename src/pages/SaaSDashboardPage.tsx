@@ -115,6 +115,22 @@ const SchoolSubscriptionView = ({ school, tiers = [] }: { school: SaaSSchool, ti
   const [generatingInv, setGeneratingInv] = useState(false);
   const [extendingTrial, setExtendingTrial] = useState(false);
   const [extendingPlan, setExtendingPlan] = useState(false);
+  const [recordingPayment, setRecordingPayment] = useState<number | null>(null);
+
+  const handleRecordPayment = async (invoiceId: number) => {
+    setRecordingPayment(invoiceId);
+    try {
+      await saasService.recordInvoicePayment({ invoiceId });
+      toast.success("Payment recorded and subscription extended!");
+      queryClient.invalidateQueries({ queryKey: ["saas-invoices", school.id] });
+      queryClient.invalidateQueries({ queryKey: ["saas-schools"] });
+      queryClient.invalidateQueries({ queryKey: ["saas-analytics"] });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to record payment");
+    } finally {
+      setRecordingPayment(null);
+    }
+  };
 
   const handleGenerateInvoice = async () => {
     if (!invoiceAmount || !invoiceDesc) return;
@@ -258,15 +274,28 @@ const SchoolSubscriptionView = ({ school, tiers = [] }: { school: SaaSSchool, ti
             ) : (
               <div className="space-y-3">
                 {invoices.map((inv) => (
-                  <div key={inv.id} className="flex items-center justify-between text-xs border-b pb-2 last:border-0">
-                    <div>
-                      <p className="font-medium">{inv.invoice_number}</p>
-                      <p className="text-muted-foreground font-mono">KES {inv.amount.toLocaleString()}</p>
+                    <div key={inv.id} className="flex items-center justify-between text-xs border-b pb-2 last:border-0 group/inv">
+                      <div>
+                        <p className="font-medium">{inv.invoice_number}</p>
+                        <p className="text-muted-foreground font-mono">KES {inv.amount.toLocaleString()}</p>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Badge variant={inv.status === 'paid' ? 'default' : inv.status === 'overdue' ? 'destructive' : 'secondary'} className="scale-90">
+                          {inv.status}
+                        </Badge>
+                        {inv.status !== 'paid' && (
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6 opacity-0 group-hover/inv:opacity-100 transition-opacity"
+                            onClick={() => handleRecordPayment(inv.id)}
+                            disabled={recordingPayment === inv.id}
+                          >
+                            {recordingPayment === inv.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CreditCard className="w-3 h-3 text-emerald-600" />}
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                    <Badge variant={inv.status === 'paid' ? 'default' : inv.status === 'overdue' ? 'destructive' : 'secondary'} className="scale-90">
-                      {inv.status}
-                    </Badge>
-                  </div>
                 ))}
               </div>
             )}
