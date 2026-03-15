@@ -250,8 +250,76 @@ export const saasService = {
 
   async getTierFeatures(): Promise<SaasTierFeature[]> {
     const { data, error } = await supabase.from("saas_tier_features").select("*");
-    if (error) throw error;
+    
+    // Fallback to hardcoded tiers if table is missing/empty (common in local dev without DB push)
+    if (error || !data || data.length === 0) {
+      console.warn("SaaS Tiers table not found or empty, using local defaults", error);
+      return [
+        {
+          tier_name: 'starter',
+          onboarding_fee: 50000,
+          annual_fee: 30000,
+          max_students: 250,
+          max_users: 10,
+          modules: ["core", "attendance", "exams", "grading", "subjects", "students"]
+        },
+        {
+          tier_name: 'standard',
+          onboarding_fee: 75000,
+          annual_fee: 50000,
+          max_students: 750,
+          max_users: 30,
+          modules: ["core", "attendance", "exams", "grading", "subjects", "students", "fees", "accounting"]
+        },
+        {
+          tier_name: 'enterprise',
+          onboarding_fee: 100000,
+          annual_fee: 100000,
+          max_students: 1000000,
+          max_users: 1000000,
+          modules: ["core", "attendance", "exams", "grading", "subjects", "students", "fees", "accounting", "transport", "staff_management"]
+        }
+      ] as SaasTierFeature[];
+    }
+    
     return data as SaasTierFeature[];
+  },
+
+  async getDueSubscriptions(daysAhead = 14) {
+    const { data, error } = await supabase.rpc("get_due_subscriptions", {
+      p_days_ahead: daysAhead,
+    });
+    if (error) throw error;
+    return data as Array<{
+      school_id: number;
+      school_name: string;
+      subscription_plan: string;
+      subscription_status: string;
+      subscription_end: string | null;
+      days_left: number | null;
+      invoice_id: number | null;
+      invoice_status: string | null;
+      invoice_due_date: string | null;
+    }>;
+  },
+
+  async extendSubscriptionPeriod(params: { schoolId: number; newEndDate: string; newStatus?: string; reason?: string }) {
+    const { error } = await supabase.rpc("extend_subscription_period", {
+      p_school_id: params.schoolId,
+      p_new_end_date: params.newEndDate,
+      p_new_status: params.newStatus || null,
+      p_reason: params.reason || null,
+    });
+    if (error) throw error;
+  },
+
+  async extendTrial(params: { schoolId: number; newEndDate: string; reason?: string }) {
+    const { error } = await supabase.rpc("extend_trial", {
+      p_school_id: params.schoolId,
+      p_new_end_date: params.newEndDate,
+      p_reason: params.reason || null,
+    });
+    if (error) throw error;
   },
 
   async generateInvoice(params: {
