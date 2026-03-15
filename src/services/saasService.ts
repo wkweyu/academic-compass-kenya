@@ -412,6 +412,30 @@ export const saasService = {
     if (error) throw error;
   },
 
+  async sendInvoiceNotification(invoiceId: number): Promise<void> {
+    const { data: inv } = await supabase.from("saas_invoices").select("school_id").eq("id", invoiceId).single();
+    if (!inv) throw new Error("Invoice not found");
+    
+    const { error } = await supabase.rpc("send_billing_notification", {
+      p_school_id: inv.school_id,
+      p_invoice_id: invoiceId,
+      p_subject: "Invoice Notification",
+      p_message_body: "A new billing invoice has been generated for your school."
+    });
+    if (error) throw error;
+  },
+
+  async processBillingJobs(): Promise<{ renewalSent: number; overdueReminded: number }> {
+    const { data: renewalSent, error: rError } = await supabase.rpc("send_pending_renewal_notifications");
+    const { data: overdueReminded, error: oError } = await supabase.rpc("send_overdue_reminders");
+    if (rError) throw rError;
+    if (oError) throw oError;
+    return { 
+      renewalSent: renewalSent || 0, 
+      overdueReminded: overdueReminded || 0 
+    };
+  },
+
   async logAudit(action: string, module: string, entityType = "", entityId = "", oldValues = {}, newValues = {}) {
     await supabase.rpc("log_audit_event", {
       p_action: action,

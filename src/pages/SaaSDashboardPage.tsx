@@ -115,7 +115,21 @@ const SchoolSubscriptionView = ({ school, tiers = [] }: { school: SaaSSchool, ti
   const [generatingInv, setGeneratingInv] = useState(false);
   const [extendingTrial, setExtendingTrial] = useState(false);
   const [extendingPlan, setExtendingPlan] = useState(false);
+  const [sendingNotification, setSendingNotification] = useState<number | null>(null);
   const [recordingPayment, setRecordingPayment] = useState<number | null>(null);
+
+  const handleSendNotification = async (invoiceId: number) => {
+    setSendingNotification(invoiceId);
+    try {
+      await saasService.sendInvoiceNotification(invoiceId);
+      toast.success("Notification sent successfully");
+      queryClient.invalidateQueries({ queryKey: ["saas-invoices", school.id] });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to send notification");
+    } finally {
+      setSendingNotification(null);
+    }
+  };
 
   const handleRecordPayment = async (invoiceId: number) => {
     setRecordingPayment(invoiceId);
@@ -284,15 +298,30 @@ const SchoolSubscriptionView = ({ school, tiers = [] }: { school: SaaSSchool, ti
                           {inv.status}
                         </Badge>
                         {inv.status !== 'paid' && (
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-6 w-6 opacity-0 group-hover/inv:opacity-100 transition-opacity"
-                            onClick={() => handleRecordPayment(inv.id)}
-                            disabled={recordingPayment === inv.id}
-                          >
-                            {recordingPayment === inv.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CreditCard className="w-3 h-3 text-emerald-600" />}
-                          </Button>
+                          <div className="flex gap-1">
+                            {inv.status === 'draft' && (
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-6 w-6 opacity-0 group-hover/inv:opacity-100 transition-opacity"
+                                onClick={() => handleSendNotification(inv.id)}
+                                title="Send Email Notification"
+                                disabled={sendingNotification === inv.id}
+                              >
+                                {sendingNotification === inv.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Mail className="w-3 h-3 text-blue-600" />}
+                              </Button>
+                            )}
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-6 w-6 opacity-0 group-hover/inv:opacity-100 transition-opacity"
+                              onClick={() => handleRecordPayment(inv.id)}
+                              title="Record Payment"
+                              disabled={recordingPayment === inv.id}
+                            >
+                              {recordingPayment === inv.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CreditCard className="w-3 h-3 text-emerald-600" />}
+                            </Button>
+                          </div>
                         )}
                       </div>
                     </div>
