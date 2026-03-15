@@ -6352,6 +6352,12 @@ export type Database = {
         Returns: string
       }
       generate_school_code: { Args: never; Returns: string }
+      get_accessible_platform_school_ids: {
+        Args: { _user_id?: string }
+        Returns: {
+          school_id: number
+        }[]
+      }
       get_all_schools: {
         Args: never
         Returns: {
@@ -6363,6 +6369,10 @@ export type Database = {
           email: string
           id: number
           name: string
+          portfolio_owner_email: string
+          portfolio_owner_name: string
+          portfolio_owner_role: string
+          portfolio_owner_user_id: string | null
           phone: string
           student_count: number
           subscription_end: string
@@ -6417,6 +6427,24 @@ export type Database = {
           website: string
         }[]
       }
+      get_platform_access_profile: {
+        Args: never
+        Returns: {
+          accessible_school_count: number
+          can_edit_school_details: boolean
+          can_manage_portfolios: boolean
+          can_manage_school_status: boolean
+          can_manage_subscriptions: boolean
+          can_onboard_schools: boolean
+          can_resend_admin_access: boolean
+          can_view_audit_logs: boolean
+          can_view_dashboard: boolean
+          primary_role: string
+          roles: string[]
+          scope: string
+          user_id: string
+        }[]
+      }
       get_saas_analytics: {
         Args: never
         Returns: {
@@ -6428,6 +6456,21 @@ export type Database = {
           total_schools: number
           total_students: number
           total_teachers: number
+        }[]
+      }
+      get_saas_audit_logs: {
+        Args: { p_limit?: number }
+        Returns: {
+          action: string
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: number
+          module: string
+          new_values: Json
+          old_values: Json
+          school_id: number | null
+          user_id: string | null
         }[]
       }
       get_school_users: {
@@ -6467,6 +6510,16 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      list_platform_staff: {
+        Args: never
+        Returns: {
+          email: string
+          full_name: string
+          primary_role: string
+          roles: string[]
+          user_id: string
+        }[]
+      }
       log_audit_event: {
         Args: {
           p_action: string
@@ -6510,6 +6563,25 @@ export type Database = {
         Returns: undefined
       }
       reverse_journal_entry: { Args: { p_entry_id: number }; Returns: number }
+      update_saas_school_details: {
+        Args: {
+          p_city?: string
+          p_country?: string
+          p_email?: string
+          p_name?: string
+          p_phone?: string
+          p_school_id: number
+        }
+        Returns: undefined
+      }
+      update_saas_school_status: {
+        Args: { p_active: boolean; p_school_id: number }
+        Returns: undefined
+      }
+      update_saas_subscription: {
+        Args: { p_plan: string; p_school_id: number; p_status: string }
+        Returns: undefined
+      }
       update_school_profile: {
         Args: {
           p_address?: string
@@ -6538,6 +6610,13 @@ export type Database = {
           website: string
         }[]
       }
+      user_has_any_role: {
+        Args: {
+          _roles: Database["public"]["Enums"]["app_role"][]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       user_can_create_school: { Args: never; Returns: boolean }
       verify_user_school: { Args: { p_school_id: number }; Returns: boolean }
     }
@@ -6549,6 +6628,9 @@ export type Database = {
         | "transport"
         | "teacher"
         | "parent"
+        | "support"
+        | "account_manager"
+        | "marketer"
         | "platform_admin"
     }
     CompositeTypes: {
@@ -6684,6 +6766,9 @@ export const Constants = {
         "transport",
         "teacher",
         "parent",
+        "support",
+        "account_manager",
+        "marketer",
         "platform_admin",
       ],
     },

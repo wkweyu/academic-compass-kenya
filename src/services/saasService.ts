@@ -15,6 +15,10 @@ export interface SaaSSchool {
   created_at: string;
   student_count: number;
   teacher_count: number;
+  portfolio_owner_user_id: string | null;
+  portfolio_owner_name: string;
+  portfolio_owner_email: string;
+  portfolio_owner_role: string;
 }
 
 export interface SaaSAnalytics {
@@ -49,6 +53,30 @@ export interface SubscriptionStatus {
   school_name: string;
 }
 
+export interface PlatformAccessProfile {
+  user_id: string;
+  roles: string[];
+  primary_role: string;
+  scope: string;
+  can_view_dashboard: boolean;
+  can_onboard_schools: boolean;
+  can_manage_school_status: boolean;
+  can_manage_subscriptions: boolean;
+  can_manage_portfolios: boolean;
+  can_edit_school_details: boolean;
+  can_resend_admin_access: boolean;
+  can_view_audit_logs: boolean;
+  accessible_school_count: number;
+}
+
+export interface PlatformStaffMember {
+  user_id: string;
+  email: string;
+  full_name: string;
+  primary_role: string;
+  roles: string[];
+}
+
 export interface SchoolAdminAccessPayload {
   schoolId: number;
   schoolCode: string;
@@ -60,6 +88,12 @@ export interface SchoolAdminAccessPayload {
 }
 
 export const saasService = {
+  async getAccessProfile(): Promise<PlatformAccessProfile | null> {
+    const { data, error } = await supabase.rpc("get_platform_access_profile");
+    if (error) throw error;
+    return (data?.[0] as PlatformAccessProfile) || null;
+  },
+
   async lookupSchoolByCode(code: string) {
     const { data, error } = await supabase.rpc("lookup_school_by_code", { p_code: code });
     if (error) throw error;
@@ -105,27 +139,24 @@ export const saasService = {
   },
 
   async updateSchoolStatus(schoolId: number, active: boolean) {
-    const { error } = await supabase
-      .from("schools_school" as any)
-      .update({ active } as any)
-      .eq("id", schoolId);
+    const { error } = await supabase.rpc("update_saas_school_status", {
+      p_school_id: schoolId,
+      p_active: active,
+    });
     if (error) throw error;
   },
 
   async updateSubscription(schoolId: number, plan: string, status: string) {
-    const { error } = await supabase
-      .from("schools_school" as any)
-      .update({ subscription_plan: plan, subscription_status: status } as any)
-      .eq("id", schoolId);
+    const { error } = await supabase.rpc("update_saas_subscription", {
+      p_school_id: schoolId,
+      p_plan: plan,
+      p_status: status,
+    });
     if (error) throw error;
   },
 
   async getAuditLogs(limit = 100): Promise<AuditLog[]> {
-    const { data, error } = await supabase
-      .from("audit_logs" as any)
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(limit);
+    const { data, error } = await supabase.rpc("get_saas_audit_logs", { p_limit: limit });
     if (error) throw error;
     return (data || []) as unknown as AuditLog[];
   },
@@ -154,6 +185,11 @@ export const saasService = {
       return false;
     }
     return data === true;
+  },
+
+  async hasPlatformConsoleAccess(): Promise<boolean> {
+    const profile = await this.getAccessProfile();
+    return profile?.can_view_dashboard === true;
   },
 
   async verifyUserSchool(schoolId: number): Promise<boolean> {
@@ -241,10 +277,29 @@ export const saasService = {
   async updateSchoolDetails(schoolId: number, details: {
     name?: string; email?: string; phone?: string; city?: string; country?: string;
   }) {
-    const { error } = await supabase
-      .from("schools_school" as any)
-      .update(details as any)
-      .eq("id", schoolId);
+    const { error } = await supabase.rpc("update_saas_school_details", {
+      p_school_id: schoolId,
+      p_name: details.name,
+      p_email: details.email,
+      p_phone: details.phone,
+      p_city: details.city,
+      p_country: details.country,
+    });
+    if (error) throw error;
+  },
+
+  async listPlatformStaff(): Promise<PlatformStaffMember[]> {
+    const { data, error } = await supabase.rpc("list_platform_staff");
+    if (error) throw error;
+    return (data || []) as PlatformStaffMember[];
+  },
+
+  async assignSchoolPortfolio(schoolId: number, ownerUserId: string | null, notes = "") {
+    const { error } = await supabase.rpc("assign_school_portfolio", {
+      p_school_id: schoolId,
+      p_owner_user_id: ownerUserId,
+      p_notes: notes,
+    });
     if (error) throw error;
   },
 };

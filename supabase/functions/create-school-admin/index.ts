@@ -39,18 +39,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check platform admin role
-    const { data: isAdmin } = await supabase.rpc("has_role", {
-      _user_id: claimsData.user.id,
-      _role: "platform_admin",
-    });
-    if (!isAdmin) {
-      return new Response(JSON.stringify({ error: "Forbidden: platform_admin role required" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const body = await req.json();
     const { school_id, admin_email, admin_password } = body;
     console.log("create-school-admin: creating admin for school", school_id, "email:", admin_email);
@@ -58,6 +46,33 @@ Deno.serve(async (req) => {
     if (!school_id || !admin_email || !admin_password) {
       return new Response(JSON.stringify({ error: "school_id, admin_email, and admin_password are required" }), {
         status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: accessProfile, error: accessError } = await supabase.rpc("get_platform_access_profile");
+    if (accessError) {
+      return new Response(JSON.stringify({ error: accessError.message }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const profile = accessProfile?.[0];
+    if (!profile?.can_resend_admin_access) {
+      return new Response(JSON.stringify({ error: "Forbidden: no permission to manage school admin access" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: canAccessSchool, error: schoolAccessError } = await supabase.rpc("can_access_platform_school", {
+      _user_id: claimsData.user.id,
+      p_school_id: school_id,
+    });
+    if (schoolAccessError || !canAccessSchool) {
+      return new Response(JSON.stringify({ error: "Forbidden: you cannot manage this school" }), {
+        status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

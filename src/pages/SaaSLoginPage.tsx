@@ -26,17 +26,16 @@ const SaaSLoginPage = () => {
     setChecking(true);
     setError(null);
     
-    // Use user.id directly from auth context to avoid getUser() race condition
-    saasService.isPlatformAdmin(user.id).then((isAdmin) => {
-      if (isAdmin) {
+    saasService.getAccessProfile().then((profile) => {
+      if (profile?.can_view_dashboard) {
         navigate("/saas/dashboard", { replace: true });
       } else {
-        setError("You do not have platform administrator access. Ensure the 'platform_admin' role is assigned to your account in the user_roles table.");
+        setError("You do not have admin/support console access. Assign one of these roles in user_roles: platform_admin, support, account_manager, or marketer.");
         setChecking(false);
       }
     }).catch((err) => {
-      console.error("Platform admin check failed:", err);
-      setError(`Failed to verify admin access: ${err.message}`);
+      console.error("Platform console access check failed:", err);
+      setError(`Failed to verify console access: ${err.message}`);
       setChecking(false);
     });
   }, [user, loading, navigate]);
@@ -66,8 +65,8 @@ const SaaSLoginPage = () => {
             <div className="mx-auto w-14 h-14 bg-primary rounded-xl flex items-center justify-center">
               <Shield className="w-7 h-7 text-primary-foreground" />
             </div>
-            <CardTitle className="text-2xl font-bold">Platform Admin</CardTitle>
-            <CardDescription>Sign in with your platform administrator credentials</CardDescription>
+            <CardTitle className="text-2xl font-bold">Admin & Support Console</CardTitle>
+            <CardDescription>Sign in with your platform, support, or portfolio credentials</CardDescription>
           </CardHeader>
           <CardContent>
             {error && (
@@ -84,7 +83,7 @@ const SaaSLoginPage = () => {
             )}
 
             {checking ? (
-              <p className="text-center text-muted-foreground">Verifying admin access...</p>
+              <p className="text-center text-muted-foreground">Verifying console access...</p>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { saasService, SaaSSchool } from "@/services/saasService";
+import { PlatformAccessProfile, PlatformStaffMember, saasService, SaaSSchool } from "@/services/saasService";
 import { useAuth } from "@/hooks/useAuth";
 import {
   Building2, Users, GraduationCap, Plus, Power, PowerOff,
@@ -22,20 +22,88 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+
+const ROLE_LABELS: Record<string, string> = {
+  platform_admin: "Platform Admin",
+  support: "Support",
+  account_manager: "Account Manager",
+  marketer: "Marketer",
+};
+
+const ACCESS_RULES: Record<string, { allowed: string[]; blocked: string[] }> = {
+  platform_admin: {
+    allowed: [
+      "View all schools and audit logs",
+      "Onboard schools and assign portfolios",
+      "Change subscriptions and activation status",
+      "Repair and resend school admin access",
+    ],
+    blocked: [],
+  },
+  support: {
+    allowed: [
+      "View all schools and audit logs",
+      "Edit school contact details",
+      "Repair and resend school admin access",
+    ],
+    blocked: [
+      "Cannot onboard schools",
+      "Cannot change plans or school activation status",
+      "Cannot assign or reassign portfolios",
+    ],
+  },
+  account_manager: {
+    allowed: [
+      "View only assigned portfolio schools",
+      "Onboard schools into own portfolio",
+      "Edit school details and resend school admin access",
+    ],
+    blocked: [
+      "Cannot view other portfolios",
+      "Cannot change plans or school activation status",
+      "Cannot reassign portfolios",
+    ],
+  },
+  marketer: {
+    allowed: [
+      "View only assigned portfolio schools",
+      "Onboard schools into own portfolio",
+      "Edit school details and resend school admin access",
+    ],
+    blocked: [
+      "Cannot view other portfolios",
+      "Cannot change plans or school activation status",
+      "Cannot reassign portfolios",
+    ],
+  },
+};
+
+const getRoleLabel = (role?: string | null) => ROLE_LABELS[role || ""] || "Console User";
 
 /* ─────────── School Detail / Edit Dialog ─────────── */
 const SchoolDetailDialog = ({
-  school, open, onOpenChange
-}: { school: SaaSSchool; open: boolean; onOpenChange: (v: boolean) => void }) => {
+  school, open, onOpenChange, accessProfile, portfolioStaff
+}: {
+  school: SaaSSchool;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  accessProfile: PlatformAccessProfile;
+  portfolioStaff: PlatformStaffMember[];
+}) => {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", phone: "", city: "", country: "" });
   const [adminAccess, setAdminAccess] = useState({ adminEmail: "", adminPassword: "" });
+  const [portfolioOwnerId, setPortfolioOwnerId] = useState("unassigned");
   const [saving, setSaving] = useState(false);
   const [resending, setResending] = useState(false);
   const [repairingAdmin, setRepairingAdmin] = useState(false);
+  const [assigningPortfolio, setAssigningPortfolio] = useState(false);
+
+  const canEditSchool = accessProfile.can_edit_school_details;
+  const canRepairAccess = accessProfile.can_resend_admin_access;
+  const canManagePortfolios = accessProfile.can_manage_portfolios;
 
   useEffect(() => {
     if (school) {
@@ -44,6 +112,7 @@ const SchoolDetailDialog = ({
         city: school.city, country: school.country,
       });
       setAdminAccess({ adminEmail: school.email, adminPassword: "" });
+      setPortfolioOwnerId(school.portfolio_owner_user_id || "unassigned");
       setEditing(false);
     }
   }, [school, open]);
@@ -69,6 +138,22 @@ const SchoolDetailDialog = ({
       toast.error(err.message || "Failed to update school");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSavePortfolio = async () => {
+    setAssigningPortfolio(true);
+    try {
+      await saasService.assignSchoolPortfolio(
+        school.id,
+        portfolioOwnerId === "unassigned" ? null : portfolioOwnerId,
+      );
+      queryClient.invalidateQueries({ queryKey: ["saas-schools"] });
+      toast.success(portfolioOwnerId === "unassigned" ? "Portfolio assignment cleared" : "Portfolio owner updated");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update portfolio owner");
+    } finally {
+      setAssigningPortfolio(false);
     }
   };
 
@@ -122,7 +207,7 @@ const SchoolDetailDialog = ({
                 <code className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">{school.code}</code>
               </DialogDescription>
             </div>
-            {!editing && (
+            {!editing && canEditSchool && (
               <Button variant="outline" size="sm" onClick={() => setEditing(true)} className="gap-1.5">
                 <Pencil className="w-3.5 h-3.5" /> Edit
               </Button>
@@ -166,6 +251,7 @@ const SchoolDetailDialog = ({
                 <DetailRow icon={<Phone className="w-3.5 h-3.5" />} label="Phone" value={school.phone || "—"} />
                 <DetailRow icon={<MapPin className="w-3.5 h-3.5" />} label="City" value={school.city || "—"} />
                 <DetailRow icon={<Globe className="w-3.5 h-3.5" />} label="Country" value={school.country || "—"} />
+                <DetailRow icon={<Users className="w-3.5 h-3.5" />} label="Portfolio Owner" value={school.portfolio_owner_name || "Unassigned"} />
                 <DetailRow icon={<CalendarDays className="w-3.5 h-3.5" />} label="Created" value={new Date(school.created_at).toLocaleDateString()} />
               </div>
               <Separator />
@@ -185,49 +271,83 @@ const SchoolDetailDialog = ({
                   <p className="text-xs text-muted-foreground mt-1">Plan</p>
                 </div>
               </div>
-              <Separator />
-              <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Admin access</p>
-                    <p className="text-xs text-muted-foreground">
-                      Repair the linked admin account and resend fresh login details.
-                    </p>
+              {canManagePortfolios && (
+                <>
+                  <Separator />
+                  <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Portfolio ownership</p>
+                      <p className="text-xs text-muted-foreground">Assign this school to an account manager or marketer.</p>
+                    </div>
+                    <Select value={portfolioOwnerId} onValueChange={setPortfolioOwnerId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select portfolio owner" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unassigned">Unassigned</SelectItem>
+                        {portfolioStaff
+                          .filter((staff) => ["account_manager", "marketer"].includes(staff.primary_role))
+                          .map((staff) => (
+                            <SelectItem key={staff.user_id} value={staff.user_id}>
+                              {staff.full_name} · {getRoleLabel(staff.primary_role)}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    <Button type="button" size="sm" variant="outline" onClick={handleSavePortfolio} disabled={assigningPortfolio}>
+                      {assigningPortfolio ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
+                      Save Portfolio Owner
+                    </Button>
                   </div>
-                  <Button type="button" variant="outline" size="sm" onClick={generatePassword}>
-                    Generate Password
-                  </Button>
-                </div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Admin Email</Label>
-                    <Input
-                      type="email"
-                      value={adminAccess.adminEmail}
-                      onChange={(e) => setAdminAccess((prev) => ({ ...prev, adminEmail: e.target.value }))}
-                      placeholder="admin@school.com"
-                    />
+                </>
+              )}
+              {canRepairAccess && (
+                <>
+                  <Separator />
+                  <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">Admin access</p>
+                        <p className="text-xs text-muted-foreground">
+                          Repair the linked admin account and resend fresh login details.
+                        </p>
+                      </div>
+                      <Button type="button" variant="outline" size="sm" onClick={generatePassword}>
+                        Generate Password
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Admin Email</Label>
+                        <Input
+                          type="email"
+                          value={adminAccess.adminEmail}
+                          onChange={(e) => setAdminAccess((prev) => ({ ...prev, adminEmail: e.target.value }))}
+                          placeholder="admin@school.com"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Temporary Password</Label>
+                        <Input
+                          value={adminAccess.adminPassword}
+                          onChange={(e) => setAdminAccess((prev) => ({ ...prev, adminPassword: e.target.value }))}
+                          placeholder="Set a temporary password"
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleRepairAndResendAdmin}
+                      disabled={repairingAdmin}
+                      className="gap-1.5"
+                    >
+                      {repairingAdmin ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Shield className="w-3.5 h-3.5" />}
+                      Repair & Resend Admin Access
+                    </Button>
                   </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Temporary Password</Label>
-                    <Input
-                      value={adminAccess.adminPassword}
-                      onChange={(e) => setAdminAccess((prev) => ({ ...prev, adminPassword: e.target.value }))}
-                      placeholder="Set a temporary password"
-                    />
-                  </div>
-                </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={handleRepairAndResendAdmin}
-                  disabled={repairingAdmin}
-                  className="gap-1.5"
-                >
-                  {repairingAdmin ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Shield className="w-3.5 h-3.5" />}
-                  Repair & Resend Admin Access
-                </Button>
-              </div>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -242,10 +362,12 @@ const SchoolDetailDialog = ({
               </Button>
             </>
           ) : (
-            <Button variant="outline" size="sm" onClick={handleResendEmail} disabled={resending} className="gap-1.5">
-              {resending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-              Resend Onboarding Email
-            </Button>
+            canRepairAccess && (
+              <Button variant="outline" size="sm" onClick={handleResendEmail} disabled={resending} className="gap-1.5">
+                {resending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                Resend Onboarding Email
+              </Button>
+            )
           )}
         </DialogFooter>
       </DialogContent>
@@ -280,12 +402,14 @@ const StatusBadge = ({ status }: { status: string }) => {
 
 /* ─────────── School Card ─────────── */
 const SchoolCard = ({
-  school, onToggle, onPlanChange, onView
+  school, onToggle, onPlanChange, onView, canManageSchoolStatus, canManageSubscriptions
 }: {
   school: SaaSSchool;
   onToggle: () => void;
   onPlanChange: (plan: string) => void;
   onView: () => void;
+  canManageSchoolStatus: boolean;
+  canManageSubscriptions: boolean;
 }) => (
   <Card className={`group transition-all hover:shadow-md ${!school.active ? "opacity-60" : ""}`}>
     <CardContent className="p-4">
@@ -307,10 +431,18 @@ const SchoolCard = ({
             <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {school.teacher_count}</span>
             {school.city && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {school.city}</span>}
           </div>
+          <div className="ml-[42px] mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
+            <Badge variant="secondary" className="font-normal">
+              {school.portfolio_owner_name || "Unassigned portfolio"}
+            </Badge>
+            {school.portfolio_owner_role && (
+              <span className="capitalize">{getRoleLabel(school.portfolio_owner_role)}</span>
+            )}
+          </div>
         </button>
         <div className="flex items-center gap-2 shrink-0">
           <StatusBadge status={school.subscription_status} />
-          <Select value={school.subscription_plan} onValueChange={onPlanChange}>
+          <Select value={school.subscription_plan} onValueChange={onPlanChange} disabled={!canManageSubscriptions}>
             <SelectTrigger className="w-[110px] h-8 text-xs">
               <SelectValue />
             </SelectTrigger>
@@ -326,6 +458,7 @@ const SchoolCard = ({
             className="h-8 w-8"
             onClick={onToggle}
             title={school.active ? "Deactivate" : "Activate"}
+            disabled={!canManageSchoolStatus}
           >
             {school.active ? <PowerOff className="w-3.5 h-3.5" /> : <Power className="w-3.5 h-3.5" />}
           </Button>
@@ -352,6 +485,43 @@ const StatCard = ({ icon: Icon, value, label, accent }: {
   </Card>
 );
 
+const AccessSummaryCard = ({ accessProfile }: { accessProfile: PlatformAccessProfile }) => {
+  const rules = ACCESS_RULES[accessProfile.primary_role] || { allowed: [], blocked: [] };
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Shield className="w-4 h-4 text-primary" /> {getRoleLabel(accessProfile.primary_role)} Access
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <Badge variant="outline">Scope: {accessProfile.scope}</Badge>
+          <Badge variant="outline">Schools: {accessProfile.accessible_school_count}</Badge>
+          {accessProfile.roles.map((role) => (
+            <Badge key={role} variant="secondary">{getRoleLabel(role)}</Badge>
+          ))}
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">Allowed</p>
+            <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
+              {rules.allowed.map((item) => <li key={item}>• {item}</li>)}
+            </ul>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">Not allowed</p>
+            <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
+              {rules.blocked.length ? rules.blocked.map((item) => <li key={item}>• {item}</li>) : <li>• Full platform access granted</li>}
+            </ul>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
 /* ─────────── Main Page ─────────── */
 const SaaSDashboardPage = () => {
   const navigate = useNavigate();
@@ -359,36 +529,56 @@ const SaaSDashboardPage = () => {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [onboardOpen, setOnboardOpen] = useState(false);
-  const [authorized, setAuthorized] = useState<boolean | null>(null);
   const [selectedSchool, setSelectedSchool] = useState<SaaSSchool | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
+  const { data: accessProfile, isLoading: accessLoading } = useQuery({
+    queryKey: ["saas-access-profile", user?.id],
+    queryFn: () => saasService.getAccessProfile(),
+    enabled: !!user,
+  });
+
   useEffect(() => {
-    if (authLoading) return;
-    if (!user) { navigate("/saas/login", { replace: true }); return; }
-    saasService.isPlatformAdmin(user.id).then((isAdmin) => {
-      if (!isAdmin) navigate("/saas/login", { replace: true });
-      else setAuthorized(true);
-    });
-  }, [user, authLoading, navigate]);
+    if (authLoading || accessLoading) return;
+    if (!user) {
+      navigate("/saas/login", { replace: true });
+      return;
+    }
+    if (!accessProfile?.can_view_dashboard) {
+      navigate("/saas/login", { replace: true });
+    }
+  }, [user, authLoading, accessLoading, accessProfile, navigate]);
+
+  const authorized = accessProfile?.can_view_dashboard === true;
+  const canOnboardSchools = accessProfile?.can_onboard_schools === true;
+  const canManageSchoolStatus = accessProfile?.can_manage_school_status === true;
+  const canManageSubscriptions = accessProfile?.can_manage_subscriptions === true;
+  const canManagePortfolios = accessProfile?.can_manage_portfolios === true;
+  const canViewAuditLogs = accessProfile?.can_view_audit_logs === true;
 
   const { data: analytics } = useQuery({
     queryKey: ["saas-analytics"],
     queryFn: () => saasService.getAnalytics(),
-    enabled: authorized === true,
+    enabled: authorized,
   });
 
   const { data: schools = [], isLoading: schoolsLoading } = useQuery({
     queryKey: ["saas-schools"],
     queryFn: () => saasService.getAllSchools(),
-    enabled: authorized === true,
+    enabled: authorized,
   });
 
   const { data: auditLogs = [] } = useQuery({
     queryKey: ["saas-audit-logs"],
     queryFn: () => saasService.getAuditLogs(50),
-    enabled: authorized === true,
+    enabled: authorized && canViewAuditLogs,
+  });
+
+  const { data: portfolioStaff = [] } = useQuery({
+    queryKey: ["saas-portfolio-staff"],
+    queryFn: () => saasService.listPlatformStaff(),
+    enabled: authorized && canManagePortfolios,
   });
 
   const filteredSchools = schools.filter((s) => {
@@ -421,7 +611,7 @@ const SaaSDashboardPage = () => {
     },
   });
 
-  if (authLoading || authorized === null) {
+  if (authLoading || (user && accessLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
@@ -430,6 +620,10 @@ const SaaSDashboardPage = () => {
         </div>
       </div>
     );
+  }
+
+  if (!authorized || !accessProfile) {
+    return null;
   }
 
   return (
@@ -456,12 +650,14 @@ const SaaSDashboardPage = () => {
       </header>
 
       <main className="max-w-7xl mx-auto p-6 space-y-6">
+        {accessProfile && <AccessSummaryCard accessProfile={accessProfile} />}
+
         {/* Analytics Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard icon={Building2} value={analytics?.total_schools} label="Total Schools" accent="bg-primary/10 text-primary" />
-          <StatCard icon={CheckCircle} value={analytics?.active_schools} label="Active Schools" accent="bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400" />
-          <StatCard icon={GraduationCap} value={analytics?.total_students} label="Total Students" accent="bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400" />
-          <StatCard icon={Users} value={analytics?.total_teachers} label="Total Teachers" accent="bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-400" />
+          <StatCard icon={Building2} value={analytics?.total_schools} label={accessProfile?.scope === "portfolio" ? "Portfolio Schools" : "Total Schools"} accent="bg-primary/10 text-primary" />
+          <StatCard icon={CheckCircle} value={analytics?.active_schools} label={accessProfile?.scope === "portfolio" ? "Active Portfolio Schools" : "Active Schools"} accent="bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400" />
+          <StatCard icon={GraduationCap} value={analytics?.total_students} label={accessProfile?.scope === "portfolio" ? "Portfolio Students" : "Total Students"} accent="bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400" />
+          <StatCard icon={Users} value={analytics?.total_teachers} label={accessProfile?.scope === "portfolio" ? "Portfolio Teachers" : "Total Teachers"} accent="bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-400" />
         </div>
 
         {/* Plan Distribution */}
@@ -486,9 +682,11 @@ const SaaSDashboardPage = () => {
             <TabsTrigger value="schools" className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <Building2 className="w-3.5 h-3.5" /> Schools
             </TabsTrigger>
-            <TabsTrigger value="audit" className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <Activity className="w-3.5 h-3.5" /> Audit Logs
-            </TabsTrigger>
+            {canViewAuditLogs && (
+              <TabsTrigger value="audit" className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                <Activity className="w-3.5 h-3.5" /> Audit Logs
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="schools" className="space-y-4 mt-4">
@@ -515,22 +713,24 @@ const SaaSDashboardPage = () => {
                   <SelectItem value="expired">Expired</SelectItem>
                 </SelectContent>
               </Select>
-              <Dialog open={onboardOpen} onOpenChange={setOnboardOpen}>
-                <DialogTrigger asChild>
-                  <Button className="gap-2 shrink-0"><Plus className="w-4 h-4" /> Onboard School</Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-lg">
-                  <DialogHeader>
-                    <DialogTitle>Onboard New School</DialogTitle>
-                    <DialogDescription>Register a new school and set up their admin account</DialogDescription>
-                  </DialogHeader>
-                  <OnboardForm onSuccess={() => {
-                    setOnboardOpen(false);
-                    queryClient.invalidateQueries({ queryKey: ["saas-schools"] });
-                    queryClient.invalidateQueries({ queryKey: ["saas-analytics"] });
-                  }} />
-                </DialogContent>
-              </Dialog>
+              {canOnboardSchools && (
+                <Dialog open={onboardOpen} onOpenChange={setOnboardOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="gap-2 shrink-0"><Plus className="w-4 h-4" /> Onboard School</Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                      <DialogTitle>Onboard New School</DialogTitle>
+                      <DialogDescription>Register a new school and set up their admin account</DialogDescription>
+                    </DialogHeader>
+                    <OnboardForm onSuccess={() => {
+                      setOnboardOpen(false);
+                      queryClient.invalidateQueries({ queryKey: ["saas-schools"] });
+                      queryClient.invalidateQueries({ queryKey: ["saas-analytics"] });
+                    }} />
+                  </DialogContent>
+                </Dialog>
+              )}
             </div>
 
             {/* Results count */}
@@ -559,6 +759,8 @@ const SaaSDashboardPage = () => {
                     onToggle={() => toggleSchoolMutation.mutate({ id: school.id, active: !school.active })}
                     onPlanChange={(plan) => updatePlanMutation.mutate({ id: school.id, plan, status: school.subscription_status })}
                     onView={() => { setSelectedSchool(school); setDetailOpen(true); }}
+                    canManageSchoolStatus={canManageSchoolStatus}
+                    canManageSubscriptions={canManageSubscriptions}
                   />
                 ))
               )}
@@ -610,6 +812,8 @@ const SaaSDashboardPage = () => {
           school={selectedSchool}
           open={detailOpen}
           onOpenChange={setDetailOpen}
+          accessProfile={accessProfile!}
+          portfolioStaff={portfolioStaff}
         />
       )}
     </div>
