@@ -404,7 +404,7 @@ export const saasService = {
   },
 
   async recordInvoicePayment(params: { invoiceId: number; method?: string; reference?: string }): Promise<void> {
-    const { error } = await supabase.rpc("record_invoice_payment", {
+    const { error } = await supabase.rpc("record_invoice_payment_v2", {
       p_invoice_id: params.invoiceId,
       p_payment_method: params.method || "Manual",
       p_reference: params.reference,
