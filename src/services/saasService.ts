@@ -194,7 +194,7 @@ export const saasService = {
   },
 
   async getAllSchools(): Promise<SaaSSchool[]> {
-    const { data, error } = await supabase.rpc("get_all_schools");
+    const { data, error } = await supabase.rpc("get_all_schools_v2");
     if (error) throw error;
     return (data || []) as SaaSSchool[];
   },
