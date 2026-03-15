@@ -36,6 +36,15 @@ const ROLE_LABELS: Record<string, string> = {
   marketer: "Marketer",
 };
 
+const formatSchoolName = (name: string) => {
+  if (!name) return "";
+  return name
+    .trim()
+    .split(/\s+/)
+    .map((word) => (word ? word[0].toUpperCase() + word.slice(1).toLowerCase() : ""))
+    .join(" ");
+};
+
 const ACCESS_RULES: Record<string, { allowed: string[]; blocked: string[] }> = {
   platform_admin: {
     allowed: [
@@ -87,7 +96,9 @@ const ACCESS_RULES: Record<string, { allowed: string[]; blocked: string[] }> = {
 const getRoleLabel = (role?: string | null) => ROLE_LABELS[role || ""] || "Console User";
 
 /* ─────────── Subscription Management Tab ─────────── */
-const SchoolSubscriptionView = ({ school }: { school: SaaSSchool }) => {
+const SchoolSubscriptionView = ({ school, tiers = [] }: { school: SaaSSchool, tiers?: SaasTierFeature[] }) => {
+  const currentTier = tiers.find(t => t.tier_name === school.subscription_plan);
+  
   const { data: history, isLoading: historyLoading } = useQuery({
     queryKey: ["saas-subscription-history", school.id],
     queryFn: () => saasService.getSubscriptionHistory(school.id),
@@ -98,8 +109,111 @@ const SchoolSubscriptionView = ({ school }: { school: SaaSSchool }) => {
     queryFn: () => saasService.getInvoices(school.id),
   });
 
+  const queryClient = useQueryClient();
+  const [invoiceAmount, setInvoiceAmount] = useState("");
+  const [invoiceDesc, setInvoiceDesc] = useState("");
+  const [generatingInv, setGeneratingInv] = useState(false);
+  const [extendingTrial, setExtendingTrial] = useState(false);
+  const [extendingPlan, setExtendingPlan] = useState(false);
+
+  const handleGenerateInvoice = async () => {
+    if (!invoiceAmount || !invoiceDesc) return;
+    setGeneratingInv(true);
+    try {
+      await saasService.generateInvoice({
+        schoolId: school.id,
+        amount: parseFloat(invoiceAmount),
+        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        items: [{ description: invoiceDesc, amount: parseFloat(invoiceAmount) }]
+      });
+      toast.success("Invoice generated successfully");
+      queryClient.invalidateQueries({ queryKey: ["saas-invoices", school.id] });
+      setInvoiceAmount("");
+      setInvoiceDesc("");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to generate invoice");
+    } finally {
+      setGeneratingInv(false);
+    }
+  };
+
+  const calcNewDate = (days: number) => {
+    const base = school.subscription_end ? new Date(school.subscription_end) : new Date();
+    const next = new Date(base.getTime() + days * 24 * 60 * 60 * 1000);
+    return next.toISOString().split("T")[0];
+  };
+
+  const handleExtendTrial = async (days: number) => {
+    setExtendingTrial(true);
+    try {
+      await saasService.extendTrial({ schoolId: school.id, newEndDate: calcNewDate(days), reason: `Trial extended by ${days} days` });
+      toast.success(`Trial extended by ${days} days`);
+      queryClient.invalidateQueries({ queryKey: ["saas-schools"] });
+      queryClient.invalidateQueries({ queryKey: ["saas-analytics"] });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to extend trial");
+    } finally {
+      setExtendingTrial(false);
+    }
+  };
+
+  const handleExtendPlan = async (days: number) => {
+    setExtendingPlan(true);
+    try {
+      await saasService.extendSubscriptionPeriod({
+        schoolId: school.id,
+        newEndDate: calcNewDate(days),
+        newStatus: school.subscription_status,
+        reason: `Subscription extended by ${days} days`,
+      });
+      toast.success(`Subscription extended by ${days} days`);
+      queryClient.invalidateQueries({ queryKey: ["saas-schools"] });
+      queryClient.invalidateQueries({ queryKey: ["saas-analytics"] });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to extend subscription");
+    } finally {
+      setExtendingPlan(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {currentTier && (
+        <Card className="bg-primary/5 border-primary/20">
+          <CardContent className="pt-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="bg-primary/10 p-2 rounded-full">
+                <Shield className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-bold capitalize">{currentTier.tier_name} Tier Active</p>
+                <div className="flex gap-2 mt-1">
+                  <Badge variant="outline" className="text-[10px] h-4">Up to {currentTier.max_students} Students</Badge>
+                  <Badge variant="outline" className="text-[10px] h-4">Up to {currentTier.max_users} Users</Badge>
+                </div>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground uppercase tracking-tighter">Annual Fee</p>
+              <p className="font-mono font-bold">KES {currentTier.annual_fee.toLocaleString()}</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        {school.subscription_status?.includes("trial") && (
+          <Button variant="outline" size="sm" onClick={() => handleExtendTrial(14)} disabled={extendingTrial}>
+            {extendingTrial ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
+            Extend Trial +14d
+          </Button>
+        )}
+        <Button variant="outline" size="sm" onClick={() => handleExtendPlan(30)} disabled={extendingPlan}>
+          {extendingPlan ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
+          Extend Plan +30d
+        </Button>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
           <CardHeader className="pb-2">
@@ -167,9 +281,29 @@ const SchoolSubscriptionView = ({ school }: { school: SaaSSchool }) => {
         </CardHeader>
         <CardContent>
           <div className="flex gap-2">
-             <Input placeholder="Amount" type="number" className="h-8 max-w-[120px]" />
-             <Input placeholder="Description" className="h-8" />
-             <Button variant="secondary" size="sm" className="h-8">Generate</Button>
+             <Input 
+               placeholder="Amount" 
+               type="number" 
+               className="h-8 max-w-[120px]" 
+               value={invoiceAmount}
+               onChange={(e) => setInvoiceAmount(e.target.value)}
+             />
+             <Input 
+               placeholder="Description" 
+               className="h-8" 
+               value={invoiceDesc}
+               onChange={(e) => setInvoiceDesc(e.target.value)}
+             />
+             <Button 
+               variant="secondary" 
+               size="sm" 
+               className="h-8" 
+               onClick={handleGenerateInvoice}
+               disabled={generatingInv || !invoiceAmount}
+             >
+               {generatingInv ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
+               Generate
+             </Button>
           </div>
         </CardContent>
       </Card>
@@ -233,13 +367,14 @@ const SchoolCommunicationView = ({ school }: { school: SaaSSchool }) => {
 
 /* ─────────── School Detail / Edit Dialog ─────────── */
 const SchoolDetailDialog = ({
-  school, open, onOpenChange, accessProfile, portfolioStaff
+  school, open, onOpenChange, accessProfile, portfolioStaff, tiers = []
 }: {
   school: SaaSSchool;
   open: boolean;
   onOpenChange: (v: boolean) => void;
   accessProfile: PlatformAccessProfile;
   portfolioStaff: PlatformStaffMember[];
+  tiers?: SaasTierFeature[];
 }) => {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
@@ -404,7 +539,7 @@ const SchoolDetailDialog = ({
               ) : (
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                    <DetailRow icon={<Building2 className="w-3.5 h-3.5" />} label="Name" value={school.name} />
+                    <DetailRow icon={<Building2 className="w-3.5 h-3.5" />} label="Name" value={formatSchoolName(school.name)} />
                     <DetailRow icon={<Mail className="w-3.5 h-3.5" />} label="Email" value={school.email} />
                     <DetailRow icon={<Phone className="w-3.5 h-3.5" />} label="Phone" value={school.phone || "—"} />
                     <DetailRow icon={<MapPin className="w-3.5 h-3.5" />} label="City" value={school.city || "—"} />
@@ -511,7 +646,7 @@ const SchoolDetailDialog = ({
             </TabsContent>
 
             <TabsContent value="subscription" className="pt-4">
-              <SchoolSubscriptionView school={school} />
+              <SchoolSubscriptionView school={school} tiers={tiers} />
             </TabsContent>
 
             <TabsContent value="communication" className="pt-4">
@@ -579,7 +714,7 @@ const SchoolCard = ({
   canManageSchoolStatus: boolean;
   canManageSubscriptions: boolean;
 }) => (
-  <Card className={`group transition-all hover:shadow-md ${!school.active ? "opacity-60" : ""}`}>
+  <Card className={`group transition-all hover:shadow-lg hover:-translate-y-[2px] ${!school.active ? "opacity-60" : ""}`}>
     <CardContent className="p-4">
       <div className="flex items-start justify-between gap-4">
         <button onClick={onView} className="text-left min-w-0 flex-1 focus:outline-none">
@@ -589,7 +724,7 @@ const SchoolCard = ({
             </div>
             <div className="min-w-0">
               <h3 className="font-semibold text-foreground truncate group-hover:text-primary transition-colors">
-                {school.name}
+                {formatSchoolName(school.name)}
               </h3>
               <code className="text-[11px] bg-muted px-1.5 py-0.5 rounded font-mono text-muted-foreground">{school.code}</code>
             </div>
@@ -737,6 +872,18 @@ const SaaSDashboardPage = () => {
     enabled: authorized,
   });
 
+  const { data: tiers = [] } = useQuery({
+    queryKey: ["saas-tiers"],
+    queryFn: () => saasService.getTierFeatures(),
+    enabled: authorized,
+  });
+
+  const { data: dueSubscriptions = [], isLoading: dueLoading } = useQuery({
+    queryKey: ["saas-due-subscriptions"],
+    queryFn: () => saasService.getDueSubscriptions(14),
+    enabled: authorized,
+  });
+
   const { data: auditLogs = [] } = useQuery({
     queryKey: ["saas-audit-logs"],
     queryFn: () => saasService.getAuditLogs(50),
@@ -748,6 +895,10 @@ const SaaSDashboardPage = () => {
     queryFn: () => saasService.listPlatformStaff(),
     enabled: authorized && canManagePortfolios,
   });
+
+  const dueTrialCount = dueSubscriptions.filter((d) => (d.subscription_status || "").includes("trial")).length;
+  const dueRenewalCount = dueSubscriptions.filter((d) => (d.days_left ?? 9999) >= 0 && (d.days_left ?? 9999) <= 14 && !(d.subscription_status || "").includes("trial")).length;
+  const overdueInvoices = dueSubscriptions.filter((d) => (d.invoice_status || "") === "overdue").length;
 
   const filteredSchools = schools.filter((s) => {
     const matchesSearch = s.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -843,6 +994,58 @@ const SaaSDashboardPage = () => {
             </Card>
           ))}
         </div>
+
+        {/* Due Soon Panel */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600" /> Due Soon & Overdue
+            </CardTitle>
+            <CardDescription className="text-xs">Trials expiring, renewals within 14 days, and overdue invoices</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-3 gap-3 text-sm">
+              <div className="rounded-lg bg-amber-50 text-amber-800 border border-amber-200 p-3">
+                <p className="text-xl font-bold">{dueTrialCount}</p>
+                <p className="text-[11px] uppercase tracking-wide">Trials Expiring</p>
+              </div>
+              <div className="rounded-lg bg-blue-50 text-blue-800 border border-blue-200 p-3">
+                <p className="text-xl font-bold">{dueRenewalCount}</p>
+                <p className="text-[11px] uppercase tracking-wide">Renewals ≤ 14d</p>
+              </div>
+              <div className="rounded-lg bg-red-50 text-red-800 border border-red-200 p-3">
+                <p className="text-xl font-bold">{overdueInvoices}</p>
+                <p className="text-[11px] uppercase tracking-wide">Overdue Invoices</p>
+              </div>
+            </div>
+
+            {dueLoading ? (
+              <div className="py-4 flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin" /> Loading due items...</div>
+            ) : dueSubscriptions.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No trials or renewals due within 14 days.</p>
+            ) : (
+              <div className="space-y-2">
+                {dueSubscriptions.slice(0, 5).map((item) => (
+                  <div key={`${item.school_id}-${item.invoice_id || "none"}`} className="flex items-center justify-between rounded border px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{item.school_name}</p>
+                      <p className="text-[11px] text-muted-foreground">{item.subscription_plan} · {item.subscription_status}</p>
+                    </div>
+                    <div className="text-right text-xs text-muted-foreground">
+                      {item.invoice_status === "overdue" ? (
+                        <span className="text-red-700">Overdue invoice</span>
+                      ) : item.subscription_end ? (
+                        <span>{item.days_left ?? "—"} days left</span>
+                      ) : (
+                        <span>Due soon</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Tabs */}
         <Tabs defaultValue="schools">
@@ -982,6 +1185,7 @@ const SaaSDashboardPage = () => {
           onOpenChange={setDetailOpen}
           accessProfile={accessProfile!}
           portfolioStaff={portfolioStaff}
+          tiers={tiers}
         />
       )}
     </div>
@@ -1024,7 +1228,8 @@ const OnboardForm = ({ onSuccess }: { onSuccess: () => void }) => {
     }
     setSubmitting(true);
     try {
-      const res = await saasService.onboardSchool(form);
+      const normalizedName = formatSchoolName(form.name);
+      const res = await saasService.onboardSchool({ ...form, name: normalizedName });
       setResult(res);
       toast.success(`School onboarded! Code: ${res.school_code}`);
 
@@ -1035,7 +1240,7 @@ const OnboardForm = ({ onSuccess }: { onSuccess: () => void }) => {
           await saasService.provisionSchoolAdminAccess({
             schoolId: res.school_id,
             schoolCode: res.school_code,
-            schoolName: form.name,
+            schoolName: normalizedName,
             schoolEmail: form.email,
             contactPerson: form.contact_person,
             adminEmail: form.admin_email,
