@@ -18,7 +18,7 @@ DECLARE
 BEGIN
   SELECT school_id INTO v_school_id FROM public.saas_invoices WHERE id = p_invoice_id;
 
-  INSERT INTO public.saas_audit_logs (
+  INSERT INTO public.audit_logs (
     school_id,
     user_id,
     action,
@@ -53,7 +53,7 @@ SECURITY DEFINER
 SET search_path TO 'public'
 AS $$
 BEGIN
-  INSERT INTO public.saas_audit_logs (
+  INSERT INTO public.audit_logs (
     school_id,
     user_id,
     action,
