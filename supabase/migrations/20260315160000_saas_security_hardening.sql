@@ -53,13 +53,14 @@ CREATE POLICY "Platform console can view audit logs" ON public.audit_logs
   );
 
 -- 2. Prevent non-admins from changing their own roles or permissions
-ALTER TABLE public.platform_console_roles ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Individual roles are viewable by self" ON public.platform_console_roles;
-CREATE POLICY "Individual roles are viewable by self" ON public.platform_console_roles
+-- (user_roles is the table used for all app roles)
+ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Individual roles are viewable by self" ON public.user_roles;
+CREATE POLICY "Individual roles are viewable by self" ON public.user_roles
   FOR SELECT TO authenticated USING (user_id = auth.uid() OR public.is_platform_admin(auth.uid()));
 
-DROP POLICY IF EXISTS "Admins can manage roles" ON public.platform_console_roles;
-CREATE POLICY "Admins can manage roles" ON public.platform_console_roles
+DROP POLICY IF EXISTS "Admins can manage roles" ON public.user_roles;
+CREATE POLICY "Admins can manage roles" ON public.user_roles
   FOR ALL TO authenticated USING (public.is_platform_admin(auth.uid()));
 
 -- 3. Secure RPCs by ensuring internally they still check for proper scope
