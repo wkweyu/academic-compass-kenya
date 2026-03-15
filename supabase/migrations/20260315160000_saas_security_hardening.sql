@@ -26,11 +26,7 @@ CREATE POLICY "Platform console can manage all invoices" ON public.saas_invoices
   USING (
     public.can_view_platform_console(auth.uid()) AND (
       public.is_platform_admin(auth.uid()) OR 
-      EXISTS (
-        SELECT 1 FROM public.schools_school s
-        WHERE s.id = public.saas_invoices.school_id
-        AND (s.portfolio_owner_user_id = auth.uid() OR public.is_platform_admin(auth.uid()))
-      )
+      public.can_access_platform_school(auth.uid(), school_id)
     )
   );
 
@@ -41,11 +37,7 @@ CREATE POLICY "Platform console can view communications" ON public.saas_communic
   USING (
     public.can_view_platform_console(auth.uid()) AND (
       public.is_platform_admin(auth.uid()) OR 
-      EXISTS (
-        SELECT 1 FROM public.schools_school s
-        WHERE s.id = public.saas_communications.school_id
-        AND (s.portfolio_owner_user_id = auth.uid() OR public.is_platform_admin(auth.uid()))
-      )
+      public.can_access_platform_school(auth.uid(), school_id)
     )
   );
 
@@ -56,7 +48,7 @@ CREATE POLICY "Platform console can view audit logs" ON public.saas_audit_logs
   USING (
     public.can_view_platform_console(auth.uid()) AND (
       public.is_platform_admin(auth.uid()) OR 
-      (school_id IN (SELECT id FROM public.schools_school WHERE portfolio_owner_user_id = auth.uid()))
+      (school_id IS NOT NULL AND public.can_access_platform_school(auth.uid(), school_id))
     )
   );
 
@@ -83,12 +75,12 @@ BEGIN
     RAISE EXCEPTION 'Unauthorized';
   END IF;
 
-  -- If admin, show everything. If not, show only portfolio schools.
-  IF public.is_platform_admin(auth.uid()) THEN
-    RETURN QUERY SELECT * FROM public.schools_school ORDER BY name ASC;
-  ELSE
-    RETURN QUERY SELECT * FROM public.schools_school WHERE portfolio_owner_user_id = auth.uid() ORDER BY name ASC;
-  END IF;
+  RETURN QUERY
+  SELECT * FROM public.schools_school
+  WHERE public.is_platform_admin(auth.uid()) 
+     OR public.user_has_any_role(auth.uid(), ARRAY['support']::public.app_role[])
+     OR id IN (SELECT school_id FROM public.get_accessible_platform_school_ids(auth.uid()))
+  ORDER BY name ASC;
 END;
 $$;
 
