@@ -1,0 +1,467 @@
+import { supabase } from "@/integrations/supabase/client";
+
+export interface SaaSSchool {
+  id: number;
+  name: string;
+  code: string;
+  email: string;
+  phone: string;
+  city: string;
+  country: string;
+  subscription_plan: string;
+  subscription_status: string;
+  subscription_end: string | null;
+  active: boolean;
+  created_at: string;
+  student_count: number;
+  teacher_count: number;
+  portfolio_owner_user_id: string | null;
+  portfolio_owner_name: string;
+  portfolio_owner_email: string;
+  portfolio_owner_role: string;
+}
+
+export interface SaasInvoice {
+  id: number;
+  school_id: number;
+  invoice_number: string;
+  amount: number;
+  status: string;
+  due_date: string;
+  paid_at: string | null;
+  billing_period_start: string | null;
+  billing_period_end: string | null;
+  items: any[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SaasTierFeature {
+  tier_name: string;
+  onboarding_fee: number;
+  annual_fee: number;
+  max_students: number;
+  max_users: number;
+  modules: string[];
+}
+
+export interface SaasCommunication {
+  id: number;
+  school_id: number | null;
+  recipient_email: string | null;
+  subject: string | null;
+  content: string | null;
+  type: string;
+  category: string;
+  status: string;
+  sent_at: string | null;
+  error_message: string | null;
+  created_at: string;
+}
+
+export interface SubscriptionHistory {
+  id: number;
+  plan_name: string;
+  status: string;
+  amount: number;
+  start_date: string;
+  end_date: string;
+  created_at: string;
+}
+
+export interface SaaSAnalytics {
+  total_schools: number;
+  active_schools: number;
+  inactive_schools: number;
+  total_students: number;
+  total_teachers: number;
+  schools_on_starter: number;
+  schools_on_standard: number;
+  schools_on_enterprise: number;
+}
+
+export interface AuditLog {
+  id: number;
+  school_id: number | null;
+  user_id: string | null;
+  action: string;
+  module: string;
+  entity_type: string;
+  entity_id: string;
+  old_values: any;
+  new_values: any;
+  created_at: string;
+}
+
+export interface SubscriptionStatus {
+  is_valid: boolean;
+  plan: string;
+  status: string;
+  days_remaining: number;
+  school_name: string;
+}
+
+export interface PlatformAccessProfile {
+  user_id: string;
+  roles: string[];
+  primary_role: string;
+  scope: string;
+  can_view_dashboard: boolean;
+  can_onboard_schools: boolean;
+  can_manage_school_status: boolean;
+  can_manage_subscriptions: boolean;
+  can_manage_portfolios: boolean;
+  can_edit_school_details: boolean;
+  can_resend_admin_access: boolean;
+  can_view_audit_logs: boolean;
+  accessible_school_count: number;
+}
+
+export interface PlatformStaffMember {
+  user_id: string;
+  email: string;
+  full_name: string;
+  primary_role: string;
+  roles: string[];
+}
+
+export interface SchoolAdminAccessPayload {
+  schoolId: number;
+  schoolCode: string;
+  schoolName: string;
+  schoolEmail: string;
+  contactPerson?: string;
+  adminEmail: string;
+  adminPassword: string;
+}
+
+export const saasService = {
+  async getAccessProfile(): Promise<PlatformAccessProfile | null> {
+    const { data, error } = await supabase.rpc("get_platform_access_profile");
+    if (error) {
+      const message = String(error.message || "").toLowerCase();
+      const details = String((error as { details?: string })?.details || "").toLowerCase();
+      const isMissingProfileRpc =
+        message.includes("get_platform_access_profile") ||
+        details.includes("get_platform_access_profile") ||
+        message.includes("schema cache") ||
+        details.includes("schema cache");
+
+      if (!isMissingProfileRpc) {
+        throw error;
+      }
+
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData.user?.id;
+      if (!userId) {
+        return null;
+      }
+
+      const isAdmin = await this.isPlatformAdmin(userId);
+      if (!isAdmin) {
+        return null;
+      }
+
+      return {
+        user_id: userId,
+        roles: ["platform_admin"],
+        primary_role: "platform_admin",
+        scope: "global",
+        can_view_dashboard: true,
+        can_onboard_schools: true,
+        can_manage_school_status: true,
+        can_manage_subscriptions: true,
+        can_manage_portfolios: true,
+        can_edit_school_details: true,
+        can_resend_admin_access: true,
+        can_view_audit_logs: true,
+        accessible_school_count: 0,
+      };
+    }
+    return (data?.[0] as PlatformAccessProfile) || null;
+  },
+
+  async lookupSchoolByCode(code: string) {
+    const { data, error } = await supabase.rpc("lookup_school_by_code", { p_code: code });
+    if (error) throw error;
+    return data?.[0] || null;
+  },
+
+  async getAnalytics(): Promise<SaaSAnalytics> {
+    const { data, error } = await supabase.rpc("get_saas_analytics");
+    if (error) throw error;
+    return data?.[0] as SaaSAnalytics;
+  },
+
+  async getAllSchools(): Promise<SaaSSchool[]> {
+    const { data, error } = await supabase.rpc("get_all_schools");
+    if (error) throw error;
+    return (data || []) as SaaSSchool[];
+  },
+
+  async onboardSchool(params: {
+    name: string;
+    email: string;
+    phone?: string;
+    address?: string;
+    city?: string;
+    country?: string;
+    plan?: string;
+    contact_person?: string;
+    contact_phone?: string;
+  }) {
+    const { data, error } = await supabase.rpc("onboard_new_school", {
+      p_name: params.name,
+      p_email: params.email,
+      p_phone: params.phone || "",
+      p_address: params.address || "",
+      p_city: params.city || "",
+      p_country: params.country || "Kenya",
+      p_plan: params.plan || "starter",
+      p_contact_person: params.contact_person || "",
+      p_contact_phone: params.contact_phone || "",
+    });
+    if (error) throw error;
+    return data?.[0] as { school_id: number; school_code: string };
+  },
+
+  async updateSchoolStatus(schoolId: number, active: boolean) {
+    const { error } = await supabase.rpc("update_saas_school_status", {
+      p_school_id: schoolId,
+      p_active: active,
+    });
+    if (error) throw error;
+  },
+
+  async updateSubscription(schoolId: number, plan: string, status: string) {
+    const { error } = await supabase.rpc("update_saas_subscription", {
+      p_school_id: schoolId,
+      p_plan: plan,
+      p_status: status,
+    });
+    if (error) throw error;
+  },
+
+  async getAuditLogs(limit = 100): Promise<AuditLog[]> {
+    const { data, error } = await supabase.rpc("get_saas_audit_logs", { p_limit: limit });
+    if (error) throw error;
+    return (data || []) as unknown as AuditLog[];
+  },
+
+  async getTierFeatures(): Promise<SaasTierFeature[]> {
+    const { data, error } = await supabase.from("saas_tier_features").select("*");
+    if (error) throw error;
+    return data as SaasTierFeature[];
+  },
+
+  async generateInvoice(params: {
+    schoolId: number;
+    amount: number;
+    dueDate: string;
+    items: any[];
+    periodStart?: string;
+    periodEnd?: string;
+  }) {
+    const { data, error } = await supabase.rpc("generate_saas_invoice", {
+      p_school_id: params.schoolId,
+      p_amount: params.amount,
+      p_due_date: params.dueDate,
+      p_items: params.items,
+      p_period_start: params.periodStart,
+      p_period_end: params.periodEnd,
+    });
+    if (error) throw error;
+    return data as number;
+  },
+
+  async getInvoices(schoolId?: number): Promise<SaasInvoice[]> {
+    let query = supabase.from("saas_invoices").select("*");
+    if (schoolId) query = query.eq("school_id", schoolId);
+    const { data, error } = await query.order("created_at", { ascending: false });
+    if (error) throw error;
+    return data as SaasInvoice[];
+  },
+
+  async getSubscriptionHistory(schoolId: number): Promise<SubscriptionHistory[]> {
+    const { data, error } = await supabase.rpc("get_school_subscription_history", {
+      p_school_id: schoolId,
+    });
+    if (error) throw error;
+    return data as SubscriptionHistory[];
+  },
+
+  async getCommunications(schoolId?: number): Promise<SaasCommunication[]> {
+    let query = supabase.from("saas_communications").select("*");
+    if (schoolId) query = query.eq("school_id", schoolId);
+    const { data, error } = await query.order("created_at", { ascending: false });
+    if (error) throw error;
+    return data as SaasCommunication[];
+  },
+
+  async logCommunication(params: {
+    schoolId: number;
+    recipient: string;
+    subject: string;
+    content: string;
+    category: "billing" | "marketing" | "support" | "update";
+    type?: "email" | "sms" | "system_notification";
+  }) {
+    const { error } = await supabase.rpc("log_saas_communication", {
+      p_school_id: params.schoolId,
+      p_recipient: params.recipient,
+      p_subject: params.subject,
+      p_content: params.content,
+      p_category: params.category,
+      p_type: params.type || "email",
+    });
+    if (error) throw error;
+  },
+
+  async getExpiringSubscriptions() {
+    const { data, error } = await supabase.rpc("check_expiring_subscriptions");
+    if (error) throw error;
+    return data as { school_id: number; school_name: string; end_date: string; days_left: number }[];
+  },
+
+  async logAudit(action: string, module: string, entityType = "", entityId = "", oldValues = {}, newValues = {}) {
+    await supabase.rpc("log_audit_event", {
+      p_action: action,
+      p_module: module,
+      p_entity_type: entityType,
+      p_entity_id: entityId,
+      p_old_values: oldValues,
+      p_new_values: newValues,
+    });
+  },
+
+  async isPlatformAdmin(userId?: string): Promise<boolean> {
+    let uid = userId;
+    if (!uid) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return false;
+      uid = user.id;
+    }
+    const { data, error } = await supabase.rpc("has_role", { _user_id: uid, _role: "platform_admin" });
+    if (error) {
+      console.error("isPlatformAdmin RPC error:", error);
+      return false;
+    }
+    return data === true;
+  },
+
+  async hasPlatformConsoleAccess(): Promise<boolean> {
+    const profile = await this.getAccessProfile();
+    return profile?.can_view_dashboard === true;
+  },
+
+  async verifyUserSchool(schoolId: number): Promise<boolean> {
+    const { data, error } = await supabase.rpc("verify_user_school", { p_school_id: schoolId });
+    if (error) {
+      console.error("verifyUserSchool error:", error);
+      return false;
+    }
+    return data === true;
+  },
+
+  async checkSubscription(): Promise<SubscriptionStatus | null> {
+    const { data, error } = await supabase.rpc("check_subscription_status");
+    if (error) {
+      console.error("checkSubscription error:", error);
+      return null;
+    }
+    return (data?.[0] as SubscriptionStatus) || null;
+  },
+
+  async checkRateLimit(identifier: string): Promise<{ allowed: boolean; attempts_remaining: number; retry_after_seconds: number }> {
+    const { data, error } = await supabase.rpc("check_login_rate_limit", { p_identifier: identifier });
+    if (error) {
+      console.error("checkRateLimit error:", error);
+      return { allowed: true, attempts_remaining: 5, retry_after_seconds: 0 };
+    }
+    return data?.[0] || { allowed: true, attempts_remaining: 5, retry_after_seconds: 0 };
+  },
+
+  async recordLoginAttempt(identifier: string, success: boolean) {
+    await supabase.rpc("record_login_attempt", { p_identifier: identifier, p_success: success });
+  },
+
+  async sendOnboardingNotification(
+    schoolId: number, schoolCode: string, schoolName: string, email: string, contactPerson: string,
+    adminEmail?: string, adminPassword?: string
+  ) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error("Not authenticated");
+    
+    const { data, error } = await supabase.functions.invoke("onboarding-notification", {
+      body: {
+        school_id: schoolId, school_code: schoolCode, school_name: schoolName,
+        email, contact_person: contactPerson,
+        admin_email: adminEmail, admin_password: adminPassword,
+      },
+    });
+    if (error) {
+      console.error("onboarding-notification invoke error:", error);
+      throw error;
+    }
+    if (data && !data.email_sent) {
+      console.error("onboarding-notification failed:", data.email_error);
+      throw new Error(data.email_error || "Email sending failed");
+    }
+    return data;
+  },
+
+  async createSchoolAdmin(schoolId: number, adminEmail: string, adminPassword: string) {
+    const { data, error } = await supabase.functions.invoke("create-school-admin", {
+      body: { school_id: schoolId, admin_email: adminEmail, admin_password: adminPassword },
+    });
+    if (error) {
+      // Extract the actual error message from the response body if available
+      const msg = data?.error || error.message || "Unknown error";
+      throw new Error(msg);
+    }
+    return data;
+  },
+
+  async provisionSchoolAdminAccess(payload: SchoolAdminAccessPayload) {
+    await this.createSchoolAdmin(payload.schoolId, payload.adminEmail, payload.adminPassword);
+
+    await this.sendOnboardingNotification(
+      payload.schoolId,
+      payload.schoolCode,
+      payload.schoolName,
+      payload.schoolEmail,
+      payload.contactPerson || "",
+      payload.adminEmail,
+      payload.adminPassword,
+    );
+  },
+
+  async updateSchoolDetails(schoolId: number, details: {
+    name?: string; email?: string; phone?: string; city?: string; country?: string;
+  }) {
+    const { error } = await supabase.rpc("update_saas_school_details", {
+      p_school_id: schoolId,
+      p_name: details.name,
+      p_email: details.email,
+      p_phone: details.phone,
+      p_city: details.city,
+      p_country: details.country,
+    });
+    if (error) throw error;
+  },
+
+  async listPlatformStaff(): Promise<PlatformStaffMember[]> {
+    const { data, error } = await supabase.rpc("list_platform_staff");
+    if (error) throw error;
+    return (data || []) as PlatformStaffMember[];
+  },
+
+  async assignSchoolPortfolio(schoolId: number, ownerUserId: string | null, notes = "") {
+    const { error } = await supabase.rpc("assign_school_portfolio", {
+      p_school_id: schoolId,
+      p_owner_user_id: ownerUserId,
+      p_notes: notes,
+    });
+    if (error) throw error;
+  },
+};
