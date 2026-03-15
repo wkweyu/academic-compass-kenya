@@ -487,7 +487,7 @@ const SchoolDetailDialog = ({
   const handleSavePortfolio = async () => {
     setAssigningPortfolio(true);
     try {
-      await saasService.assignSchoolPortfolio(
+      await saasService.updateSchoolPortfolioOwner(
         school.id,
         portfolioOwnerId === "unassigned" ? null : portfolioOwnerId,
       );

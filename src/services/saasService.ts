@@ -436,6 +436,20 @@ export const saasService = {
     };
   },
 
+  async listPlatformStaff(): Promise<PlatformStaffMember[]> {
+    const { data, error } = await supabase.rpc("list_platform_staff");
+    if (error) throw error;
+    return (data || []) as PlatformStaffMember[];
+  },
+
+  async updateSchoolPortfolioOwner(schoolId: number, ownerUserId: string | null): Promise<void> {
+    const { error } = await supabase.rpc("update_school_portfolio_owner", {
+      p_school_id: schoolId,
+      p_owner_user_id: ownerUserId,
+    });
+    if (error) throw error;
+  },
+
   async logAudit(action: string, module: string, entityType = "", entityId = "", oldValues = {}, newValues = {}) {
     await supabase.rpc("log_audit_event", {
       p_action: action,
