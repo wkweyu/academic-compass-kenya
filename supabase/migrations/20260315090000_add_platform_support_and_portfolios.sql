@@ -195,6 +195,8 @@ BEGIN
 END;
 $$;
 
+DROP FUNCTION IF EXISTS public.get_all_schools();
+
 CREATE OR REPLACE FUNCTION public.get_all_schools()
 RETURNS TABLE(
   id BIGINT, name TEXT, code TEXT, email TEXT, phone TEXT,
@@ -506,7 +508,7 @@ END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.onboard_new_school(
-  p_name TEXT, p_email TEXT DEFAULT '', p_phone TEXT DEFAULT '', p_address TEXT DEFAULT '',
+  p_name TEXT, p_email TEXT, p_phone TEXT DEFAULT '', p_address TEXT DEFAULT '',
   p_city TEXT DEFAULT '', p_country TEXT DEFAULT 'Kenya', p_plan TEXT DEFAULT 'starter',
   p_contact_person TEXT DEFAULT '', p_contact_phone TEXT DEFAULT ''
 )

@@ -21,6 +21,45 @@ export interface SaaSSchool {
   portfolio_owner_role: string;
 }
 
+export interface SaasInvoice {
+  id: number;
+  school_id: number;
+  invoice_number: string;
+  amount: number;
+  status: string;
+  due_date: string;
+  paid_at: string | null;
+  billing_period_start: string | null;
+  billing_period_end: string | null;
+  items: any[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SaasCommunication {
+  id: number;
+  school_id: number | null;
+  recipient_email: string | null;
+  subject: string | null;
+  content: string | null;
+  type: string;
+  category: string;
+  status: string;
+  sent_at: string | null;
+  error_message: string | null;
+  created_at: string;
+}
+
+export interface SubscriptionHistory {
+  id: number;
+  plan_name: string;
+  status: string;
+  amount: number;
+  start_date: string;
+  end_date: string;
+  created_at: string;
+}
+
 export interface SaaSAnalytics {
   total_schools: number;
   active_schools: number;
@@ -198,6 +237,75 @@ export const saasService = {
     const { data, error } = await supabase.rpc("get_saas_audit_logs", { p_limit: limit });
     if (error) throw error;
     return (data || []) as unknown as AuditLog[];
+  },
+
+  async generateInvoice(params: {
+    schoolId: number;
+    amount: number;
+    dueDate: string;
+    items: any[];
+    periodStart?: string;
+    periodEnd?: string;
+  }) {
+    const { data, error } = await supabase.rpc("generate_saas_invoice", {
+      p_school_id: params.schoolId,
+      p_amount: params.amount,
+      p_due_date: params.dueDate,
+      p_items: params.items,
+      p_period_start: params.periodStart,
+      p_period_end: params.periodEnd,
+    });
+    if (error) throw error;
+    return data as number;
+  },
+
+  async getInvoices(schoolId?: number): Promise<SaasInvoice[]> {
+    let query = supabase.from("saas_invoices").select("*");
+    if (schoolId) query = query.eq("school_id", schoolId);
+    const { data, error } = await query.order("created_at", { ascending: false });
+    if (error) throw error;
+    return data as SaasInvoice[];
+  },
+
+  async getSubscriptionHistory(schoolId: number): Promise<SubscriptionHistory[]> {
+    const { data, error } = await supabase.rpc("get_school_subscription_history", {
+      p_school_id: schoolId,
+    });
+    if (error) throw error;
+    return data as SubscriptionHistory[];
+  },
+
+  async getCommunications(schoolId?: number): Promise<SaasCommunication[]> {
+    let query = supabase.from("saas_communications").select("*");
+    if (schoolId) query = query.eq("school_id", schoolId);
+    const { data, error } = await query.order("created_at", { ascending: false });
+    if (error) throw error;
+    return data as SaasCommunication[];
+  },
+
+  async logCommunication(params: {
+    schoolId: number;
+    recipient: string;
+    subject: string;
+    content: string;
+    category: "billing" | "marketing" | "support" | "update";
+    type?: "email" | "sms" | "system_notification";
+  }) {
+    const { error } = await supabase.rpc("log_saas_communication", {
+      p_school_id: params.schoolId,
+      p_recipient: params.recipient,
+      p_subject: params.subject,
+      p_content: params.content,
+      p_category: params.category,
+      p_type: params.type || "email",
+    });
+    if (error) throw error;
+  },
+
+  async getExpiringSubscriptions() {
+    const { data, error } = await supabase.rpc("check_expiring_subscriptions");
+    if (error) throw error;
+    return data as { school_id: number; school_name: string; end_date: string; days_left: number }[];
   },
 
   async logAudit(action: string, module: string, entityType = "", entityId = "", oldValues = {}, newValues = {}) {

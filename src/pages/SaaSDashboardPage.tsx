@@ -7,14 +7,18 @@ import {
   Building2, Users, GraduationCap, Plus, Power, PowerOff,
   Shield, LogOut, Clock, CheckCircle, Search, Mail, Loader2,
   Pencil, Send, Eye, X, ChevronDown, Activity, BarChart3,
-  Globe, Phone, MapPin, CalendarDays, TrendingUp
+  Globe, Phone, MapPin, CalendarDays, TrendingUp, CreditCard,
+  FileText, History, MessageSquare, AlertTriangle, ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow
+} from "@/components/ui/table";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter
 } from "@/components/ui/dialog";
@@ -22,6 +26,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -80,6 +85,151 @@ const ACCESS_RULES: Record<string, { allowed: string[]; blocked: string[] }> = {
 };
 
 const getRoleLabel = (role?: string | null) => ROLE_LABELS[role || ""] || "Console User";
+
+/* ─────────── Subscription Management Tab ─────────── */
+const SchoolSubscriptionView = ({ school }: { school: SaaSSchool }) => {
+  const { data: history, isLoading: historyLoading } = useQuery({
+    queryKey: ["saas-subscription-history", school.id],
+    queryFn: () => saasService.getSubscriptionHistory(school.id),
+  });
+
+  const { data: invoices, isLoading: invoicesLoading } = useQuery({
+    queryKey: ["saas-invoices", school.id],
+    queryFn: () => saasService.getInvoices(school.id),
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <History className="w-4 h-4" /> Subscription History
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {historyLoading ? (
+              <div className="py-8 flex justify-center"><Loader2 className="w-5 h-5 animate-spin" /></div>
+            ) : !history || history.length === 0 ? (
+              <p className="text-xs text-center text-muted-foreground py-4">No history records found</p>
+            ) : (
+              <div className="space-y-3">
+                {history.map((h) => (
+                  <div key={h.id} className="flex items-center justify-between text-xs border-b pb-2 last:border-0">
+                    <div>
+                      <p className="font-medium capitalize">{h.plan_name}</p>
+                      <p className="text-muted-foreground">{new Date(h.start_date).toLocaleDateString()} - {h.end_date ? new Date(h.end_date).toLocaleDateString() : 'Active'}</p>
+                    </div>
+                    <Badge variant={h.status === 'active' ? 'default' : 'secondary'} className="scale-90">
+                      {h.status}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <CreditCard className="w-4 h-4" /> Recent Invoices
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {invoicesLoading ? (
+              <div className="py-8 flex justify-center"><Loader2 className="w-5 h-5 animate-spin" /></div>
+            ) : !invoices || invoices.length === 0 ? (
+              <p className="text-xs text-center text-muted-foreground py-4">No invoices generated yet</p>
+            ) : (
+              <div className="space-y-3">
+                {invoices.map((inv) => (
+                  <div key={inv.id} className="flex items-center justify-between text-xs border-b pb-2 last:border-0">
+                    <div>
+                      <p className="font-medium">{inv.invoice_number}</p>
+                      <p className="text-muted-foreground font-mono">KES {inv.amount.toLocaleString()}</p>
+                    </div>
+                    <Badge variant={inv.status === 'paid' ? 'default' : inv.status === 'overdue' ? 'destructive' : 'secondary'} className="scale-90">
+                      {inv.status}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold">Generate Manual Invoice</CardTitle>
+          <CardDescription className="text-xs">Create a draft invoice for manual payment or adjustments</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-2">
+             <Input placeholder="Amount" type="number" className="h-8 max-w-[120px]" />
+             <Input placeholder="Description" className="h-8" />
+             <Button variant="secondary" size="sm" className="h-8">Generate</Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+/* ─────────── Communication Tab ─────────── */
+const SchoolCommunicationView = ({ school }: { school: SaaSSchool }) => {
+  const { data: logs, isLoading } = useQuery({
+    queryKey: ["saas-communications", school.id],
+    queryFn: () => saasService.getCommunications(school.id),
+  });
+
+  return (
+    <div className="space-y-4">
+       <div className="flex justify-between items-center">
+         <h4 className="text-sm font-semibold">Communication History</h4>
+         <Button size="sm" variant="outline" className="gap-1.5 h-8">
+           <Send className="w-3.5 h-3.5" /> Send Message
+         </Button>
+       </div>
+
+       <div className="border rounded-md">
+         {isLoading ? (
+            <div className="py-12 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+         ) : !logs || logs.length === 0 ? (
+            <div className="py-12 text-center text-muted-foreground text-sm">No communications recorded</div>
+         ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[150px]">Date</TableHead>
+                  <TableHead>Subject</TableHead>
+                  <TableHead className="w-[100px]">Type</TableHead>
+                  <TableHead className="w-[100px]">Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {logs.map((log) => (
+                  <TableRow key={log.id} className="text-xs">
+                    <TableCell className="text-muted-foreground">
+                      {new Date(log.created_at).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="font-medium text-foreground">{log.subject}</TableCell>
+                    <TableCell className="capitalize">{log.type}</TableCell>
+                    <TableCell>
+                      <Badge variant={log.status === 'sent' ? 'secondary' : 'outline'} className="scale-90">
+                        {log.status}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+         )}
+       </div>
+    </div>
+  );
+};
 
 /* ─────────── School Detail / Edit Dialog ─────────── */
 const SchoolDetailDialog = ({
@@ -216,140 +366,158 @@ const SchoolDetailDialog = ({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          {editing ? (
-            <div className="space-y-3">
-              <div>
-                <Label className="text-xs text-muted-foreground">School Name</Label>
-                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs text-muted-foreground">Email</Label>
-                  <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Phone</Label>
-                  <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs text-muted-foreground">City</Label>
-                  <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Country</Label>
-                  <Input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} />
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                <DetailRow icon={<Building2 className="w-3.5 h-3.5" />} label="Name" value={school.name} />
-                <DetailRow icon={<Mail className="w-3.5 h-3.5" />} label="Email" value={school.email} />
-                <DetailRow icon={<Phone className="w-3.5 h-3.5" />} label="Phone" value={school.phone || "—"} />
-                <DetailRow icon={<MapPin className="w-3.5 h-3.5" />} label="City" value={school.city || "—"} />
-                <DetailRow icon={<Globe className="w-3.5 h-3.5" />} label="Country" value={school.country || "—"} />
-                <DetailRow icon={<Users className="w-3.5 h-3.5" />} label="Portfolio Owner" value={school.portfolio_owner_name || "Unassigned"} />
-                <DetailRow icon={<CalendarDays className="w-3.5 h-3.5" />} label="Created" value={new Date(school.created_at).toLocaleDateString()} />
-              </div>
-              <Separator />
-              <div className="grid grid-cols-3 gap-3 text-center">
-                <div className="bg-muted/50 rounded-lg p-3">
-                  <p className="text-lg font-bold text-foreground">{school.student_count}</p>
-                  <p className="text-xs text-muted-foreground">Students</p>
-                </div>
-                <div className="bg-muted/50 rounded-lg p-3">
-                  <p className="text-lg font-bold text-foreground">{school.teacher_count}</p>
-                  <p className="text-xs text-muted-foreground">Teachers</p>
-                </div>
-                <div className="bg-muted/50 rounded-lg p-3">
-                  <Badge variant="outline" className="text-xs">
-                    {school.subscription_plan}
-                  </Badge>
-                  <p className="text-xs text-muted-foreground mt-1">Plan</p>
-                </div>
-              </div>
-              {canManagePortfolios && (
-                <>
-                  <Separator />
-                  <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
+          <Tabs defaultValue="details" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="details">Details</TabsTrigger>
+              <TabsTrigger value="subscription">Subscriptions</TabsTrigger>
+              <TabsTrigger value="communication">Communication</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="details" className="space-y-4 pt-4">
+              {editing ? (
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">School Name</Label>
+                    <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <p className="text-sm font-medium text-foreground">Portfolio ownership</p>
-                      <p className="text-xs text-muted-foreground">Assign this school to an account manager or marketer.</p>
+                      <Label className="text-xs text-muted-foreground">Email</Label>
+                      <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
                     </div>
-                    <Select value={portfolioOwnerId} onValueChange={setPortfolioOwnerId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select portfolio owner" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="unassigned">Unassigned</SelectItem>
-                        {portfolioStaff
-                          .filter((staff) => ["account_manager", "marketer"].includes(staff.primary_role))
-                          .map((staff) => (
-                            <SelectItem key={staff.user_id} value={staff.user_id}>
-                              {staff.full_name} · {getRoleLabel(staff.primary_role)}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                    <Button type="button" size="sm" variant="outline" onClick={handleSavePortfolio} disabled={assigningPortfolio}>
-                      {assigningPortfolio ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
-                      Save Portfolio Owner
-                    </Button>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Phone</Label>
+                      <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+                    </div>
                   </div>
-                </>
-              )}
-              {canRepairAccess && (
-                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">City</Label>
+                      <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Country</Label>
+                      <Input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                    <DetailRow icon={<Building2 className="w-3.5 h-3.5" />} label="Name" value={school.name} />
+                    <DetailRow icon={<Mail className="w-3.5 h-3.5" />} label="Email" value={school.email} />
+                    <DetailRow icon={<Phone className="w-3.5 h-3.5" />} label="Phone" value={school.phone || "—"} />
+                    <DetailRow icon={<MapPin className="w-3.5 h-3.5" />} label="City" value={school.city || "—"} />
+                    <DetailRow icon={<Globe className="w-3.5 h-3.5" />} label="Country" value={school.country || "—"} />
+                    <DetailRow icon={<Users className="w-3.5 h-3.5" />} label="Portfolio Owner" value={school.portfolio_owner_name || "Unassigned"} />
+                    <DetailRow icon={<CalendarDays className="w-3.5 h-3.5" />} label="Created" value={new Date(school.created_at).toLocaleDateString()} />
+                  </div>
                   <Separator />
-                  <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-medium text-foreground">Admin access</p>
-                        <p className="text-xs text-muted-foreground">
-                          Repair the linked admin account and resend fresh login details.
-                        </p>
-                      </div>
-                      <Button type="button" variant="outline" size="sm" onClick={generatePassword}>
-                        Generate Password
-                      </Button>
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div className="bg-muted/50 rounded-lg p-3">
+                      <p className="text-lg font-bold text-foreground">{school.student_count}</p>
+                      <p className="text-xs text-muted-foreground">Students</p>
                     </div>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Admin Email</Label>
-                        <Input
-                          type="email"
-                          value={adminAccess.adminEmail}
-                          onChange={(e) => setAdminAccess((prev) => ({ ...prev, adminEmail: e.target.value }))}
-                          placeholder="admin@school.com"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Temporary Password</Label>
-                        <Input
-                          value={adminAccess.adminPassword}
-                          onChange={(e) => setAdminAccess((prev) => ({ ...prev, adminPassword: e.target.value }))}
-                          placeholder="Set a temporary password"
-                        />
-                      </div>
+                    <div className="bg-muted/50 rounded-lg p-3">
+                      <p className="text-lg font-bold text-foreground">{school.teacher_count}</p>
+                      <p className="text-xs text-muted-foreground">Teachers</p>
                     </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={handleRepairAndResendAdmin}
-                      disabled={repairingAdmin}
-                      className="gap-1.5"
-                    >
-                      {repairingAdmin ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Shield className="w-3.5 h-3.5" />}
-                      Repair & Resend Admin Access
-                    </Button>
+                    <div className="bg-muted/50 rounded-lg p-3">
+                      <Badge variant="outline" className="text-xs">
+                        {school.subscription_plan}
+                      </Badge>
+                      <p className="text-xs text-muted-foreground mt-1">Plan</p>
+                    </div>
                   </div>
-                </>
+                  {canManagePortfolios && (
+                    <>
+                      <Separator />
+                      <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">Portfolio ownership</p>
+                          <p className="text-xs text-muted-foreground">Assign this school to an account manager or marketer.</p>
+                        </div>
+                        <Select value={portfolioOwnerId} onValueChange={setPortfolioOwnerId}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select portfolio owner" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="unassigned">Unassigned</SelectItem>
+                            {portfolioStaff
+                              .filter((staff) => ["account_manager", "marketer"].includes(staff.primary_role))
+                              .map((staff) => (
+                                <SelectItem key={staff.user_id} value={staff.user_id}>
+                                  {staff.full_name} · {getRoleLabel(staff.primary_role)}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                        <Button type="button" size="sm" variant="outline" onClick={handleSavePortfolio} disabled={assigningPortfolio}>
+                          {assigningPortfolio ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
+                          Save Portfolio Owner
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                  {canRepairAccess && (
+                    <>
+                      <Separator />
+                      <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-medium text-foreground">Admin access</p>
+                            <p className="text-xs text-muted-foreground">
+                              Repair the linked admin account and resend fresh login details.
+                            </p>
+                          </div>
+                          <Button type="button" variant="outline" size="sm" onClick={generatePassword}>
+                            Generate Password
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Admin Email</Label>
+                            <Input
+                              type="email"
+                              value={adminAccess.adminEmail}
+                              onChange={(e) => setAdminAccess((prev) => ({ ...prev, adminEmail: e.target.value }))}
+                              placeholder="admin@school.com"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Temporary Password</Label>
+                            <Input
+                              value={adminAccess.adminPassword}
+                              onChange={(e) => setAdminAccess((prev) => ({ ...prev, adminPassword: e.target.value }))}
+                              placeholder="Set a temporary password"
+                            />
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={handleRepairAndResendAdmin}
+                          disabled={repairingAdmin}
+                          className="gap-1.5"
+                        >
+                          {repairingAdmin ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Shield className="w-3.5 h-3.5" />}
+                          Repair & Resend Admin Access
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </div>
               )}
-            </div>
-          )}
+            </TabsContent>
+
+            <TabsContent value="subscription" className="pt-4">
+              <SchoolSubscriptionView school={school} />
+            </TabsContent>
+
+            <TabsContent value="communication" className="pt-4">
+              <SchoolCommunicationView school={school} />
+            </TabsContent>
+          </Tabs>
         </div>
 
         <DialogFooter className="flex-col sm:flex-row gap-2">
