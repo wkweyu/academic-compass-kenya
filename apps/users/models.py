@@ -13,7 +13,7 @@ class User(AbstractUser):
     phone = models.CharField(max_length=15, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    role = models.CharField(max_length=20, default='staff')
+    role = models.CharField(max_length=50, default='staff')
     
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username', 'first_name', 'last_name']
