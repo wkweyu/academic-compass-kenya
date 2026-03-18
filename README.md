@@ -51,6 +51,10 @@ A comprehensive web application for managing CBC (Competency-Based Curriculum) s
 - **Import/Export**: django-import-export
 - **Image Processing**: Pillow
 
+## Production Deployment
+
+- Render deployment guide: [RENDER_DEPLOYMENT.md](RENDER_DEPLOYMENT.md)
+
 ## Installation & Setup
 
 ### Prerequisites

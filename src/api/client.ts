@@ -3,7 +3,7 @@ import { parseError, StandardError, ErrorCategory, ErrorSeverity } from '@/utils
 
 function resolveApiBaseUrl() {
   if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
+    return import.meta.env.VITE_API_URL.replace(/\/?$/, '').replace(/\/api$/, '') + '/api';
   }
 
   if (typeof window === 'undefined') {

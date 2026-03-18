@@ -577,12 +577,6 @@ export const saasService = {
     if (error) throw error;
   },
 
-  async listPlatformStaff(): Promise<PlatformStaffMember[]> {
-    const { data, error } = await supabase.rpc("list_platform_staff");
-    if (error) throw error;
-    return (data || []) as PlatformStaffMember[];
-  },
-
   async assignSchoolPortfolio(schoolId: number, ownerUserId: string | null, notes = "") {
     const { error } = await supabase.rpc("assign_school_portfolio", {
       p_school_id: schoolId,
