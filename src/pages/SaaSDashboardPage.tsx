@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { PlatformAccessProfile, PlatformStaffMember, saasService, SaaSSchool } from "@/services/saasService";
+import { PlatformAccessProfile, PlatformStaffMember, SaasCommunication, SaasTierFeature, saasService, SaaSSchool } from "@/services/saasService";
 import { useAuth } from "@/hooks/useAuth";
 import {
   Building2, Users, GraduationCap, Plus, Power, PowerOff,
@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { AdminCommunicationHub } from "@/components/communication/AdminCommunicationHub";
 import { toast } from "sonner";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -43,6 +44,47 @@ const formatSchoolName = (name: string) => {
     .split(/\s+/)
     .map((word) => (word ? word[0].toUpperCase() + word.slice(1).toLowerCase() : ""))
     .join(" ");
+};
+
+const formatCommunicationStatus = (status?: string | null) => {
+  switch ((status || "").toLowerCase()) {
+    case "sent":
+      return "Sent";
+    case "failed":
+      return "Failed";
+    case "pending":
+      return "Pending";
+    default:
+      return status || "Unknown";
+  }
+};
+
+const communicationBadgeVariant = (status?: string | null): "default" | "destructive" | "secondary" | "outline" => {
+  switch ((status || "").toLowerCase()) {
+    case "sent":
+      return "secondary";
+    case "failed":
+      return "destructive";
+    case "pending":
+      return "outline";
+    default:
+      return "outline";
+  }
+};
+
+const formatCommunicationCategory = (category?: string | null) => {
+  if (!category) return "General";
+  return category
+    .split("_")
+    .map((token) => token.charAt(0).toUpperCase() + token.slice(1))
+    .join(" ");
+};
+
+const summarizeCommunicationContent = (content?: string | null) => {
+  if (!content) return "—";
+  const compact = content.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  if (!compact) return "—";
+  return compact.length > 120 ? `${compact.slice(0, 117)}...` : compact;
 };
 
 const ACCESS_RULES: Record<string, { allowed: string[]; blocked: string[] }> = {
@@ -94,6 +136,89 @@ const ACCESS_RULES: Record<string, { allowed: string[]; blocked: string[] }> = {
 };
 
 const getRoleLabel = (role?: string | null) => ROLE_LABELS[role || ""] || "Console User";
+
+const CommunicationDetailDialog = ({
+  communication,
+  schoolName,
+  open,
+  onOpenChange,
+}: {
+  communication: SaasCommunication | null;
+  schoolName?: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) => {
+  if (!communication) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <Mail className="w-4 h-4 text-primary" /> Email Details
+          </DialogTitle>
+          <DialogDescription>
+            Review the tracked email details and delivery outcome.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 text-sm">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-lg border bg-muted/20 p-3">
+              <p className="text-xs text-muted-foreground">School</p>
+              <p className="font-medium text-foreground">{schoolName || "Platform-wide"}</p>
+            </div>
+            <div className="rounded-lg border bg-muted/20 p-3">
+              <p className="text-xs text-muted-foreground">Recipient</p>
+              <p className="font-medium text-foreground break-all">{communication.recipient_email || "—"}</p>
+            </div>
+            <div className="rounded-lg border bg-muted/20 p-3">
+              <p className="text-xs text-muted-foreground">Status</p>
+              <Badge variant={communicationBadgeVariant(communication.status)} className="mt-1">
+                {formatCommunicationStatus(communication.status)}
+              </Badge>
+            </div>
+            <div className="rounded-lg border bg-muted/20 p-3">
+              <p className="text-xs text-muted-foreground">Category</p>
+              <p className="font-medium text-foreground">{formatCommunicationCategory(communication.category)}</p>
+            </div>
+            <div className="rounded-lg border bg-muted/20 p-3">
+              <p className="text-xs text-muted-foreground">Created</p>
+              <p className="font-medium text-foreground">{new Date(communication.created_at).toLocaleString()}</p>
+            </div>
+            <div className="rounded-lg border bg-muted/20 p-3">
+              <p className="text-xs text-muted-foreground">Sent</p>
+              <p className="font-medium text-foreground">{communication.sent_at ? new Date(communication.sent_at).toLocaleString() : "Not yet marked as sent"}</p>
+            </div>
+          </div>
+
+          <div className="rounded-lg border p-3">
+            <p className="text-xs text-muted-foreground">Subject</p>
+            <p className="mt-1 font-medium text-foreground">{communication.subject || "No subject"}</p>
+          </div>
+
+          <div className="rounded-lg border p-3">
+            <p className="text-xs text-muted-foreground">Tracked content</p>
+            <ScrollArea className="mt-2 max-h-60 rounded border bg-muted/10 p-3">
+              <pre className="whitespace-pre-wrap break-words font-sans text-sm text-foreground">
+                {communication.content || "No content stored"}
+              </pre>
+            </ScrollArea>
+          </div>
+
+          {communication.error_message && (
+            <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-3">
+              <p className="text-xs text-destructive">Error message</p>
+              <pre className="mt-2 whitespace-pre-wrap break-words font-sans text-sm text-destructive">
+                {communication.error_message}
+              </pre>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 /* ─────────── Subscription Management Tab ─────────── */
 const SchoolSubscriptionView = ({ school, tiers = [] }: { school: SaaSSchool, tiers?: SaasTierFeature[] }) => {
@@ -375,14 +500,18 @@ const SchoolCommunicationView = ({ school }: { school: SaaSSchool }) => {
     queryKey: ["saas-communications", school.id],
     queryFn: () => saasService.getCommunications(school.id),
   });
+  const [selectedCommunication, setSelectedCommunication] = useState<SaasCommunication | null>(null);
 
   return (
     <div className="space-y-4">
-       <div className="flex justify-between items-center">
-         <h4 className="text-sm font-semibold">Communication History</h4>
-         <Button size="sm" variant="outline" className="gap-1.5 h-8">
-           <Send className="w-3.5 h-3.5" /> Send Message
-         </Button>
+       <div className="flex justify-between items-center gap-3">
+         <div>
+           <h4 className="text-sm font-semibold">Communication History</h4>
+           <p className="text-xs text-muted-foreground">Track onboarding, billing, and support emails for this school.</p>
+         </div>
+         <Badge variant="outline" className="text-xs">
+           {logs?.length || 0} tracked
+         </Badge>
        </div>
 
        <div className="border rounded-md">
@@ -395,23 +524,35 @@ const SchoolCommunicationView = ({ school }: { school: SaaSSchool }) => {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[150px]">Date</TableHead>
+                  <TableHead className="w-[190px]">Recipient</TableHead>
                   <TableHead>Subject</TableHead>
-                  <TableHead className="w-[100px]">Type</TableHead>
+                  <TableHead className="w-[100px]">Category</TableHead>
                   <TableHead className="w-[100px]">Status</TableHead>
+                  <TableHead className="w-[80px] text-right">View</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {logs.map((log) => (
                   <TableRow key={log.id} className="text-xs">
                     <TableCell className="text-muted-foreground">
-                      {new Date(log.created_at).toLocaleDateString()}
+                      <div>{new Date(log.created_at).toLocaleDateString()}</div>
+                      <div className="text-[11px]">{new Date(log.created_at).toLocaleTimeString()}</div>
                     </TableCell>
-                    <TableCell className="font-medium text-foreground">{log.subject}</TableCell>
-                    <TableCell className="capitalize">{log.type}</TableCell>
+                    <TableCell className="text-foreground">{log.recipient_email || "—"}</TableCell>
                     <TableCell>
-                      <Badge variant={log.status === 'sent' ? 'secondary' : 'outline'} className="scale-90">
-                        {log.status}
+                      <div className="font-medium text-foreground">{log.subject || "No subject"}</div>
+                      <div className="text-[11px] text-muted-foreground">{summarizeCommunicationContent(log.content)}</div>
+                    </TableCell>
+                    <TableCell className="capitalize">{formatCommunicationCategory(log.category)}</TableCell>
+                    <TableCell>
+                      <Badge variant={communicationBadgeVariant(log.status)} className="scale-90">
+                        {formatCommunicationStatus(log.status)}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedCommunication(log)}>
+                        <Eye className="w-3.5 h-3.5" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -419,7 +560,171 @@ const SchoolCommunicationView = ({ school }: { school: SaaSSchool }) => {
             </Table>
          )}
        </div>
+
+      <CommunicationDetailDialog
+        communication={selectedCommunication}
+        schoolName={formatSchoolName(school.name)}
+        open={!!selectedCommunication}
+        onOpenChange={(open) => {
+          if (!open) setSelectedCommunication(null);
+        }}
+      />
     </div>
+  );
+};
+
+const PlatformEmailTracker = ({ schools }: { schools: SaaSSchool[] }) => {
+  const { data: communications = [], isLoading } = useQuery({
+    queryKey: ["saas-communications", "all"],
+    queryFn: () => saasService.getCommunications(),
+  });
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [selectedCommunication, setSelectedCommunication] = useState<SaasCommunication | null>(null);
+
+  const schoolNames = new Map(schools.map((school) => [school.id, formatSchoolName(school.name)]));
+
+  const filteredCommunications = communications.filter((communication) => {
+    const schoolName = communication.school_id ? schoolNames.get(communication.school_id) || "" : "";
+    const haystack = [
+      schoolName,
+      communication.recipient_email || "",
+      communication.subject || "",
+      communication.content || "",
+      communication.error_message || "",
+    ].join(" ").toLowerCase();
+
+    const matchesSearch = haystack.includes(search.toLowerCase());
+    const matchesStatus = statusFilter === "all" || (communication.status || "").toLowerCase() === statusFilter;
+    const matchesCategory = categoryFilter === "all" || (communication.category || "").toLowerCase() === categoryFilter;
+    return matchesSearch && matchesStatus && matchesCategory;
+  });
+
+  const sentCount = communications.filter((item) => item.status === "sent").length;
+  const pendingCount = communications.filter((item) => item.status === "pending").length;
+  const failedCount = communications.filter((item) => item.status === "failed").length;
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+          <Mail className="w-4 h-4 text-primary" /> SaaS Email Tracking
+        </CardTitle>
+        <CardDescription className="text-xs">
+          Review all platform email activity, delivery outcomes, and stored details.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-lg border bg-emerald-50/60 p-3 dark:bg-emerald-950/30">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Sent</p>
+            <p className="text-2xl font-bold text-foreground">{sentCount}</p>
+          </div>
+          <div className="rounded-lg border bg-amber-50/60 p-3 dark:bg-amber-950/30">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Pending</p>
+            <p className="text-2xl font-bold text-foreground">{pendingCount}</p>
+          </div>
+          <div className="rounded-lg border bg-destructive/5 p-3">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Failed</p>
+            <p className="text-2xl font-bold text-foreground">{failedCount}</p>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3 lg:flex-row">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search recipient, school, subject, or error..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full lg:w-40 text-xs">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="sent">Sent</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="failed">Failed</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-full lg:w-40 text-xs">
+              <SelectValue placeholder="Category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All categories</SelectItem>
+              <SelectItem value="billing">Billing</SelectItem>
+              <SelectItem value="support">Support</SelectItem>
+              <SelectItem value="update">Update</SelectItem>
+              <SelectItem value="marketing">Marketing</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="rounded-md border">
+          {isLoading ? (
+            <div className="py-12 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+          ) : filteredCommunications.length === 0 ? (
+            <div className="py-12 text-center text-muted-foreground text-sm">No tracked emails match the current filters.</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[140px]">Created</TableHead>
+                  <TableHead className="w-[180px]">School</TableHead>
+                  <TableHead className="w-[220px]">Recipient</TableHead>
+                  <TableHead>Subject</TableHead>
+                  <TableHead className="w-[110px]">Status</TableHead>
+                  <TableHead className="w-[90px] text-right">View</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredCommunications.map((communication) => (
+                  <TableRow key={communication.id} className="text-xs">
+                    <TableCell className="text-muted-foreground">
+                      <div>{new Date(communication.created_at).toLocaleDateString()}</div>
+                      <div className="text-[11px]">{new Date(communication.created_at).toLocaleTimeString()}</div>
+                    </TableCell>
+                    <TableCell className="font-medium text-foreground">
+                      {communication.school_id ? schoolNames.get(communication.school_id) || `School #${communication.school_id}` : "Platform-wide"}
+                    </TableCell>
+                    <TableCell>{communication.recipient_email || "—"}</TableCell>
+                    <TableCell>
+                      <div className="font-medium text-foreground">{communication.subject || "No subject"}</div>
+                      <div className="text-[11px] text-muted-foreground">{formatCommunicationCategory(communication.category)} · {summarizeCommunicationContent(communication.content)}</div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={communicationBadgeVariant(communication.status)} className="scale-90">
+                        {formatCommunicationStatus(communication.status)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedCommunication(communication)}>
+                        <Eye className="w-3.5 h-3.5" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+
+        <CommunicationDetailDialog
+          communication={selectedCommunication}
+          schoolName={selectedCommunication?.school_id ? schoolNames.get(selectedCommunication.school_id) : "Platform-wide"}
+          open={!!selectedCommunication}
+          onOpenChange={(open) => {
+            if (!open) setSelectedCommunication(null);
+          }}
+        />
+      </CardContent>
+    </Card>
   );
 };
 
@@ -1111,6 +1416,9 @@ const SaaSDashboardPage = () => {
             <TabsTrigger value="schools" className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <Building2 className="w-3.5 h-3.5" /> Schools
             </TabsTrigger>
+            <TabsTrigger value="communications" className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <MessageSquare className="w-3.5 h-3.5" /> Communication Hub
+            </TabsTrigger>
             {canViewAuditLogs && (
               <TabsTrigger value="audit" className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                 <Activity className="w-3.5 h-3.5" /> Audit Logs
@@ -1194,6 +1502,10 @@ const SaaSDashboardPage = () => {
                 ))
               )}
             </div>
+          </TabsContent>
+
+          <TabsContent value="communications" className="mt-4">
+            <AdminCommunicationHub schools={schools} />
           </TabsContent>
 
           <TabsContent value="audit" className="mt-4">

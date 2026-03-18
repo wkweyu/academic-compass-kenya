@@ -34,6 +34,7 @@ import { useQuery } from "@tanstack/react-query";
 import { dashboardService } from "@/services/dashboardService";
 import { TermManager } from "@/utils/termManager";
 import { cn } from "@/lib/utils";
+import { SchoolCommunicationWidget } from "@/components/communication/SchoolCommunicationWidget";
 
 function StatCard({
   title,
@@ -350,6 +351,8 @@ export function DashboardModule() {
           </CardContent>
         </Card>
       </div>
+
+      <SchoolCommunicationWidget />
 
       {/* Quick Actions */}
       <div>

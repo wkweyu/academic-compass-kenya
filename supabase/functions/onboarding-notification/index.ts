@@ -93,6 +93,24 @@ function buildEmailHtml(
   `;
 }
 
+function buildTrackedEmailSummary(
+  schoolName: string,
+  schoolCode: string,
+  contactPerson: string,
+  loginUrl: string,
+  adminEmail?: string,
+) {
+  const recipientName = contactPerson || "Administrator";
+  return [
+    `Welcome email for ${schoolName}`,
+    `School code: ${schoolCode}`,
+    `Recipient name: ${recipientName}`,
+    `Recipient email: ${adminEmail || "school contact email"}`,
+    `Login URL: ${loginUrl}`,
+    "Temporary passwords are intentionally excluded from tracking logs.",
+  ].join("\n");
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -102,6 +120,7 @@ Deno.serve(async (req) => {
     console.log("onboarding-notification: request received");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const brevoApiKey = Deno.env.get("BREVO_API_KEY");
 
     // Verify auth
@@ -159,27 +178,67 @@ Deno.serve(async (req) => {
       }
     }
 
-    const results: { email_sent: boolean; email_error?: string } = { email_sent: false };
-
-    if (!brevoApiKey) {
-      results.email_error = "BREVO_API_KEY not configured";
-      return new Response(JSON.stringify(results), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    if (!email) {
-      results.email_error = "No email address provided";
-      return new Response(JSON.stringify(results), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
+    const serviceClient = createClient(supabaseUrl, serviceRoleKey);
+    const results: { email_sent: boolean; email_error?: string; communication_id?: number | null } = { email_sent: false };
     const origin = req.headers.get("origin") || req.headers.get("referer") || "https://academic-compass-kenya.lovable.app";
     const loginUrl = `${origin.replace(/\/$/, "")}/auth`;
     console.log("onboarding-notification: loginUrl =", loginUrl);
+    const subject = "Welcome to SkoolTrack Pro — Your School Login Details";
+    const trackedContent = buildTrackedEmailSummary(school_name, school_code, contact_person, loginUrl, admin_email || email);
+
+    const { data: communicationRecord, error: communicationInsertError } = await serviceClient
+      .from("saas_communications")
+      .insert({
+        school_id,
+        recipient_email: email,
+        subject,
+        content: trackedContent,
+        category: "update",
+        type: "email",
+        status: "pending",
+      })
+      .select("id")
+      .single();
+
+    if (communicationInsertError) {
+      console.error("Failed to create communication log", communicationInsertError);
+    }
+
+    results.communication_id = communicationRecord?.id ?? null;
+
+    if (!brevoApiKey) {
+      results.email_error = "BREVO_API_KEY not configured";
+    }
+
+    if (!email) {
+      results.email_error = results.email_error || "No email address provided";
+    }
+
+    if (results.email_error) {
+      if (results.communication_id) {
+        await serviceClient
+          .from("saas_communications")
+          .update({ status: "failed", error_message: results.email_error })
+          .eq("id", results.communication_id);
+      }
+
+      await serviceClient.from("onboarding_logs").insert({
+        school_id,
+        step: "notification_sent",
+        status: "failed",
+        details: {
+          ...results,
+          recipient_email: email,
+          subject,
+        },
+      });
+
+      return new Response(JSON.stringify(results), {
+        status: !email ? 400 : 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const htmlBody = buildEmailHtml(school_name, school_code, contact_person, loginUrl, admin_email, admin_password);
 
     try {
@@ -193,7 +252,7 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           sender: { name: "SkoolTrack Pro", email: "360.hector@gmail.com" },
           to: [{ email, name: contact_person || "Administrator" }],
-          subject: `Welcome to SkoolTrack Pro — Your School Login Details`,
+          subject,
           htmlContent: htmlBody,
         }),
       });
@@ -203,22 +262,43 @@ Deno.serve(async (req) => {
       console.log("onboarding-notification: Brevo response status =", brevoStatus, "body =", brevoBody);
       if (brevoRes.ok) {
         results.email_sent = true;
+        if (results.communication_id) {
+          await serviceClient
+            .from("saas_communications")
+            .update({ status: "sent", sent_at: new Date().toISOString(), error_message: null })
+            .eq("id", results.communication_id);
+        }
       } else {
         console.error("Brevo API error:", brevoBody);
         results.email_error = brevoBody;
+        if (results.communication_id) {
+          await serviceClient
+            .from("saas_communications")
+            .update({ status: "failed", error_message: brevoBody })
+            .eq("id", results.communication_id);
+        }
       }
     } catch (e: any) {
       console.error("Email send error:", e);
       results.email_error = e.message;
+      if (results.communication_id) {
+        await serviceClient
+          .from("saas_communications")
+          .update({ status: "failed", error_message: e.message })
+          .eq("id", results.communication_id);
+      }
     }
 
     // Log the onboarding notification
-    const serviceClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     await serviceClient.from("onboarding_logs").insert({
       school_id,
       step: "notification_sent",
       status: results.email_sent ? "completed" : "failed",
-      details: results,
+      details: {
+        ...results,
+        recipient_email: email,
+        subject,
+      },
     });
 
     return new Response(JSON.stringify(results), {
