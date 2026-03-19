@@ -1,9 +1,12 @@
+import uuid
+from unittest.mock import Mock, patch
+
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.schools.models import CommunicationType, LeadStage, OnboardingStep, SchoolStatus, TaskStatus
+from apps.schools.models import CommunicationType, LeadStage, OnboardingStep, School, SchoolStatus, TaskStatus
 from apps.schools.services import (
 	calculate_school_health_score,
 	change_staff_role,
@@ -16,6 +19,7 @@ from apps.schools.services import (
 	get_role_change_impact,
 	get_staff_workload,
 	identify_at_risk_schools,
+	initialize_school_onboarding,
 	log_communication,
 	preview_notification_template,
 	process_due_follow_ups,
@@ -121,6 +125,63 @@ class SchoolSaaSPhase1Tests(TestCase):
 		self.assertEqual(response.status_code, 200)
 		self.assertEqual(response.data['school']['status'], SchoolStatus.ONBOARDING)
 		self.assertEqual(response.data['onboarding_progress']['current_step'], OnboardingStep.BASIC_INFO)
+
+	def test_initialize_onboarding_for_direct_school_creation_creates_lead_progress_and_log(self):
+		school = School.objects.create(
+			name='Direct Flow Academy',
+			email='direct@example.com',
+		)
+
+		result = initialize_school_onboarding(school_id=school.id, staff_id=self.staff.id, source='saas_dashboard')
+
+		school.refresh_from_db()
+		self.assertEqual(school.status, SchoolStatus.ONBOARDING)
+		self.assertEqual(result['lead'].stage, LeadStage.WON)
+		self.assertEqual(result['onboarding_progress'].current_step, OnboardingStep.BASIC_INFO)
+		self.assertTrue(school.activity_logs.filter(action='school_onboarding_initialized').exists())
+
+	def test_initialize_onboarding_endpoint_returns_existing_school_workflow_payload(self):
+		school = School.objects.create(
+			name='API Direct Academy',
+			email='apidirect@example.com',
+		)
+
+		response = self.client.post(f'/api/schools/{school.id}/initialize-onboarding/', {'source': 'saas_dashboard'}, format='json')
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.data['school']['status'], SchoolStatus.ONBOARDING)
+		self.assertEqual(response.data['lead']['stage'], LeadStage.WON)
+		self.assertEqual(response.data['onboarding_progress']['current_step'], OnboardingStep.BASIC_INFO)
+
+	@patch('apps.users.authentication.requests.get')
+	@override_settings(SUPABASE_PROJECT_URL='https://example.supabase.co', SUPABASE_ANON_KEY='test-anon-key')
+	def test_initialize_onboarding_endpoint_accepts_supabase_bearer_token(self, mock_requests_get):
+		auth_user_id = uuid.uuid4()
+		self.staff.auth_user_id = auth_user_id
+		self.staff.save(update_fields=['auth_user_id'])
+
+		school = School.objects.create(
+			name='Bearer Direct Academy',
+			email='bearer@example.com',
+		)
+
+		mock_response = Mock()
+		mock_response.status_code = 200
+		mock_response.json.return_value = {
+			'id': str(auth_user_id),
+			'email': self.staff.email,
+		}
+		mock_requests_get.return_value = mock_response
+
+		client = APIClient()
+		client.credentials(HTTP_AUTHORIZATION='Bearer supabase-access-token')
+
+		response = client.post(f'/api/schools/{school.id}/initialize-onboarding/', {'source': 'saas_dashboard'}, format='json')
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.data['school']['status'], SchoolStatus.ONBOARDING)
+		self.assertEqual(response.data['lead']['stage'], LeadStage.WON)
+		self.assertTrue(School.objects.get(pk=school.id).activity_logs.filter(action='school_onboarding_initialized').exists())
 
 
 class SchoolSaaSPhase2Tests(TestCase):

@@ -2278,6 +2278,94 @@ def start_onboarding_for_school(*, school, staff):
 
 
 @transaction.atomic
+def initialize_school_onboarding(*, school_id, staff_id, source='direct_onboarding', priority=LeadPriority.MEDIUM):
+    staff = _get_active_user(staff_id)
+    try:
+        school = School.objects.select_for_update().get(pk=school_id)
+    except School.DoesNotExist as exc:
+        raise ValidationError({'school_id': 'School was not found.'}) from exc
+
+    lead, lead_created = Lead.objects.select_for_update().get_or_create(
+        school=school,
+        defaults={
+            'stage': LeadStage.WON,
+            'source': source,
+            'priority': priority,
+            'assigned_to': staff,
+            'created_by': staff,
+            'updated_by': staff,
+            'notes': 'Initialized from direct SaaS onboarding flow.',
+            'last_assigned_at': timezone.now(),
+            'converted_at': timezone.now(),
+            'conversion_metadata': {
+                'direct_onboarding': True,
+                'initialized_by_id': staff.id,
+            },
+        },
+    )
+
+    if not lead_created:
+        lead.stage = LeadStage.WON
+        lead.source = lead.source or source
+        lead.priority = lead.priority or priority
+        lead.assigned_to = staff
+        lead.updated_by = staff
+        lead.converted_at = lead.converted_at or timezone.now()
+        lead.last_assigned_at = timezone.now()
+        lead.conversion_metadata = _deep_merge_dict(
+            lead.conversion_metadata,
+            {
+                'direct_onboarding': True,
+                'initialized_by_id': staff.id,
+            },
+        )
+        _save_with_validation(lead)
+
+    school.status = SchoolStatus.ONBOARDING
+    school.assigned_staff = staff
+    school.converted_at = school.converted_at or timezone.now()
+    school.details = _deep_merge_dict(
+        school.details,
+        {
+            'conversion': {
+                'converted_at': school.converted_at.isoformat(),
+                'converted_by_id': staff.id,
+                'lead_id': lead.id,
+                'source': source,
+                'direct_onboarding': True,
+            }
+        },
+    )
+    _save_with_validation(school)
+
+    progress = start_onboarding_for_school(school=school, staff=staff)
+    send_notification(
+        school=school,
+        recipient=staff,
+        template_key='onboarding_started',
+        lead=lead,
+        onboarding_progress=progress,
+        variables={'schoolName': school.name, 'currentStep': progress.current_step},
+        metadata={'auto_generated': True, 'direct_onboarding': True},
+    )
+    log_activity(
+        school=school,
+        actor=staff,
+        action='school_onboarding_initialized',
+        description=f'Onboarding initialized for {school.name} from direct onboarding flow.',
+        metadata={'lead_id': lead.id, 'onboarding_progress_id': progress.id, 'source': source},
+        lead=lead,
+        onboarding_progress=progress,
+    )
+    return {
+        'school': school,
+        'lead': lead,
+        'onboarding_progress': progress,
+        'lead_created': lead_created,
+    }
+
+
+@transaction.atomic
 def convert_lead_to_school(*, lead_id, staff_id):
     staff = _get_active_user(staff_id)
     try:

@@ -22,6 +22,8 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-this-in-produc
 DEBUG = config('DEBUG', default=True, cast=bool)
 FRONTEND_URL = config('FRONTEND_URL', default='').strip()
 RENDER_EXTERNAL_HOSTNAME = config('RENDER_EXTERNAL_HOSTNAME', default='').strip()
+SUPABASE_PROJECT_URL = config('SUPABASE_URL', default=config('VITE_SUPABASE_URL', default='')).strip()
+SUPABASE_ANON_KEY = config('SUPABASE_ANON_KEY', default=config('VITE_SUPABASE_ANON_KEY', default='')).strip()
 ALLOWED_HOSTS = csv_config('ALLOWED_HOSTS', default='localhost,127.0.0.1,testserver')
 
 if RENDER_EXTERNAL_HOSTNAME and RENDER_EXTERNAL_HOSTNAME not in ALLOWED_HOSTS:
@@ -188,6 +190,7 @@ ACCOUNT_EMAIL_VERIFICATION = 'optional'
 # REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
+        'apps.users.authentication.SupabaseJWTAuthentication',
         'dj_rest_auth.jwt_auth.JWTCookieAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ],

@@ -9,6 +9,7 @@ class User(AbstractUser):
     Note: Roles are stored in Supabase user_roles table, not here
     """
     school = models.ForeignKey(School, on_delete=models.CASCADE, null=True, blank=True)
+    auth_user_id = models.UUIDField(unique=True, null=True, blank=True)
     email = models.EmailField(unique=True)
     phone = models.CharField(max_length=15, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

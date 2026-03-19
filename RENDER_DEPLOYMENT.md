@@ -12,6 +12,7 @@ The database stays on Supabase.
 - Gunicorn for the Django process
 - WhiteNoise for Django static files
 - Environment-based host, CORS, CSRF, SSL, and cookie settings
+- Backend support for `SUPABASE_URL` and `SUPABASE_ANON_KEY` so Django can authenticate Supabase sessions
 - A Render blueprint at [render.yaml](render.yaml)
 - Frontend support for `VITE_API_URL`, `VITE_SUPABASE_URL`, and `VITE_SUPABASE_ANON_KEY`
 

@@ -81,6 +81,11 @@ class LeadStageTransitionSerializer(serializers.Serializer):
     loss_reason = serializers.CharField(required=False, allow_blank=True)
 
 
+class InitializeOnboardingSerializer(serializers.Serializer):
+    source = serializers.CharField(required=False, allow_blank=True, max_length=100)
+    priority = serializers.ChoiceField(choices=Lead._meta.get_field('priority').choices, required=False)
+
+
 class SchoolTaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = SchoolTask

@@ -1603,6 +1603,17 @@ const OnboardForm = ({ onSuccess }: { onSuccess: () => void }) => {
       setResult(res);
       toast.success(`School onboarded! Code: ${res.school_code}`);
 
+      try {
+        await saasService.initializeSchoolOnboarding(res.school_id, {
+          source: "saas_dashboard",
+          priority: "MEDIUM",
+        });
+        toast.success("Onboarding workflow initialized");
+      } catch (workflowErr: any) {
+        toast.error(workflowErr?.message || "School created, but onboarding workflow initialization failed");
+        return;
+      }
+
       let adminCredentialsReady = false;
 
       if (createAdmin && form.admin_email && form.admin_password) {

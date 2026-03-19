@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/api/api";
 
 export interface SaaSSchool {
   id: number;
@@ -135,6 +136,23 @@ export interface SchoolAdminAccessPayload {
   adminPassword: string;
 }
 
+export interface InitializeSchoolOnboardingResponse {
+  school: SaaSSchool;
+  lead: {
+    id: number;
+    stage: string;
+    priority: string;
+    source: string;
+    school: number;
+  };
+  lead_created: boolean;
+  onboarding_progress: {
+    current_step: string;
+    percentage_complete: number;
+    school_id: number;
+  };
+}
+
 export const saasService = {
   async getAccessProfile(): Promise<PlatformAccessProfile | null> {
     const { data, error } = await supabase.rpc("get_platform_access_profile");
@@ -223,6 +241,17 @@ export const saasService = {
     });
     if (error) throw error;
     return data?.[0] as { school_id: number; school_code: string };
+  },
+
+  async initializeSchoolOnboarding(schoolId: number, payload?: { source?: string; priority?: string }) {
+    const response = await api.post<InitializeSchoolOnboardingResponse>(
+      `/api/schools/${schoolId}/initialize-onboarding/`,
+      {
+        source: payload?.source || "saas_dashboard",
+        priority: payload?.priority || "MEDIUM",
+      },
+    );
+    return response.data;
   },
 
   async updateSchoolStatus(schoolId: number, active: boolean) {

@@ -29,6 +29,7 @@ from .serializers import (
     FollowUpListQuerySerializer,
     FollowUpSerializer,
     FollowUpSnoozeSerializer,
+    InitializeOnboardingSerializer,
     LeadCreateSerializer,
     LeadSerializer,
     LeadStageTransitionSerializer,
@@ -65,6 +66,7 @@ from .services import (
     get_staff_workload,
     get_todays_follow_ups,
     identify_at_risk_schools,
+    initialize_school_onboarding,
     get_onboarding_progress_snapshot,
     log_communication,
     preview_notification_template,
@@ -212,6 +214,34 @@ class LeadConvertView(generics.GenericAPIView):
             {
                 'school': SchoolSerializer(school).data,
                 'onboarding_progress': get_onboarding_progress_snapshot(school_id=progress.school_id),
+            }
+        )
+
+
+class SchoolInitializeOnboardingView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = InitializeOnboardingSerializer
+
+    def post(self, request, school_id, *args, **kwargs):
+        school = get_object_or_404(School, pk=school_id)
+        _ensure_platform_staff(request)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            result = initialize_school_onboarding(
+                school_id=school_id,
+                staff_id=request.user.id,
+                source=serializer.validated_data.get('source') or 'direct_onboarding',
+                priority=serializer.validated_data.get('priority') or 'MEDIUM',
+            )
+        except DjangoValidationError as exc:
+            raise _service_error(exc)
+        return Response(
+            {
+                'school': SchoolSerializer(result['school']).data,
+                'lead': LeadSerializer(result['lead']).data,
+                'lead_created': result['lead_created'],
+                'onboarding_progress': get_onboarding_progress_snapshot(school_id=result['school'].id),
             }
         )
 
