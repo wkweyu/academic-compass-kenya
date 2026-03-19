@@ -10,9 +10,18 @@ function resolveApiBaseUrl() {
     return 'http://localhost:8000';
   }
 
-  const { origin, hostname } = window.location;
+  const { origin, hostname, protocol } = window.location;
   const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
-  return isLocalhost ? 'http://localhost:8000' : origin;
+  if (isLocalhost) {
+    return 'http://localhost:8000';
+  }
+
+  if (hostname.endsWith('.onrender.com') && hostname.includes('-web')) {
+    const apiHostname = hostname.replace(/-web(?=\.onrender\.com$)/, '-api');
+    return `${protocol}//${apiHostname}`;
+  }
+
+  return origin;
 }
 
 const API_URL = resolveApiBaseUrl();

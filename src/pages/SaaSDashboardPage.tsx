@@ -1574,6 +1574,19 @@ const OnboardForm = ({ onSuccess }: { onSuccess: () => void }) => {
   const [notificationSent, setNotificationSent] = useState(false);
   const [createAdmin, setCreateAdmin] = useState(true);
 
+  const getErrorMessage = (error: unknown, fallback: string) => {
+    if (error instanceof Error && error.message) {
+      return error.message;
+    }
+    if (typeof error === "object" && error && "message" in error) {
+      const message = (error as { message?: unknown }).message;
+      if (typeof message === "string" && message.trim()) {
+        return message;
+      }
+    }
+    return fallback;
+  };
+
   const handleEmailChange = (val: string) => {
     setForm((prev) => ({
       ...prev, email: val,
@@ -1600,17 +1613,14 @@ const OnboardForm = ({ onSuccess }: { onSuccess: () => void }) => {
     try {
       const normalizedName = formatSchoolName(form.name);
       const res = await saasService.onboardSchool({ ...form, name: normalizedName });
-      setResult(res);
-      toast.success(`School onboarded! Code: ${res.school_code}`);
 
       try {
         await saasService.initializeSchoolOnboarding(res.school_id, {
           source: "saas_dashboard",
           priority: "MEDIUM",
         });
-        toast.success("Onboarding workflow initialized");
-      } catch (workflowErr: any) {
-        toast.error(workflowErr?.message || "School created, but onboarding workflow initialization failed");
+      } catch (workflowErr: unknown) {
+        toast.error(getErrorMessage(workflowErr, "School created, but onboarding workflow initialization failed"));
         return;
       }
 
@@ -1630,15 +1640,15 @@ const OnboardForm = ({ onSuccess }: { onSuccess: () => void }) => {
           adminCredentialsReady = true;
           setNotificationSent(true);
           toast.success("School admin account created and emailed");
-        } catch (adminErr: any) {
-          toast.error(`Admin account creation failed: ${adminErr.message}`);
+        } catch (adminErr: unknown) {
+          toast.error(`Admin account creation failed: ${getErrorMessage(adminErr, "Unknown error")}`);
         }
       }
 
       if (!adminCredentialsReady) {
         try {
           await saasService.sendOnboardingNotification(
-            res.school_id, res.school_code, form.name, form.email, form.contact_person,
+            res.school_id, res.school_code, normalizedName, form.email, form.contact_person,
             undefined,
             undefined
           );
@@ -1649,9 +1659,11 @@ const OnboardForm = ({ onSuccess }: { onSuccess: () => void }) => {
         }
       }
 
+      setResult(res);
+      toast.success(`School onboarded! Code: ${res.school_code}`);
       onSuccess();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to onboard school");
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Failed to onboard school"));
     } finally {
       setSubmitting(false);
     }
