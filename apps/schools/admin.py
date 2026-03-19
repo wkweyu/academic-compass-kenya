@@ -1,5 +1,17 @@
 from django.contrib import admin
-from .models import ActivityLog, Lead, OnboardingProgress, School, SchoolHealthSnapshot, SchoolTask, UpsellOpportunity
+from .models import (
+    ActivityLog,
+    CommunicationLog,
+    FollowUp,
+    Lead,
+    NotificationRecord,
+    NotificationTemplate,
+    OnboardingProgress,
+    School,
+    SchoolHealthSnapshot,
+    SchoolTask,
+    UpsellOpportunity,
+)
 
 @admin.register(School)
 class SchoolAdmin(admin.ModelAdmin):
@@ -54,3 +66,35 @@ class UpsellOpportunityAdmin(admin.ModelAdmin):
     list_filter = ('status', 'priority')
     search_fields = ('school__name', 'school__code', 'trigger_type')
     readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(NotificationTemplate)
+class NotificationTemplateAdmin(admin.ModelAdmin):
+    list_display = ('key', 'name', 'schedule_type', 'is_active', 'updated_at')
+    list_filter = ('schedule_type', 'is_active')
+    search_fields = ('key', 'name')
+    readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(NotificationRecord)
+class NotificationRecordAdmin(admin.ModelAdmin):
+    list_display = ('template_key', 'channel', 'recipient', 'school', 'status', 'scheduled_for', 'sent_at')
+    list_filter = ('channel', 'status')
+    search_fields = ('template_key', 'subject', 'recipient__email', 'school__name', 'school__code')
+    readonly_fields = ('created_at', 'updated_at', 'sent_at', 'read_at', 'opened_at')
+
+
+@admin.register(CommunicationLog)
+class CommunicationLogAdmin(admin.ModelAdmin):
+    list_display = ('communication_type', 'direction', 'school', 'created_by', 'occurred_at', 'follow_up_required')
+    list_filter = ('communication_type', 'direction', 'follow_up_required')
+    search_fields = ('subject', 'content', 'school__name', 'school__code')
+    readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(FollowUp)
+class FollowUpAdmin(admin.ModelAdmin):
+    list_display = ('title', 'school', 'assigned_to', 'follow_up_type', 'status', 'due_at')
+    list_filter = ('follow_up_type', 'status', 'recurrence')
+    search_fields = ('title', 'description', 'school__name', 'school__code')
+    readonly_fields = ('created_at', 'updated_at', 'completed_at', 'escalated_at')

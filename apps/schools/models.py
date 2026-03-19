@@ -60,6 +60,64 @@ class OpportunityStatus(models.TextChoices):
     LOST = 'LOST', 'Lost'
 
 
+class CommunicationType(models.TextChoices):
+    EMAIL = 'EMAIL', 'Email'
+    CALL = 'CALL', 'Call'
+    MEETING = 'MEETING', 'Meeting'
+    NOTE = 'NOTE', 'Note'
+    TASK = 'TASK', 'Task'
+
+
+class CommunicationDirection(models.TextChoices):
+    OUTBOUND = 'OUTBOUND', 'Outbound'
+    INBOUND = 'INBOUND', 'Inbound'
+    INTERNAL = 'INTERNAL', 'Internal'
+
+
+class NotificationChannel(models.TextChoices):
+    IN_APP = 'IN_APP', 'In App'
+    EMAIL = 'EMAIL', 'Email'
+    SMS = 'SMS', 'SMS'
+
+
+class NotificationScheduleType(models.TextChoices):
+    IMMEDIATE = 'IMMEDIATE', 'Immediate'
+    DIGEST = 'DIGEST', 'Digest'
+    SPECIFIC_TIME = 'SPECIFIC_TIME', 'Specific Time'
+
+
+class NotificationStatus(models.TextChoices):
+    PENDING = 'PENDING', 'Pending'
+    SCHEDULED = 'SCHEDULED', 'Scheduled'
+    SENT = 'SENT', 'Sent'
+    FAILED = 'FAILED', 'Failed'
+    READ = 'READ', 'Read'
+
+
+class FollowUpType(models.TextChoices):
+    QUICK_CALL = 'QUICK_CALL', 'Quick Call'
+    DATA_REVIEW = 'DATA_REVIEW', 'Data Review'
+    RENEWAL = 'RENEWAL', 'Renewal'
+    BUSINESS_REVIEW = 'BUSINESS_REVIEW', 'Business Review'
+    REENGAGEMENT = 'REENGAGEMENT', 'Re-engagement'
+    CUSTOM = 'CUSTOM', 'Custom'
+
+
+class FollowUpRecurrence(models.TextChoices):
+    NONE = 'NONE', 'None'
+    DAILY = 'DAILY', 'Daily'
+    WEEKLY = 'WEEKLY', 'Weekly'
+    MONTHLY = 'MONTHLY', 'Monthly'
+
+
+class FollowUpStatus(models.TextChoices):
+    PENDING = 'PENDING', 'Pending'
+    SNOOZED = 'SNOOZED', 'Snoozed'
+    COMPLETE = 'COMPLETE', 'Complete'
+    OVERDUE = 'OVERDUE', 'Overdue'
+    CANCELED = 'CANCELED', 'Canceled'
+
+
 ONBOARDING_STEP_FIELD_CHOICES = [('', 'No step'), *OnboardingStep.choices]
 
 
@@ -306,3 +364,235 @@ class UpsellOpportunity(models.Model):
 
     def __str__(self):
         return f"{self.school.name} - {self.trigger_type}"
+
+
+class NotificationTemplate(models.Model):
+    key = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=255)
+    subject_template = models.CharField(max_length=255, blank=True)
+    body_template = models.TextField()
+    channels = models.JSONField(default=list, blank=True)
+    schedule_type = models.CharField(
+        max_length=20,
+        choices=NotificationScheduleType.choices,
+        default=NotificationScheduleType.IMMEDIATE,
+    )
+    variables = models.JSONField(default=list, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['key']
+
+    def __str__(self):
+        return self.name
+
+
+class FollowUp(models.Model):
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='follow_ups')
+    lead = models.ForeignKey(Lead, on_delete=models.SET_NULL, null=True, blank=True, related_name='follow_ups')
+    onboarding_progress = models.ForeignKey(
+        OnboardingProgress,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='follow_ups',
+    )
+    task = models.ForeignKey(SchoolTask, on_delete=models.SET_NULL, null=True, blank=True, related_name='follow_ups')
+    opportunity = models.ForeignKey(
+        'UpsellOpportunity',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='follow_ups',
+    )
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_follow_ups',
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_follow_ups',
+    )
+    completed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='completed_follow_ups',
+    )
+    escalated_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='escalated_follow_ups',
+    )
+    communication_log = models.ForeignKey(
+        'CommunicationLog',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='follow_ups',
+    )
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    follow_up_type = models.CharField(max_length=30, choices=FollowUpType.choices, default=FollowUpType.CUSTOM)
+    recurrence = models.CharField(max_length=20, choices=FollowUpRecurrence.choices, default=FollowUpRecurrence.NONE)
+    status = models.CharField(max_length=20, choices=FollowUpStatus.choices, default=FollowUpStatus.PENDING, db_index=True)
+    due_at = models.DateTimeField(db_index=True)
+    snoozed_until = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    escalated_at = models.DateTimeField(null=True, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['due_at', '-created_at']
+
+    def clean(self):
+        if self.lead_id and self.lead.school_id != self.school_id:
+            raise ValidationError({'lead': 'Lead must belong to the same school.'})
+        if self.onboarding_progress_id and self.onboarding_progress.school_id != self.school_id:
+            raise ValidationError({'onboarding_progress': 'Onboarding progress must belong to the same school.'})
+        if self.task_id and self.task.school_id != self.school_id:
+            raise ValidationError({'task': 'Task must belong to the same school.'})
+        if self.opportunity_id and self.opportunity.school_id != self.school_id:
+            raise ValidationError({'opportunity': 'Opportunity must belong to the same school.'})
+        if self.communication_log_id and self.communication_log.school_id != self.school_id:
+            raise ValidationError({'communication_log': 'Communication log must belong to the same school.'})
+
+    def __str__(self):
+        return self.title
+
+
+class CommunicationLog(models.Model):
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='communications')
+    lead = models.ForeignKey(Lead, on_delete=models.SET_NULL, null=True, blank=True, related_name='communications')
+    onboarding_progress = models.ForeignKey(
+        OnboardingProgress,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='communications',
+    )
+    task = models.ForeignKey(SchoolTask, on_delete=models.SET_NULL, null=True, blank=True, related_name='communications')
+    opportunity = models.ForeignKey(
+        'UpsellOpportunity',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='communications',
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_communications',
+    )
+    communication_type = models.CharField(max_length=20, choices=CommunicationType.choices, db_index=True)
+    direction = models.CharField(max_length=20, choices=CommunicationDirection.choices, default=CommunicationDirection.OUTBOUND)
+    participants = models.JSONField(default=list, blank=True)
+    subject = models.CharField(max_length=255, blank=True)
+    content = models.TextField()
+    attachments = models.JSONField(default=list, blank=True)
+    occurred_at = models.DateTimeField(db_index=True)
+    follow_up_required = models.BooleanField(default=False)
+    follow_up_due_at = models.DateTimeField(null=True, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-occurred_at', '-created_at']
+
+    def clean(self):
+        if self.lead_id and self.lead.school_id != self.school_id:
+            raise ValidationError({'lead': 'Lead must belong to the same school.'})
+        if self.onboarding_progress_id and self.onboarding_progress.school_id != self.school_id:
+            raise ValidationError({'onboarding_progress': 'Onboarding progress must belong to the same school.'})
+        if self.task_id and self.task.school_id != self.school_id:
+            raise ValidationError({'task': 'Task must belong to the same school.'})
+        if self.opportunity_id and self.opportunity.school_id != self.school_id:
+            raise ValidationError({'opportunity': 'Opportunity must belong to the same school.'})
+        if self.follow_up_required and not self.follow_up_due_at:
+            raise ValidationError({'follow_up_due_at': 'Follow-up due date is required when follow-up is needed.'})
+
+    def __str__(self):
+        return self.subject or f"{self.communication_type} - {self.school.name}"
+
+
+class NotificationRecord(models.Model):
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='notifications')
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='notifications',
+    )
+    template = models.ForeignKey(
+        NotificationTemplate,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='notifications',
+    )
+    lead = models.ForeignKey(Lead, on_delete=models.SET_NULL, null=True, blank=True, related_name='notifications')
+    onboarding_progress = models.ForeignKey(
+        OnboardingProgress,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='notifications',
+    )
+    task = models.ForeignKey(SchoolTask, on_delete=models.SET_NULL, null=True, blank=True, related_name='notifications')
+    follow_up = models.ForeignKey(FollowUp, on_delete=models.SET_NULL, null=True, blank=True, related_name='notifications')
+    opportunity = models.ForeignKey(
+        'UpsellOpportunity',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='notifications',
+    )
+    template_key = models.CharField(max_length=100, db_index=True)
+    channel = models.CharField(max_length=20, choices=NotificationChannel.choices, db_index=True)
+    subject = models.CharField(max_length=255, blank=True)
+    body = models.TextField()
+    status = models.CharField(max_length=20, choices=NotificationStatus.choices, default=NotificationStatus.PENDING, db_index=True)
+    scheduled_for = models.DateTimeField(null=True, blank=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    read_at = models.DateTimeField(null=True, blank=True)
+    opened_at = models.DateTimeField(null=True, blank=True)
+    error_message = models.TextField(blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def clean(self):
+        if self.lead_id and self.lead.school_id != self.school_id:
+            raise ValidationError({'lead': 'Lead must belong to the same school.'})
+        if self.onboarding_progress_id and self.onboarding_progress.school_id != self.school_id:
+            raise ValidationError({'onboarding_progress': 'Onboarding progress must belong to the same school.'})
+        if self.task_id and self.task.school_id != self.school_id:
+            raise ValidationError({'task': 'Task must belong to the same school.'})
+        if self.follow_up_id and self.follow_up.school_id != self.school_id:
+            raise ValidationError({'follow_up': 'Follow-up must belong to the same school.'})
+        if self.opportunity_id and self.opportunity.school_id != self.school_id:
+            raise ValidationError({'opportunity': 'Opportunity must belong to the same school.'})
+
+    def __str__(self):
+        return f"{self.template_key} - {self.channel}"

@@ -3,20 +3,28 @@ from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.schools.models import LeadStage, OnboardingStep, SchoolStatus, TaskStatus
+from apps.schools.models import CommunicationType, LeadStage, OnboardingStep, SchoolStatus, TaskStatus
 from apps.schools.services import (
 	calculate_school_health_score,
 	change_staff_role,
+	create_follow_up,
 	detect_upsell_opportunities,
 	find_available_staff,
+	get_notification_records,
 	get_school_health_overview,
+	get_todays_follow_ups,
 	get_role_change_impact,
 	get_staff_workload,
 	identify_at_risk_schools,
+	log_communication,
+	preview_notification_template,
+	process_due_follow_ups,
 	convert_lead_to_school,
 	create_lead,
 	get_onboarding_progress_snapshot,
 	process_onboarding_step,
+	send_notification,
+	snooze_follow_up,
 	transfer_school_assignment,
 	transition_lead_stage,
 	update_school_task_status,
@@ -550,3 +558,174 @@ class SchoolSaaSPhase3Tests(TestCase):
 		self.assertEqual(upsell_response.status_code, 200)
 		at_risk_response = self.client.get('/api/schools/health/at-risk/')
 		self.assertEqual(at_risk_response.status_code, 200)
+
+
+class SchoolSaaSPhase4Tests(TestCase):
+	def setUp(self):
+		self.manager = User.objects.create_user(
+			username='phase4-manager',
+			email='phase4.manager@example.com',
+			password='testpass123',
+			first_name='Phase',
+			last_name='Manager',
+			role='manager',
+		)
+		self.account_manager = User.objects.create_user(
+			username='phase4-account',
+			email='phase4.account@example.com',
+			password='testpass123',
+			first_name='Phase',
+			last_name='Account',
+			role='account_manager',
+		)
+		self.school_admin = User.objects.create_user(
+			username='phase4-school-admin',
+			email='phase4.school@example.com',
+			password='testpass123',
+			first_name='Phase',
+			last_name='School',
+			role='admin',
+		)
+		self.client = APIClient()
+		self.client.force_authenticate(user=self.manager)
+
+		lead = create_lead(
+			staff_id=self.manager.id,
+			school_name='Communication Academy',
+			assigned_to_id=self.account_manager.id,
+		)
+		self.school, self.progress = convert_lead_to_school(lead_id=lead.id, staff_id=self.account_manager.id)
+		self.school.status = SchoolStatus.ACTIVE
+		self.school.assigned_staff = self.account_manager
+		self.school.save(update_fields=['status', 'assigned_staff', 'updated_at'])
+		self.school_admin.school = self.school
+		self.school_admin.save(update_fields=['school'])
+
+	def test_communication_logging_creates_timeline_and_follow_up(self):
+		response = self.client.post(
+			'/api/schools/communications/',
+			{
+				'school_id': self.school.id,
+				'communication_type': CommunicationType.MEETING,
+				'direction': 'OUTBOUND',
+				'subject': 'Kickoff meeting',
+				'content': 'Reviewed launch agenda and next steps.',
+				'participants': [{'name': 'Principal', 'role': 'school_admin'}],
+				'follow_up_required': True,
+				'follow_up_due_at': (timezone.now() + timezone.timedelta(days=2)).isoformat(),
+				'follow_up_title': 'Send kickoff recap',
+			},
+			format='json',
+		)
+
+		self.assertEqual(response.status_code, 201)
+		self.assertEqual(response.data['communication']['subject'], 'Kickoff meeting')
+		self.assertIsNotNone(response.data['follow_up'])
+
+		list_response = self.client.get(
+			'/api/schools/communications/',
+			{'school_id': self.school.id, 'search': 'Kickoff'},
+		)
+		self.assertEqual(list_response.status_code, 200)
+		self.assertEqual(len(list_response.data), 1)
+		self.assertTrue(self.school.activity_logs.filter(action='communication_logged').exists())
+
+	def test_notification_preview_and_send_create_records(self):
+		task = self.school.tasks.first()
+		preview = preview_notification_template(
+			template_key='task_assigned',
+			variables={'taskName': task.title, 'schoolName': self.school.name},
+		)
+
+		self.assertIn(task.title, preview['subject'])
+
+		preview_response = self.client.post(
+			'/api/schools/notifications/preview/',
+			{
+				'template_key': 'task_assigned',
+				'variables': {'taskName': task.title, 'schoolName': self.school.name},
+			},
+			format='json',
+		)
+		self.assertEqual(preview_response.status_code, 200)
+
+		send_response = self.client.post(
+			'/api/schools/notifications/send/',
+			{
+				'school_id': self.school.id,
+				'recipient_id': self.account_manager.id,
+				'template_key': 'task_assigned',
+				'task_id': task.id,
+				'variables': {'taskName': task.title, 'schoolName': self.school.name},
+			},
+			format='json',
+		)
+		self.assertEqual(send_response.status_code, 201)
+		self.assertGreaterEqual(len(send_response.data), 1)
+		notifications = get_notification_records(school_id=self.school.id, recipient_id=self.account_manager.id)
+		self.assertTrue(any(item.template_key == 'task_assigned' for item in notifications))
+
+	def test_lead_stage_follow_ups_are_scheduled_for_demo_and_loss(self):
+		lead = create_lead(
+			staff_id=self.manager.id,
+			school_name='Pipeline Academy',
+			assigned_to_id=self.account_manager.id,
+		)
+
+		transition_lead_stage(lead_id=lead.id, staff_id=self.manager.id, new_stage=LeadStage.CONTACTED)
+		transition_lead_stage(lead_id=lead.id, staff_id=self.manager.id, new_stage=LeadStage.DEMO_SCHEDULED)
+		transition_lead_stage(lead_id=lead.id, staff_id=self.manager.id, new_stage=LeadStage.DEMO_COMPLETED)
+		transition_lead_stage(lead_id=lead.id, staff_id=self.manager.id, new_stage=LeadStage.NEGOTIATION)
+		transition_lead_stage(lead_id=lead.id, staff_id=self.manager.id, new_stage=LeadStage.CONTRACT_SENT)
+		transition_lead_stage(lead_id=lead.id, staff_id=self.manager.id, new_stage=LeadStage.LOST, loss_reason='No budget')
+
+		follow_ups = self.account_manager.assigned_follow_ups.filter(school=lead.school)
+		self.assertTrue(follow_ups.filter(title__icontains='demo').exists())
+		self.assertTrue(follow_ups.filter(title__icontains='Re-engage').exists())
+
+	def test_due_follow_up_processing_snooze_complete_and_today_views(self):
+		overdue_follow_up = create_follow_up(
+			school=self.school,
+			created_by=self.manager,
+			assigned_to=self.account_manager,
+			title='Overdue renewal call',
+			description='Call the school about renewal.',
+			due_at=timezone.now() - timezone.timedelta(days=4),
+		)
+		today_follow_up = create_follow_up(
+			school=self.school,
+			created_by=self.manager,
+			assigned_to=self.manager,
+			title='Today follow-up',
+			description='Review today items.',
+			due_at=timezone.now() + timezone.timedelta(hours=1),
+		)
+
+		results = process_due_follow_ups(actor_id=self.manager.id)
+
+		self.assertIn(overdue_follow_up.id, results['processed_follow_up_ids'])
+		self.assertIn(overdue_follow_up.id, results['escalated_follow_up_ids'])
+		self.assertTrue(any(item.template_key == 'follow_up_due' for item in get_notification_records(recipient_id=self.account_manager.id)))
+
+		today_items = get_todays_follow_ups(staff_id=self.manager.id)
+		self.assertTrue(any(item.id == today_follow_up.id for item in today_items))
+
+		today_response = self.client.get('/api/schools/follow-ups/today/')
+		self.assertEqual(today_response.status_code, 200)
+		self.assertEqual(len(today_response.data), 1)
+
+		snooze_response = self.client.post(
+			f'/api/schools/follow-ups/{today_follow_up.id}/snooze/',
+			{'days': 3},
+			format='json',
+		)
+		self.assertEqual(snooze_response.status_code, 200)
+
+		complete_response = self.client.post(
+			f'/api/schools/follow-ups/{today_follow_up.id}/complete/',
+			{'notes': 'Handled after review.'},
+			format='json',
+		)
+		self.assertEqual(complete_response.status_code, 200)
+		today_follow_up.refresh_from_db()
+		self.assertEqual(today_follow_up.status, 'COMPLETE')

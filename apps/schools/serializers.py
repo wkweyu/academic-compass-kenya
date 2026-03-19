@@ -1,6 +1,24 @@
 from rest_framework import serializers
 
-from .models import ActivityLog, Lead, OnboardingProgress, School, SchoolHealthSnapshot, SchoolTask, UpsellOpportunity
+from .models import (
+    ActivityLog,
+    CommunicationDirection,
+    CommunicationLog,
+    CommunicationType,
+    FollowUp,
+    FollowUpRecurrence,
+    FollowUpStatus,
+    FollowUpType,
+    Lead,
+    NotificationChannel,
+    NotificationRecord,
+    NotificationTemplate,
+    OnboardingProgress,
+    School,
+    SchoolHealthSnapshot,
+    SchoolTask,
+    UpsellOpportunity,
+)
 
 
 class SchoolSerializer(serializers.ModelSerializer):
@@ -121,6 +139,120 @@ class UpsellOpportunitySerializer(serializers.ModelSerializer):
         model = UpsellOpportunity
         fields = '__all__'
         read_only_fields = ['created_at', 'updated_at']
+
+
+class CommunicationLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CommunicationLog
+        fields = '__all__'
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class CommunicationLogCreateSerializer(serializers.Serializer):
+    school_id = serializers.IntegerField()
+    lead_id = serializers.IntegerField(required=False)
+    onboarding_progress_id = serializers.IntegerField(required=False)
+    task_id = serializers.IntegerField(required=False)
+    opportunity_id = serializers.IntegerField(required=False)
+    communication_type = serializers.ChoiceField(choices=CommunicationType.choices)
+    direction = serializers.ChoiceField(choices=CommunicationDirection.choices, required=False)
+    participants = serializers.JSONField(required=False)
+    subject = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    content = serializers.CharField()
+    attachments = serializers.JSONField(required=False)
+    occurred_at = serializers.DateTimeField(required=False)
+    follow_up_required = serializers.BooleanField(required=False, default=False)
+    follow_up_due_at = serializers.DateTimeField(required=False)
+    follow_up_title = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    follow_up_description = serializers.CharField(required=False, allow_blank=True)
+    follow_up_assigned_to_id = serializers.IntegerField(required=False)
+    metadata = serializers.JSONField(required=False)
+
+
+class NotificationTemplateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NotificationTemplate
+        fields = '__all__'
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class NotificationRecordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NotificationRecord
+        fields = '__all__'
+        read_only_fields = ['created_at', 'updated_at', 'sent_at', 'read_at', 'opened_at']
+
+
+class NotificationPreviewSerializer(serializers.Serializer):
+    template_key = serializers.CharField(max_length=100)
+    variables = serializers.JSONField(required=False)
+
+
+class NotificationSendSerializer(serializers.Serializer):
+    school_id = serializers.IntegerField()
+    recipient_id = serializers.IntegerField()
+    template_key = serializers.CharField(max_length=100)
+    channels = serializers.ListField(
+        child=serializers.ChoiceField(choices=NotificationChannel.choices),
+        required=False,
+    )
+    variables = serializers.JSONField(required=False)
+    subject_override = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    body_override = serializers.CharField(required=False, allow_blank=True)
+    schedule_for = serializers.DateTimeField(required=False)
+    lead_id = serializers.IntegerField(required=False)
+    onboarding_progress_id = serializers.IntegerField(required=False)
+    task_id = serializers.IntegerField(required=False)
+    follow_up_id = serializers.IntegerField(required=False)
+    opportunity_id = serializers.IntegerField(required=False)
+    metadata = serializers.JSONField(required=False)
+
+
+class FollowUpSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FollowUp
+        fields = '__all__'
+        read_only_fields = ['created_at', 'updated_at', 'completed_at', 'completed_by', 'escalated_at']
+
+
+class FollowUpCreateSerializer(serializers.Serializer):
+    school_id = serializers.IntegerField()
+    title = serializers.CharField(max_length=255)
+    description = serializers.CharField(required=False, allow_blank=True)
+    due_at = serializers.DateTimeField()
+    assigned_to_id = serializers.IntegerField(required=False)
+    lead_id = serializers.IntegerField(required=False)
+    onboarding_progress_id = serializers.IntegerField(required=False)
+    task_id = serializers.IntegerField(required=False)
+    communication_log_id = serializers.IntegerField(required=False)
+    opportunity_id = serializers.IntegerField(required=False)
+    follow_up_type = serializers.ChoiceField(choices=FollowUpType.choices, required=False)
+    recurrence = serializers.ChoiceField(choices=FollowUpRecurrence.choices, required=False)
+    metadata = serializers.JSONField(required=False)
+
+
+class FollowUpSnoozeSerializer(serializers.Serializer):
+    days = serializers.IntegerField(min_value=1, max_value=30)
+
+
+class FollowUpCompleteSerializer(serializers.Serializer):
+    notes = serializers.CharField(required=False, allow_blank=True)
+
+
+class NotificationListQuerySerializer(serializers.Serializer):
+    school_id = serializers.IntegerField(required=False)
+    recipient_id = serializers.IntegerField(required=False)
+    channel = serializers.ChoiceField(choices=NotificationChannel.choices, required=False)
+    status = serializers.CharField(max_length=20, required=False)
+    unread_only = serializers.BooleanField(required=False)
+
+
+class FollowUpListQuerySerializer(serializers.Serializer):
+    school_id = serializers.IntegerField(required=False)
+    assigned_to_id = serializers.IntegerField(required=False)
+    status = serializers.ChoiceField(choices=FollowUpStatus.choices, required=False)
+    due_today = serializers.BooleanField(required=False)
+    overdue = serializers.BooleanField(required=False)
 
 
 class AvailableStaffQuerySerializer(serializers.Serializer):

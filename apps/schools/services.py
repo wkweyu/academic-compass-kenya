@@ -1,6 +1,7 @@
 from copy import deepcopy
 from datetime import datetime, timedelta
 from decimal import Decimal
+import re
 
 from django.core.exceptions import ValidationError
 from django.db.models import Count, Max, Q, Sum
@@ -17,10 +18,22 @@ from apps.users.models import User
 
 from .models import (
     ActivityLog,
+    CommunicationDirection,
+    CommunicationLog,
+    CommunicationType,
+    FollowUp,
+    FollowUpRecurrence,
+    FollowUpStatus,
+    FollowUpType,
     HealthTrend,
     Lead,
     LeadPriority,
     LeadStage,
+    NotificationChannel,
+    NotificationRecord,
+    NotificationScheduleType,
+    NotificationStatus,
+    NotificationTemplate,
     OnboardingProgress,
     OnboardingStep,
     OpportunityStatus,
@@ -137,6 +150,122 @@ ROLE_CHANGE_STRATEGIES = {
 }
 
 FEATURE_MONITORING_KEYS = ('attendance', 'grading', 'billing', 'exams')
+TEMPLATE_VARIABLE_PATTERN = re.compile(r'{{\s*(?P<key>[a-zA-Z0-9_]+)\s*}}')
+
+DEFAULT_NOTIFICATION_TEMPLATES = {
+    'new_lead_assigned': {
+        'name': 'New lead assigned to you',
+        'subject_template': 'New lead assigned: {{schoolName}}',
+        'body_template': 'Hello {{staffName}}, a new lead for {{schoolName}} has been assigned to you.',
+        'channels': [NotificationChannel.IN_APP, NotificationChannel.EMAIL],
+        'variables': ['schoolName', 'staffName'],
+    },
+    'demo_scheduled': {
+        'name': 'Demo scheduled',
+        'subject_template': 'Demo scheduled for {{schoolName}}',
+        'body_template': 'The demo for {{schoolName}} is now scheduled. Follow up with the school team as planned.',
+        'channels': [NotificationChannel.IN_APP, NotificationChannel.EMAIL],
+        'variables': ['schoolName'],
+    },
+    'lead_stage_changed': {
+        'name': 'Lead stage changed',
+        'subject_template': 'Lead stage updated for {{schoolName}}',
+        'body_template': 'Lead stage for {{schoolName}} changed to {{stageName}}.',
+        'channels': [NotificationChannel.IN_APP],
+        'variables': ['schoolName', 'stageName'],
+    },
+    'lead_converted': {
+        'name': 'Lead converted to school',
+        'subject_template': '{{schoolName}} moved to onboarding',
+        'body_template': '{{schoolName}} has been converted and onboarding is now active.',
+        'channels': [NotificationChannel.IN_APP, NotificationChannel.EMAIL],
+        'variables': ['schoolName'],
+    },
+    'onboarding_started': {
+        'name': 'Onboarding started',
+        'subject_template': 'Onboarding started for {{schoolName}}',
+        'body_template': 'Onboarding has started for {{schoolName}}. Current step: {{currentStep}}.',
+        'channels': [NotificationChannel.IN_APP, NotificationChannel.EMAIL],
+        'variables': ['schoolName', 'currentStep'],
+    },
+    'onboarding_step_completed': {
+        'name': 'Onboarding step completed',
+        'subject_template': '{{stepName}} completed for {{schoolName}}',
+        'body_template': 'The {{stepName}} onboarding step for {{schoolName}} has been completed.',
+        'channels': [NotificationChannel.IN_APP],
+        'variables': ['stepName', 'schoolName'],
+    },
+    'task_assigned': {
+        'name': 'Task assigned',
+        'subject_template': 'Task assigned: {{taskName}}',
+        'body_template': 'You have been assigned the task "{{taskName}}" for {{schoolName}}.',
+        'channels': [NotificationChannel.IN_APP, NotificationChannel.EMAIL],
+        'variables': ['taskName', 'schoolName'],
+    },
+    'task_overdue': {
+        'name': 'Task overdue',
+        'subject_template': 'Overdue task: {{taskName}}',
+        'body_template': 'The task "{{taskName}}" for {{schoolName}} is overdue.',
+        'channels': [NotificationChannel.IN_APP, NotificationChannel.EMAIL],
+        'variables': ['taskName', 'schoolName'],
+    },
+    'school_health_dropped': {
+        'name': 'School health dropped',
+        'subject_template': 'Health alert for {{schoolName}}',
+        'body_template': '{{schoolName}} health score is {{healthScore}}. Review the account and follow up.',
+        'channels': [NotificationChannel.IN_APP, NotificationChannel.EMAIL],
+        'variables': ['schoolName', 'healthScore'],
+    },
+    'upsell_opportunity_detected': {
+        'name': 'Upsell opportunity detected',
+        'subject_template': 'Upsell opportunity for {{schoolName}}',
+        'body_template': 'A new upsell opportunity was detected for {{schoolName}}: {{triggerType}}.',
+        'channels': [NotificationChannel.IN_APP],
+        'variables': ['schoolName', 'triggerType'],
+    },
+    'renewal_approaching': {
+        'name': 'Renewal approaching',
+        'subject_template': 'Renewal approaching for {{schoolName}}',
+        'body_template': '{{schoolName}} renews in {{daysUntilRenewal}} days. Start the renewal conversation now.',
+        'channels': [NotificationChannel.IN_APP, NotificationChannel.EMAIL],
+        'variables': ['schoolName', 'daysUntilRenewal'],
+    },
+    'payment_failed': {
+        'name': 'Payment failed',
+        'subject_template': 'Payment issue for {{schoolName}}',
+        'body_template': 'A payment issue was detected for {{schoolName}}. Please review the billing status.',
+        'channels': [NotificationChannel.IN_APP, NotificationChannel.EMAIL],
+        'variables': ['schoolName'],
+    },
+    'staff_role_changed': {
+        'name': 'Staff role changed',
+        'subject_template': 'Your role has changed to {{newRole}}',
+        'body_template': 'Your platform role changed from {{previousRole}} to {{newRole}}.',
+        'channels': [NotificationChannel.IN_APP, NotificationChannel.EMAIL],
+        'variables': ['previousRole', 'newRole'],
+    },
+    'school_transferred': {
+        'name': 'School transferred to you',
+        'subject_template': '{{schoolName}} transferred to you',
+        'body_template': '{{schoolName}} has been transferred to your portfolio.',
+        'channels': [NotificationChannel.IN_APP, NotificationChannel.EMAIL],
+        'variables': ['schoolName'],
+    },
+    'follow_up_due': {
+        'name': 'Follow-up due',
+        'subject_template': 'Follow-up due: {{followUpTitle}}',
+        'body_template': 'Your follow-up "{{followUpTitle}}" for {{schoolName}} is due.',
+        'channels': [NotificationChannel.IN_APP, NotificationChannel.EMAIL],
+        'variables': ['followUpTitle', 'schoolName'],
+    },
+    'follow_up_escalated': {
+        'name': 'Follow-up escalated',
+        'subject_template': 'Escalated follow-up for {{schoolName}}',
+        'body_template': 'A follow-up for {{schoolName}} was escalated because it is overdue.',
+        'channels': [NotificationChannel.IN_APP, NotificationChannel.EMAIL],
+        'variables': ['schoolName'],
+    },
+}
 
 
 def _deep_merge_dict(base, updates):
@@ -531,6 +660,517 @@ def log_activity(*, school, actor=None, action, description, metadata=None, lead
     return _save_with_validation(entry)
 
 
+def _get_notification_preferences(user):
+    preferences = getattr(user, 'notification_preferences', {}) or {}
+    return {
+        'in_app_enabled': preferences.get('in_app_enabled', True),
+        'email_enabled': preferences.get('email_enabled', bool(getattr(user, 'email', ''))),
+        'sms_enabled': preferences.get('sms_enabled', False),
+        'digest_preference': preferences.get('digest_preference', NotificationScheduleType.IMMEDIATE),
+    }
+
+
+def _render_template_text(template_text, variables=None):
+    variables = variables or {}
+
+    def replace(match):
+        key = match.group('key')
+        value = variables.get(key, '')
+        return '' if value is None else str(value)
+
+    return TEMPLATE_VARIABLE_PATTERN.sub(replace, template_text or '')
+
+
+def _get_default_template_payload(template_key):
+    if template_key not in DEFAULT_NOTIFICATION_TEMPLATES:
+        raise ValidationError({'template_key': f'Unknown notification template: {template_key}.'})
+    payload = DEFAULT_NOTIFICATION_TEMPLATES[template_key]
+    return {
+        'name': payload['name'],
+        'subject_template': payload.get('subject_template', ''),
+        'body_template': payload['body_template'],
+        'channels': payload.get('channels', [NotificationChannel.IN_APP]),
+        'schedule_type': payload.get('schedule_type', NotificationScheduleType.IMMEDIATE),
+        'variables': payload.get('variables', []),
+        'metadata': payload.get('metadata', {}),
+        'is_active': True,
+    }
+
+
+def ensure_notification_template(*, template_key):
+    defaults = _get_default_template_payload(template_key)
+    template, _created = NotificationTemplate.objects.get_or_create(key=template_key, defaults=defaults)
+    return template
+
+
+def ensure_default_notification_templates():
+    return [ensure_notification_template(template_key=template_key) for template_key in DEFAULT_NOTIFICATION_TEMPLATES]
+
+
+def preview_notification_template(*, template_key, variables=None):
+    template = ensure_notification_template(template_key=template_key)
+    variables = variables or {}
+    return {
+        'template_key': template.key,
+        'name': template.name,
+        'subject': _render_template_text(template.subject_template, variables),
+        'body': _render_template_text(template.body_template, variables),
+        'channels': template.channels,
+        'schedule_type': template.schedule_type,
+    }
+
+
+def _resolve_notification_schedule(*, template, recipient, schedule_for=None):
+    if schedule_for:
+        return schedule_for
+    preferences = _get_notification_preferences(recipient)
+    schedule_type = template.schedule_type
+    if preferences['digest_preference'] == NotificationScheduleType.DIGEST:
+        schedule_type = NotificationScheduleType.DIGEST
+    if schedule_type == NotificationScheduleType.DIGEST:
+        digest_time = timezone.now() + timedelta(days=1)
+        return digest_time.replace(hour=8, minute=0, second=0, microsecond=0)
+    return timezone.now()
+
+
+def _is_channel_enabled_for_user(*, user, channel):
+    preferences = _get_notification_preferences(user)
+    if channel == NotificationChannel.IN_APP:
+        return preferences['in_app_enabled']
+    if channel == NotificationChannel.EMAIL:
+        return preferences['email_enabled'] and bool(getattr(user, 'email', ''))
+    if channel == NotificationChannel.SMS:
+        return preferences['sms_enabled'] and bool(getattr(user, 'phone', ''))
+    return False
+
+
+@transaction.atomic
+def send_notification(
+    *,
+    school,
+    recipient,
+    template_key,
+    variables=None,
+    channels=None,
+    subject_override='',
+    body_override='',
+    schedule_for=None,
+    lead=None,
+    onboarding_progress=None,
+    task=None,
+    follow_up=None,
+    opportunity=None,
+    metadata=None,
+):
+    _validate_school_scope(
+        school=school,
+        lead=lead,
+        onboarding_progress=onboarding_progress,
+        task=task,
+    )
+    if follow_up is not None and follow_up.school_id != school.id:
+        raise ValidationError({'follow_up': 'Follow-up must belong to the same school.'})
+    if opportunity is not None and opportunity.school_id != school.id:
+        raise ValidationError({'opportunity': 'Opportunity must belong to the same school.'})
+
+    template = ensure_notification_template(template_key=template_key)
+    if not template.is_active:
+        raise ValidationError({'template_key': 'Notification template is inactive.'})
+
+    variables = variables or {}
+    subject = subject_override if subject_override else _render_template_text(template.subject_template, variables)
+    body = body_override if body_override else _render_template_text(template.body_template, variables)
+    selected_channels = channels or template.channels or [NotificationChannel.IN_APP]
+    selected_channels = [str(channel) for channel in selected_channels]
+    created_notifications = []
+    scheduled_for_value = _resolve_notification_schedule(template=template, recipient=recipient, schedule_for=schedule_for)
+
+    for channel in selected_channels:
+        if not _is_channel_enabled_for_user(user=recipient, channel=channel):
+            continue
+        status = NotificationStatus.SENT if scheduled_for_value <= timezone.now() else NotificationStatus.SCHEDULED
+        notification = NotificationRecord(
+            school=school,
+            recipient=recipient,
+            template=template,
+            template_key=template_key,
+            channel=channel,
+            subject=subject,
+            body=body,
+            status=status,
+            scheduled_for=scheduled_for_value,
+            sent_at=timezone.now() if status == NotificationStatus.SENT else None,
+            lead=lead,
+            onboarding_progress=onboarding_progress,
+            task=task,
+            follow_up=follow_up,
+            opportunity=opportunity,
+            metadata=metadata or {},
+        )
+        _save_with_validation(notification)
+        created_notifications.append(notification)
+
+    return created_notifications
+
+
+def _serialize_notification(notification):
+    return {
+        'id': notification.id,
+        'school_id': notification.school_id,
+        'recipient_id': notification.recipient_id,
+        'template_key': notification.template_key,
+        'channel': notification.channel,
+        'subject': notification.subject,
+        'body': notification.body,
+        'status': notification.status,
+        'scheduled_for': notification.scheduled_for,
+        'sent_at': notification.sent_at,
+        'read_at': notification.read_at,
+        'metadata': notification.metadata,
+    }
+
+
+def _serialize_follow_up(follow_up):
+    return {
+        'id': follow_up.id,
+        'school_id': follow_up.school_id,
+        'title': follow_up.title,
+        'description': follow_up.description,
+        'follow_up_type': follow_up.follow_up_type,
+        'status': follow_up.status,
+        'recurrence': follow_up.recurrence,
+        'assigned_to_id': follow_up.assigned_to_id,
+        'due_at': follow_up.due_at,
+        'snoozed_until': follow_up.snoozed_until,
+        'completed_at': follow_up.completed_at,
+        'escalated_at': follow_up.escalated_at,
+        'metadata': follow_up.metadata,
+    }
+
+
+@transaction.atomic
+def create_follow_up(
+    *,
+    school,
+    created_by,
+    title,
+    due_at,
+    description='',
+    assigned_to=None,
+    lead=None,
+    onboarding_progress=None,
+    task=None,
+    communication_log=None,
+    opportunity=None,
+    follow_up_type=FollowUpType.CUSTOM,
+    recurrence=FollowUpRecurrence.NONE,
+    metadata=None,
+):
+    _validate_school_scope(school=school, lead=lead, onboarding_progress=onboarding_progress, task=task)
+    if communication_log is not None and communication_log.school_id != school.id:
+        raise ValidationError({'communication_log': 'Communication log must belong to the same school.'})
+    if opportunity is not None and opportunity.school_id != school.id:
+        raise ValidationError({'opportunity': 'Opportunity must belong to the same school.'})
+
+    follow_up = FollowUp(
+        school=school,
+        lead=lead,
+        onboarding_progress=onboarding_progress,
+        task=task,
+        communication_log=communication_log,
+        opportunity=opportunity,
+        created_by=created_by,
+        assigned_to=assigned_to or created_by or school.assigned_staff,
+        title=title,
+        description=description,
+        follow_up_type=follow_up_type,
+        recurrence=recurrence,
+        due_at=due_at,
+        metadata=metadata or {},
+    )
+    _save_with_validation(follow_up)
+    log_activity(
+        school=school,
+        actor=created_by,
+        action='follow_up_created',
+        description=f'Follow-up "{title}" created for {school.name}.',
+        metadata={'follow_up_id': follow_up.id, 'follow_up_type': follow_up.follow_up_type},
+        lead=lead,
+        onboarding_progress=onboarding_progress,
+        task=task,
+    )
+    return follow_up
+
+
+@transaction.atomic
+def log_communication(
+    *,
+    school_id,
+    actor_id,
+    communication_type,
+    content,
+    direction=CommunicationDirection.OUTBOUND,
+    participants=None,
+    subject='',
+    attachments=None,
+    occurred_at=None,
+    follow_up_required=False,
+    follow_up_due_at=None,
+    follow_up_title='',
+    follow_up_description='',
+    follow_up_assigned_to_id=None,
+    lead_id=None,
+    onboarding_progress_id=None,
+    task_id=None,
+    opportunity_id=None,
+    metadata=None,
+):
+    actor = _get_active_user(actor_id)
+    try:
+        school = School.objects.select_for_update().get(pk=school_id)
+    except School.DoesNotExist as exc:
+        raise ValidationError({'school_id': 'School was not found.'}) from exc
+
+    lead = Lead.objects.filter(pk=lead_id).first() if lead_id else None
+    onboarding_progress = OnboardingProgress.objects.filter(pk=onboarding_progress_id).first() if onboarding_progress_id else None
+    task = SchoolTask.objects.filter(pk=task_id).first() if task_id else None
+    opportunity = UpsellOpportunity.objects.filter(pk=opportunity_id).first() if opportunity_id else None
+    _validate_school_scope(school=school, lead=lead, onboarding_progress=onboarding_progress, task=task)
+    if opportunity is not None and opportunity.school_id != school.id:
+        raise ValidationError({'opportunity_id': 'Opportunity must belong to the same school.'})
+    if follow_up_required and not follow_up_due_at:
+        raise ValidationError({'follow_up_due_at': 'Follow-up due date is required.'})
+
+    communication = CommunicationLog(
+        school=school,
+        lead=lead,
+        onboarding_progress=onboarding_progress,
+        task=task,
+        opportunity=opportunity,
+        created_by=actor,
+        communication_type=communication_type,
+        direction=direction,
+        participants=participants or [],
+        subject=subject,
+        content=content,
+        attachments=attachments or [],
+        occurred_at=occurred_at or timezone.now(),
+        follow_up_required=follow_up_required,
+        follow_up_due_at=follow_up_due_at,
+        metadata=metadata or {},
+    )
+    _save_with_validation(communication)
+
+    follow_up = None
+    if follow_up_required:
+        follow_up_assigned_to = _get_active_user(follow_up_assigned_to_id) if follow_up_assigned_to_id else (school.assigned_staff or actor)
+        follow_up = create_follow_up(
+            school=school,
+            created_by=actor,
+            title=follow_up_title or subject or 'Communication follow-up',
+            description=follow_up_description or content[:255],
+            assigned_to=follow_up_assigned_to,
+            lead=lead,
+            onboarding_progress=onboarding_progress,
+            task=task,
+            communication_log=communication,
+            opportunity=opportunity,
+            due_at=follow_up_due_at,
+            follow_up_type=FollowUpType.CUSTOM,
+            metadata={'auto_created_from_communication': True},
+        )
+
+    log_activity(
+        school=school,
+        actor=actor,
+        action='communication_logged',
+        description=f'Communication logged for {school.name}: {communication.communication_type}.',
+        metadata={'communication_id': communication.id, 'follow_up_id': follow_up.id if follow_up else None},
+        lead=lead,
+        onboarding_progress=onboarding_progress,
+        task=task,
+    )
+    return communication, follow_up
+
+
+def get_communication_timeline(*, school_id=None, actor_id=None, communication_type=None, keyword='', start_date=None, end_date=None):
+    queryset = CommunicationLog.objects.select_related('school', 'created_by', 'lead', 'onboarding_progress', 'task', 'opportunity')
+    if school_id:
+        queryset = queryset.filter(school_id=school_id)
+    if actor_id:
+        queryset = queryset.filter(created_by_id=actor_id)
+    if communication_type:
+        queryset = queryset.filter(communication_type=communication_type)
+    if keyword:
+        queryset = queryset.filter(Q(subject__icontains=keyword) | Q(content__icontains=keyword))
+    if start_date:
+        queryset = queryset.filter(occurred_at__gte=start_date)
+    if end_date:
+        queryset = queryset.filter(occurred_at__lte=end_date)
+    return list(queryset.order_by('-occurred_at', '-created_at'))
+
+
+def get_notification_records(*, school_id=None, recipient_id=None, channel=None, status=None, unread_only=False):
+    queryset = NotificationRecord.objects.select_related('school', 'recipient', 'template', 'lead', 'task', 'follow_up')
+    if school_id:
+        queryset = queryset.filter(school_id=school_id)
+    if recipient_id:
+        queryset = queryset.filter(recipient_id=recipient_id)
+    if channel:
+        queryset = queryset.filter(channel=channel)
+    if status:
+        queryset = queryset.filter(status=status)
+    if unread_only:
+        queryset = queryset.filter(read_at__isnull=True)
+    return list(queryset.order_by('-created_at'))
+
+
+def get_follow_up_list(*, school_id=None, assigned_to_id=None, status=None, due_today=False, overdue=False):
+    queryset = FollowUp.objects.select_related('school', 'assigned_to', 'lead', 'task', 'communication_log')
+    if school_id:
+        queryset = queryset.filter(school_id=school_id)
+    if assigned_to_id:
+        queryset = queryset.filter(assigned_to_id=assigned_to_id)
+    if status:
+        queryset = queryset.filter(status=status)
+    if due_today:
+        today = timezone.localdate()
+        queryset = queryset.filter(due_at__date=today)
+    if overdue:
+        queryset = queryset.exclude(status__in=[FollowUpStatus.COMPLETE, FollowUpStatus.CANCELED]).filter(due_at__lt=timezone.now())
+    return list(queryset.order_by('due_at', '-created_at'))
+
+
+@transaction.atomic
+def snooze_follow_up(*, follow_up_id, actor_id, days):
+    actor = _get_active_user(actor_id)
+    try:
+        follow_up = FollowUp.objects.select_for_update().select_related('school', 'lead', 'onboarding_progress', 'task').get(pk=follow_up_id)
+    except FollowUp.DoesNotExist as exc:
+        raise ValidationError({'follow_up_id': 'Follow-up was not found.'}) from exc
+
+    new_due_at = max(follow_up.due_at, timezone.now()) + timedelta(days=days)
+    follow_up.due_at = new_due_at
+    follow_up.snoozed_until = new_due_at
+    follow_up.status = FollowUpStatus.SNOOZED
+    follow_up.metadata = _deep_merge_dict(follow_up.metadata, {'last_snoozed_by_id': actor.id, 'last_snooze_days': days})
+    _save_with_validation(follow_up)
+    log_activity(
+        school=follow_up.school,
+        actor=actor,
+        action='follow_up_snoozed',
+        description=f'Follow-up "{follow_up.title}" snoozed by {days} day(s).',
+        metadata={'follow_up_id': follow_up.id, 'days': days},
+        lead=follow_up.lead,
+        onboarding_progress=follow_up.onboarding_progress,
+        task=follow_up.task,
+    )
+    return follow_up
+
+
+@transaction.atomic
+def complete_follow_up(*, follow_up_id, actor_id, notes=''):
+    actor = _get_active_user(actor_id)
+    try:
+        follow_up = FollowUp.objects.select_for_update().select_related('school', 'lead', 'onboarding_progress', 'task').get(pk=follow_up_id)
+    except FollowUp.DoesNotExist as exc:
+        raise ValidationError({'follow_up_id': 'Follow-up was not found.'}) from exc
+
+    follow_up.status = FollowUpStatus.COMPLETE
+    follow_up.completed_at = timezone.now()
+    follow_up.completed_by = actor
+    if notes:
+        follow_up.metadata = _deep_merge_dict(follow_up.metadata, {'completion_notes': notes})
+    _save_with_validation(follow_up)
+    log_activity(
+        school=follow_up.school,
+        actor=actor,
+        action='follow_up_completed',
+        description=f'Follow-up "{follow_up.title}" marked complete.',
+        metadata={'follow_up_id': follow_up.id, 'notes': notes},
+        lead=follow_up.lead,
+        onboarding_progress=follow_up.onboarding_progress,
+        task=follow_up.task,
+    )
+    return follow_up
+
+
+def get_todays_follow_ups(*, staff_id):
+    return get_follow_up_list(assigned_to_id=staff_id, due_today=True)
+
+
+@transaction.atomic
+def process_due_follow_ups(*, actor_id=None):
+    actor = _get_active_user(actor_id) if actor_id else None
+    now = timezone.now()
+    processed_ids = []
+    escalated_ids = []
+
+    due_follow_ups = FollowUp.objects.select_for_update().select_related('school', 'assigned_to', 'lead', 'onboarding_progress', 'task').exclude(
+        status__in=[FollowUpStatus.COMPLETE, FollowUpStatus.CANCELED]
+    ).filter(due_at__lte=now)
+
+    for follow_up in due_follow_ups:
+        if follow_up.status != FollowUpStatus.COMPLETE:
+            follow_up.status = FollowUpStatus.OVERDUE if follow_up.due_at < now else FollowUpStatus.PENDING
+            _save_with_validation(follow_up)
+
+        existing_due_notification = NotificationRecord.objects.filter(
+            follow_up=follow_up,
+            template_key='follow_up_due',
+        ).exclude(status=NotificationStatus.FAILED).exists()
+        if follow_up.assigned_to and not existing_due_notification:
+            send_notification(
+                school=follow_up.school,
+                recipient=follow_up.assigned_to,
+                template_key='follow_up_due',
+                follow_up=follow_up,
+                lead=follow_up.lead,
+                onboarding_progress=follow_up.onboarding_progress,
+                task=follow_up.task,
+                variables={
+                    'followUpTitle': follow_up.title,
+                    'schoolName': follow_up.school.name,
+                },
+                metadata={'automated': True},
+            )
+        processed_ids.append(follow_up.id)
+
+        if follow_up.due_at <= now - timedelta(days=3) and not follow_up.escalated_at:
+            manager = User.objects.filter(is_active=True, school__isnull=True).filter(Q(is_staff=True) | Q(is_superuser=True) | Q(role__iexact='manager')).order_by('id').first()
+            if manager:
+                follow_up.escalated_at = now
+                follow_up.escalated_to = manager
+                _save_with_validation(follow_up)
+                send_notification(
+                    school=follow_up.school,
+                    recipient=manager,
+                    template_key='follow_up_escalated',
+                    follow_up=follow_up,
+                    lead=follow_up.lead,
+                    onboarding_progress=follow_up.onboarding_progress,
+                    task=follow_up.task,
+                    variables={'schoolName': follow_up.school.name},
+                    metadata={'automated': True, 'escalated_follow_up_id': follow_up.id},
+                )
+                escalated_ids.append(follow_up.id)
+                log_activity(
+                    school=follow_up.school,
+                    actor=actor,
+                    action='follow_up_escalated',
+                    description=f'Follow-up "{follow_up.title}" escalated to manager.',
+                    metadata={'follow_up_id': follow_up.id, 'manager_id': manager.id},
+                    lead=follow_up.lead,
+                    onboarding_progress=follow_up.onboarding_progress,
+                    task=follow_up.task,
+                )
+
+    return {
+        'processed_follow_up_ids': processed_ids,
+        'escalated_follow_up_ids': escalated_ids,
+    }
+
+
 def _calculate_health_trend(*, school):
     latest_two = list(SchoolHealthSnapshot.objects.filter(school=school).order_by('-calculated_at')[:2])
     if len(latest_two) < 2:
@@ -702,6 +1342,52 @@ def calculate_school_health_score(*, school_id, actor_id=None):
         metadata={'snapshot_id': snapshot.id, 'health_score': health_score, 'trend': trend, 'alerts': alerts},
         onboarding_progress=onboarding_progress,
     )
+    previous_snapshot = SchoolHealthSnapshot.objects.filter(school=school).exclude(pk=snapshot.id).order_by('-calculated_at').first()
+    if school.assigned_staff and (health_score < 50 or (previous_snapshot and (health_score - previous_snapshot.health_score) <= -20)):
+        send_notification(
+            school=school,
+            recipient=school.assigned_staff,
+            template_key='school_health_dropped',
+            onboarding_progress=onboarding_progress,
+            variables={'schoolName': school.name, 'healthScore': health_score},
+            metadata={'snapshot_id': snapshot.id, 'auto_generated': True},
+        )
+        create_follow_up(
+            school=school,
+            created_by=actor or school.assigned_staff,
+            assigned_to=school.assigned_staff,
+            onboarding_progress=onboarding_progress,
+            title=f'Weekly health check-in for {school.name}',
+            description='Reach out to the school and review the latest health concerns.',
+            due_at=timezone.now() + timedelta(days=7),
+            follow_up_type=FollowUpType.QUICK_CALL,
+            recurrence=FollowUpRecurrence.WEEKLY,
+            metadata={'trigger': 'low_health_score', 'snapshot_id': snapshot.id},
+        )
+    if days_until_renewal is not None and 0 <= days_until_renewal <= 30:
+        recipients = [school.assigned_staff] if school.assigned_staff else []
+        recipients.extend(_get_school_admins(school))
+        for recipient in {recipient for recipient in recipients if recipient is not None}:
+            send_notification(
+                school=school,
+                recipient=recipient,
+                template_key='renewal_approaching',
+                onboarding_progress=onboarding_progress,
+                variables={'schoolName': school.name, 'daysUntilRenewal': days_until_renewal},
+                metadata={'snapshot_id': snapshot.id, 'auto_generated': True},
+            )
+    if normalize_role(billing_details.get('payment_status')) in {'past_due', 'late', 'overdue', 'failed'}:
+        recipients = [school.assigned_staff] if school.assigned_staff else []
+        recipients.extend(_get_school_admins(school))
+        for recipient in {recipient for recipient in recipients if recipient is not None}:
+            send_notification(
+                school=school,
+                recipient=recipient,
+                template_key='payment_failed',
+                onboarding_progress=onboarding_progress,
+                variables={'schoolName': school.name},
+                metadata={'snapshot_id': snapshot.id, 'auto_generated': True},
+            )
     return snapshot
 
 
@@ -847,6 +1533,15 @@ def detect_upsell_opportunities(*, school_id, actor_id=None):
             description=f'Upsell opportunity detected: {trigger_type}.',
             metadata={'opportunity_id': opportunity.id, 'trigger_type': trigger_type},
         )
+        if school.assigned_staff:
+            send_notification(
+                school=school,
+                recipient=school.assigned_staff,
+                template_key='upsell_opportunity_detected',
+                opportunity=opportunity,
+                variables={'schoolName': school.name, 'triggerType': trigger_type},
+                metadata={'auto_generated': True, 'opportunity_id': opportunity.id},
+            )
         opportunities.append(opportunity)
         return opportunity
 
@@ -1252,6 +1947,14 @@ def transfer_school_assignment(
         },
         onboarding_progress=progress,
     )
+    send_notification(
+        school=school,
+        recipient=target_staff,
+        template_key='school_transferred',
+        onboarding_progress=progress,
+        variables={'schoolName': school.name},
+        metadata={'auto_generated': True, 'initiated_by_id': initiated_by.id},
+    )
 
     return {
         'school': school,
@@ -1407,6 +2110,16 @@ def change_staff_role(
             },
         )
 
+    notification_school = School.objects.filter(id__in=affected_school_ids).order_by('id').first() or School.objects.order_by('id').first()
+    if notification_school:
+        send_notification(
+            school=notification_school,
+            recipient=staff,
+            template_key='staff_role_changed',
+            variables={'previousRole': previous_role, 'newRole': new_role},
+            metadata={'auto_generated': True, 'initiated_by_id': initiated_by.id},
+        )
+
     return {
         'staff_id': staff.id,
         'previous_role': previous_role,
@@ -1452,6 +2165,18 @@ def create_lead(*, staff_id, school_name, school_email='', school_phone='', scho
         metadata={'priority': priority, 'source': source, 'assigned_to_id': assigned_to.id if assigned_to else None},
         lead=lead,
     )
+    if assigned_to:
+        send_notification(
+            school=school,
+            recipient=assigned_to,
+            template_key='new_lead_assigned',
+            lead=lead,
+            variables={
+                'schoolName': school.name,
+                'staffName': assigned_to.full_name or assigned_to.email,
+            },
+            metadata={'auto_generated': True},
+        )
     return lead
 
 
@@ -1482,6 +2207,20 @@ def create_school_task(*, school, created_by, title, description='', assigned_to
         onboarding_progress=onboarding_progress,
         task=task,
     )
+    if assigned_to:
+        send_notification(
+            school=school,
+            recipient=assigned_to,
+            template_key='task_assigned',
+            lead=lead,
+            onboarding_progress=onboarding_progress,
+            task=task,
+            variables={
+                'taskName': task.title,
+                'schoolName': school.name,
+            },
+            metadata={'auto_generated': True},
+        )
     if onboarding_progress:
         _sync_progress_completion(onboarding_progress)
     return task
@@ -1594,6 +2333,24 @@ def convert_lead_to_school(*, lead_id, staff_id):
         lead=lead,
         onboarding_progress=progress,
     )
+    send_notification(
+        school=school,
+        recipient=staff,
+        template_key='lead_converted',
+        lead=lead,
+        onboarding_progress=progress,
+        variables={'schoolName': school.name},
+        metadata={'auto_generated': True},
+    )
+    send_notification(
+        school=school,
+        recipient=staff,
+        template_key='onboarding_started',
+        lead=lead,
+        onboarding_progress=progress,
+        variables={'schoolName': school.name, 'currentStep': progress.current_step},
+        metadata={'auto_generated': True},
+    )
     return school, progress
 
 
@@ -1639,6 +2396,26 @@ def transition_lead_stage(*, lead_id, staff_id, new_stage, loss_reason=''):
             metadata={'from_stage': previous_stage, 'to_stage': new_stage, 'loss_reason': lead.loss_reason},
             lead=lead,
         )
+        if lead.assigned_to:
+            create_follow_up(
+                school=school,
+                created_by=staff,
+                assigned_to=lead.assigned_to,
+                lead=lead,
+                title=f'Re-engage lost lead for {school.name}',
+                description='Reconnect with the school after the loss period to explore renewed interest.',
+                due_at=timezone.now() + timedelta(days=90),
+                follow_up_type=FollowUpType.REENGAGEMENT,
+                metadata={'trigger': 'lead_lost'},
+            )
+            send_notification(
+                school=school,
+                recipient=lead.assigned_to,
+                template_key='lead_stage_changed',
+                lead=lead,
+                variables={'schoolName': school.name, 'stageName': new_stage},
+                metadata={'auto_generated': True},
+            )
         return {'lead': lead, 'school': school, 'onboarding_progress': getattr(school, 'onboarding_progress', None)}
 
     if new_stage == LeadStage.DEMO_SCHEDULED:
@@ -1651,6 +2428,39 @@ def transition_lead_stage(*, lead_id, staff_id, new_stage, loss_reason=''):
             due_at=timezone.now() + timedelta(days=1),
             lead=lead,
             metadata={'calendar_task': True, 'trigger_stage': new_stage},
+        )
+        if lead.assigned_to:
+            create_follow_up(
+                school=school,
+                created_by=staff,
+                assigned_to=lead.assigned_to,
+                lead=lead,
+                title=f'Follow up after demo for {school.name}',
+                description='Check in with the school two days after the demo.',
+                due_at=timezone.now() + timedelta(days=2),
+                follow_up_type=FollowUpType.QUICK_CALL,
+                metadata={'trigger': 'demo_scheduled'},
+            )
+            send_notification(
+                school=school,
+                recipient=lead.assigned_to,
+                template_key='demo_scheduled',
+                lead=lead,
+                variables={'schoolName': school.name},
+                metadata={'auto_generated': True},
+            )
+
+    if new_stage == LeadStage.CONTRACT_SENT and lead.assigned_to:
+        create_follow_up(
+            school=school,
+            created_by=staff,
+            assigned_to=lead.assigned_to,
+            lead=lead,
+            title=f'Proposal follow-up for {school.name}',
+            description='Follow up if there is no response to the proposal.',
+            due_at=timezone.now() + timedelta(days=5),
+            follow_up_type=FollowUpType.CUSTOM,
+            metadata={'trigger': 'contract_sent'},
         )
 
     if new_stage == LeadStage.WON:
@@ -1678,6 +2488,15 @@ def transition_lead_stage(*, lead_id, staff_id, new_stage, loss_reason=''):
         metadata={'from_stage': previous_stage, 'to_stage': new_stage},
         lead=lead,
     )
+    if lead.assigned_to:
+        send_notification(
+            school=school,
+            recipient=lead.assigned_to,
+            template_key='lead_stage_changed',
+            lead=lead,
+            variables={'schoolName': school.name, 'stageName': new_stage},
+            metadata={'auto_generated': True},
+        )
     return {'lead': lead, 'school': school, 'onboarding_progress': getattr(school, 'onboarding_progress', None)}
 
 
@@ -1742,6 +2561,39 @@ def process_onboarding_step(*, school_id, staff_id, step, step_data=None):
         metadata={'step': step, 'next_step': progress.current_step},
         onboarding_progress=progress,
     )
+    if progress.assigned_to:
+        send_notification(
+            school=school,
+            recipient=progress.assigned_to,
+            template_key='onboarding_step_completed',
+            onboarding_progress=progress,
+            variables={'stepName': step, 'schoolName': school.name},
+            metadata={'auto_generated': True},
+        )
+    if step == OnboardingStep.DATA_IMPORT:
+        create_follow_up(
+            school=school,
+            created_by=staff,
+            assigned_to=progress.assigned_to or staff,
+            onboarding_progress=progress,
+            title=f'Check data quality for {school.name}',
+            description='Review imported records and validate data quality.',
+            due_at=timezone.now() + timedelta(days=2),
+            follow_up_type=FollowUpType.DATA_REVIEW,
+            metadata={'trigger': 'data_import_completed'},
+        )
+    if step == OnboardingStep.TRAINING:
+        create_follow_up(
+            school=school,
+            created_by=staff,
+            assigned_to=progress.assigned_to or school.assigned_staff or staff,
+            onboarding_progress=progress,
+            title=f'First-week usage check for {school.name}',
+            description='Check how the school is using the platform after training.',
+            due_at=timezone.now() + timedelta(days=7),
+            follow_up_type=FollowUpType.QUICK_CALL,
+            metadata={'trigger': 'training_completed'},
+        )
     return progress
 
 

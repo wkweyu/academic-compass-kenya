@@ -1,17 +1,42 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.shortcuts import get_object_or_404
+from django.utils.dateparse import parse_datetime
 from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
-from .models import ActivityLog, Lead, OnboardingProgress, School, SchoolHealthSnapshot, SchoolTask, UpsellOpportunity
+from .models import (
+    ActivityLog,
+    CommunicationLog,
+    FollowUp,
+    Lead,
+    NotificationRecord,
+    NotificationTemplate,
+    OnboardingProgress,
+    School,
+    SchoolHealthSnapshot,
+    SchoolTask,
+    UpsellOpportunity,
+)
 from .serializers import (
     ActivityLogSerializer,
     AvailableStaffQuerySerializer,
+    CommunicationLogCreateSerializer,
+    CommunicationLogSerializer,
+    FollowUpCompleteSerializer,
+    FollowUpCreateSerializer,
+    FollowUpListQuerySerializer,
+    FollowUpSerializer,
+    FollowUpSnoozeSerializer,
     LeadCreateSerializer,
     LeadSerializer,
     LeadStageTransitionSerializer,
+    NotificationListQuerySerializer,
+    NotificationPreviewSerializer,
+    NotificationRecordSerializer,
+    NotificationSendSerializer,
+    NotificationTemplateSerializer,
     OnboardingStepProcessSerializer,
     SchoolHealthSnapshotSerializer,
     SchoolSerializer,
@@ -24,17 +49,29 @@ from .serializers import (
 from .services import (
     calculate_school_health_score,
     can_accept_assignment,
+    complete_follow_up,
     convert_lead_to_school,
     create_lead,
+    create_follow_up,
     create_school_task,
     detect_upsell_opportunities,
+    ensure_default_notification_templates,
     find_available_staff,
+    get_communication_timeline,
+    get_follow_up_list,
     get_school_health_overview,
+    get_notification_records,
     get_staff_capacity_alerts,
     get_staff_workload,
+    get_todays_follow_ups,
     identify_at_risk_schools,
     get_onboarding_progress_snapshot,
+    log_communication,
+    preview_notification_template,
+    process_due_follow_ups,
     process_onboarding_step,
+    send_notification,
+    snooze_follow_up,
     transfer_school_assignment,
     transition_lead_stage,
     update_school_task_status,
@@ -488,3 +525,273 @@ class SchoolUpsellOpportunityDetectView(generics.GenericAPIView):
         except DjangoValidationError as exc:
             raise _service_error(exc)
         return Response({'results': opportunities})
+
+
+class CommunicationLogListCreateView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        school_id = request.query_params.get('school_id')
+        if school_id:
+            school = get_object_or_404(School, pk=school_id)
+            _ensure_school_access(request, school)
+        elif not _is_platform_staff(request.user):
+            school_id = request.user.school_id
+
+        actor_id = request.query_params.get('actor_id')
+        communication_type = request.query_params.get('communication_type')
+        keyword = request.query_params.get('search', '')
+        start_date = parse_datetime(request.query_params.get('start_date')) if request.query_params.get('start_date') else None
+        end_date = parse_datetime(request.query_params.get('end_date')) if request.query_params.get('end_date') else None
+        communications = get_communication_timeline(
+            school_id=school_id,
+            actor_id=actor_id,
+            communication_type=communication_type,
+            keyword=keyword,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        return Response(CommunicationLogSerializer(communications, many=True).data)
+
+    def post(self, request, *args, **kwargs):
+        serializer = CommunicationLogCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        payload = serializer.validated_data
+        school = get_object_or_404(School, pk=payload['school_id'])
+        _ensure_school_access(request, school)
+        try:
+            communication, follow_up = log_communication(
+                school_id=school.id,
+                actor_id=request.user.id,
+                communication_type=payload['communication_type'],
+                direction=payload.get('direction', 'OUTBOUND'),
+                participants=payload.get('participants') or [],
+                subject=payload.get('subject', ''),
+                content=payload['content'],
+                attachments=payload.get('attachments') or [],
+                occurred_at=payload.get('occurred_at'),
+                follow_up_required=payload.get('follow_up_required', False),
+                follow_up_due_at=payload.get('follow_up_due_at'),
+                follow_up_title=payload.get('follow_up_title', ''),
+                follow_up_description=payload.get('follow_up_description', ''),
+                follow_up_assigned_to_id=payload.get('follow_up_assigned_to_id'),
+                lead_id=payload.get('lead_id'),
+                onboarding_progress_id=payload.get('onboarding_progress_id'),
+                task_id=payload.get('task_id'),
+                opportunity_id=payload.get('opportunity_id'),
+                metadata=payload.get('metadata') or {},
+            )
+        except DjangoValidationError as exc:
+            raise _service_error(exc)
+        return Response(
+            {
+                'communication': CommunicationLogSerializer(communication).data,
+                'follow_up': FollowUpSerializer(follow_up).data if follow_up else None,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class NotificationTemplateListView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        _ensure_platform_staff(request)
+        templates = ensure_default_notification_templates()
+        return Response(NotificationTemplateSerializer(templates, many=True).data)
+
+
+class NotificationPreviewView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = NotificationPreviewSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            preview = preview_notification_template(
+                template_key=serializer.validated_data['template_key'],
+                variables=serializer.validated_data.get('variables') or {},
+            )
+        except DjangoValidationError as exc:
+            raise _service_error(exc)
+        return Response(preview)
+
+
+class NotificationListView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = NotificationListQuerySerializer
+
+    def get(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        payload = serializer.validated_data
+        school_id = payload.get('school_id')
+        if school_id:
+            school = get_object_or_404(School, pk=school_id)
+            _ensure_school_access(request, school)
+        recipient_id = payload.get('recipient_id') if _is_platform_staff(request.user) else request.user.id
+        notifications = get_notification_records(
+            school_id=school_id,
+            recipient_id=recipient_id,
+            channel=payload.get('channel'),
+            status=payload.get('status'),
+            unread_only=payload.get('unread_only', False),
+        )
+        return Response(NotificationRecordSerializer(notifications, many=True).data)
+
+
+class NotificationSendView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = NotificationSendSerializer
+
+    def post(self, request, *args, **kwargs):
+        from apps.users.models import User
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        payload = serializer.validated_data
+        school = get_object_or_404(School, pk=payload['school_id'])
+        _ensure_school_access(request, school)
+        recipient = get_object_or_404(User, pk=payload['recipient_id'])
+        lead = get_object_or_404(Lead, pk=payload['lead_id'], school=school) if payload.get('lead_id') else None
+        onboarding_progress = get_object_or_404(OnboardingProgress, pk=payload['onboarding_progress_id'], school=school) if payload.get('onboarding_progress_id') else None
+        task = get_object_or_404(SchoolTask, pk=payload['task_id'], school=school) if payload.get('task_id') else None
+        follow_up = get_object_or_404(FollowUp, pk=payload['follow_up_id'], school=school) if payload.get('follow_up_id') else None
+        opportunity = get_object_or_404(UpsellOpportunity, pk=payload['opportunity_id'], school=school) if payload.get('opportunity_id') else None
+        try:
+            notifications = send_notification(
+                school=school,
+                recipient=recipient,
+                template_key=payload['template_key'],
+                variables=payload.get('variables') or {},
+                channels=payload.get('channels') or None,
+                subject_override=payload.get('subject_override', ''),
+                body_override=payload.get('body_override', ''),
+                schedule_for=payload.get('schedule_for'),
+                lead=lead,
+                onboarding_progress=onboarding_progress,
+                task=task,
+                follow_up=follow_up,
+                opportunity=opportunity,
+                metadata=payload.get('metadata') or {},
+            )
+        except DjangoValidationError as exc:
+            raise _service_error(exc)
+        return Response(NotificationRecordSerializer(notifications, many=True).data, status=status.HTTP_201_CREATED)
+
+
+class FollowUpListCreateView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        serializer = FollowUpListQuerySerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        payload = serializer.validated_data
+        school_id = payload.get('school_id')
+        if school_id:
+            school = get_object_or_404(School, pk=school_id)
+            _ensure_school_access(request, school)
+        elif not _is_platform_staff(request.user):
+            school_id = request.user.school_id
+        assigned_to_id = payload.get('assigned_to_id') if _is_platform_staff(request.user) else request.user.id if request.query_params.get('assigned_to_me') == 'true' else payload.get('assigned_to_id')
+        follow_ups = get_follow_up_list(
+            school_id=school_id,
+            assigned_to_id=assigned_to_id,
+            status=payload.get('status'),
+            due_today=payload.get('due_today', False),
+            overdue=payload.get('overdue', False),
+        )
+        return Response(FollowUpSerializer(follow_ups, many=True).data)
+
+    def post(self, request, *args, **kwargs):
+        from apps.users.models import User
+
+        serializer = FollowUpCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        payload = serializer.validated_data
+        school = get_object_or_404(School, pk=payload['school_id'])
+        _ensure_school_access(request, school)
+        assigned_to = get_object_or_404(User, pk=payload['assigned_to_id']) if payload.get('assigned_to_id') else None
+        lead = get_object_or_404(Lead, pk=payload['lead_id'], school=school) if payload.get('lead_id') else None
+        onboarding_progress = get_object_or_404(OnboardingProgress, pk=payload['onboarding_progress_id'], school=school) if payload.get('onboarding_progress_id') else None
+        task = get_object_or_404(SchoolTask, pk=payload['task_id'], school=school) if payload.get('task_id') else None
+        communication_log = get_object_or_404(CommunicationLog, pk=payload['communication_log_id'], school=school) if payload.get('communication_log_id') else None
+        opportunity = get_object_or_404(UpsellOpportunity, pk=payload['opportunity_id'], school=school) if payload.get('opportunity_id') else None
+        try:
+            follow_up = create_follow_up(
+                school=school,
+                created_by=request.user,
+                title=payload['title'],
+                description=payload.get('description', ''),
+                due_at=payload['due_at'],
+                assigned_to=assigned_to,
+                lead=lead,
+                onboarding_progress=onboarding_progress,
+                task=task,
+                communication_log=communication_log,
+                opportunity=opportunity,
+                follow_up_type=payload.get('follow_up_type', 'CUSTOM'),
+                recurrence=payload.get('recurrence', 'NONE'),
+                metadata=payload.get('metadata') or {},
+            )
+        except DjangoValidationError as exc:
+            raise _service_error(exc)
+        return Response(FollowUpSerializer(follow_up).data, status=status.HTTP_201_CREATED)
+
+
+class TodayFollowUpListView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        follow_ups = get_todays_follow_ups(staff_id=request.user.id)
+        visible_follow_ups = [follow_up for follow_up in follow_ups if _is_platform_staff(request.user) or follow_up.school_id == request.user.school_id]
+        return Response(FollowUpSerializer(visible_follow_ups, many=True).data)
+
+
+class FollowUpSnoozeView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = FollowUpSnoozeSerializer
+
+    def post(self, request, follow_up_id, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        follow_up = get_object_or_404(FollowUp.objects.select_related('school'), pk=follow_up_id)
+        _ensure_school_access(request, follow_up.school)
+        try:
+            updated_follow_up = snooze_follow_up(follow_up_id=follow_up_id, actor_id=request.user.id, days=serializer.validated_data['days'])
+        except DjangoValidationError as exc:
+            raise _service_error(exc)
+        return Response(FollowUpSerializer(updated_follow_up).data)
+
+
+class FollowUpCompleteView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = FollowUpCompleteSerializer
+
+    def post(self, request, follow_up_id, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        follow_up = get_object_or_404(FollowUp.objects.select_related('school'), pk=follow_up_id)
+        _ensure_school_access(request, follow_up.school)
+        try:
+            updated_follow_up = complete_follow_up(
+                follow_up_id=follow_up_id,
+                actor_id=request.user.id,
+                notes=serializer.validated_data.get('notes', ''),
+            )
+        except DjangoValidationError as exc:
+            raise _service_error(exc)
+        return Response(FollowUpSerializer(updated_follow_up).data)
+
+
+class ProcessDueFollowUpsView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        _ensure_platform_staff(request)
+        try:
+            results = process_due_follow_ups(actor_id=request.user.id)
+        except DjangoValidationError as exc:
+            raise _service_error(exc)
+        return Response(results)
