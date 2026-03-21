@@ -211,6 +211,9 @@ const StaffManagementTab = ({
                     <SelectItem value="support">Support</SelectItem>
                     <SelectItem value="account_manager">Account Manager</SelectItem>
                     <SelectItem value="marketer">Marketer</SelectItem>
+                    <SelectItem value="manager">Manager</SelectItem>
+                    <SelectItem value="finance">Finance</SelectItem>
+                    <SelectItem value="transport">Transport</SelectItem>
                   </SelectContent>
                 </Select>
                 <Input placeholder="Temporary Password (optional)" type="text" value={form.password} onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))} />
