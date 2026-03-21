@@ -1,7 +1,9 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import connection, transaction
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_datetime
 from django.utils import timezone
+import logging
 from rest_framework import generics, permissions, status
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
@@ -82,6 +84,8 @@ from .services import (
 
 PLATFORM_STAFF_ROLES = {'staff', 'sales_rep', 'onboarding_specialist', 'account_manager', 'manager'}
 
+logger = logging.getLogger(__name__)
+
 
 def _is_platform_staff(user):
     role = (getattr(user, 'role', '') or '').lower()
@@ -160,6 +164,82 @@ class SchoolCreateView(generics.CreateAPIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
+class SchoolDeleteView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, school_id, *args, **kwargs):
+        _ensure_platform_staff(request)
+        school = get_object_or_404(School, pk=school_id)
+        requester_role = (getattr(request.user, 'role', '') or '').lower()
+        if not (request.user.is_superuser or requester_role == 'platform_admin'):
+            raise PermissionDenied('Only platform administrators can delete schools.')
+
+        logger.info(
+            "Delete school request received | school_id=%s actor_id=%s",
+            school_id,
+            getattr(request.user, 'id', None),
+        )
+
+        def _table_has_column(table_name, column_name):
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT 1
+                    FROM information_schema.columns
+                    WHERE table_schema = 'public'
+                      AND table_name = %s
+                      AND column_name = %s
+                    LIMIT 1
+                    """,
+                    [table_name, column_name],
+                )
+                return cursor.fetchone() is not None
+
+        cleanup_targets = [
+            ('school_portfolio_assignments', 'school_id'),
+            ('school_settings', 'school_id'),
+            ('subscriptions', 'school_id'),
+            ('onboarding_logs', 'school_id'),
+            ('audit_logs', 'school_id'),
+            ('saas_communications', 'school_id'),
+            ('saas_invoices', 'school_id'),
+            ('schools_activitylog', 'school_id'),
+            ('schools_communicationlog', 'school_id'),
+            ('schools_followup', 'school_id'),
+            ('schools_notificationrecord', 'school_id'),
+            ('schools_schooltask', 'school_id'),
+            ('schools_onboardingprogress', 'school_id'),
+            ('schools_upsellopportunity', 'school_id'),
+            ('schools_lead', 'school_id'),
+            ('students', 'school_id'),
+            ('teachers', 'school_id'),
+            ('classes', 'school_id'),
+        ]
+
+        with transaction.atomic():
+            school_name = school.name
+            with connection.cursor() as cursor:
+                for table_name, column_name in cleanup_targets:
+                    if _table_has_column(table_name, column_name):
+                        # Use quoted table names for safety and lowercase for potential Supabase tables
+                        cursor.execute(
+                            f'DELETE FROM "{table_name}" WHERE "{column_name}" = %s',
+                            [school_id],
+                        )
+
+                cursor.execute('DELETE FROM "schools_school" WHERE "id" = %s', [school_id])
+                if cursor.rowcount == 0:
+                    raise ValidationError({'school_id': 'School was not found for deletion.'})
+
+        logger.info(
+            "Delete school completed | school_id=%s actor_id=%s school_name=%s",
+            school_id,
+            getattr(request.user, 'id', None),
+            school_name,
+        )
+        return Response({'detail': 'School deleted successfully.'}, status=status.HTTP_200_OK)
+
+
 class LeadListCreateView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -224,18 +304,47 @@ class SchoolInitializeOnboardingView(generics.GenericAPIView):
 
     def post(self, request, school_id, *args, **kwargs):
         school = get_object_or_404(School, pk=school_id)
+        # Try to use request.user.id, fallback to school.assigned_staff_id if user is not authenticated through Django
+        staff_id = getattr(request.user, 'id', None) or school.assigned_staff_id
+        
+        # In a SaaS context where Supabase handles auth, we might not have a Django user
+        # but the request should have been authorized by middleware/Supabase
+        if not staff_id:
+            # Fallback for system-initiated or when auth user isn't correctly mapped
+            from apps.users.models import User
+            # Find any active platform staff or just the first superuser
+            staff = User.objects.filter(is_active=True, is_staff=True).first()
+            staff_id = staff.id if staff else None
+
+        logger.info(
+            "API onboarding init request received | school_id=%s actor_id=%s fallback_staff_id=%s",
+            school_id,
+            getattr(request.user, 'id', None),
+            staff_id
+        )
+        
         _ensure_platform_staff(request)
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         try:
             result = initialize_school_onboarding(
                 school_id=school_id,
-                staff_id=request.user.id,
+                staff_id=staff_id,
                 source=serializer.validated_data.get('source') or 'direct_onboarding',
                 priority=serializer.validated_data.get('priority') or 'MEDIUM',
             )
         except DjangoValidationError as exc:
+            logger.exception(
+                "API onboarding init failed | school_id=%s actor_id=%s",
+                school_id,
+                getattr(request.user, 'id', None),
+            )
             raise _service_error(exc)
+        logger.info(
+            "API onboarding init completed | school_id=%s lead_created=%s",
+            school_id,
+            result.get('lead_created'),
+        )
         return Response(
             {
                 'school': SchoolSerializer(result['school']).data,

@@ -11,6 +11,17 @@ ALTER TABLE public.schools_school
   ADD COLUMN IF NOT EXISTS max_users INTEGER DEFAULT 50,
   ADD COLUMN IF NOT EXISTS contact_person TEXT DEFAULT '',
   ADD COLUMN IF NOT EXISTS contact_phone TEXT DEFAULT '';
+ALTER TABLE public.schools_school
+  ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active';
+
+ALTER TABLE public.schools_school
+  ALTER COLUMN details SET DEFAULT '{}'::jsonb,
+  ALTER COLUMN status SET DEFAULT 'active';
+ALTER TABLE public.schools_school
+  ALTER COLUMN status SET NOT NULL;
+ALTER TABLE public.schools_school
+  ALTER COLUMN created_at SET DEFAULT NOW(),
+  ALTER COLUMN updated_at SET DEFAULT NOW();
 
 -- 2. Create subscriptions table
 CREATE TABLE IF NOT EXISTS public.subscriptions (
@@ -77,46 +88,56 @@ ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.onboarding_logs ENABLE ROW LEVEL SECURITY;
 
 -- 7. RLS policies
+DROP POLICY IF EXISTS "School users can view own subscriptions" ON public.subscriptions;
 CREATE POLICY "School users can view own subscriptions"
   ON public.subscriptions FOR SELECT TO authenticated
   USING (school_id = public.get_user_school_id());
 
+DROP POLICY IF EXISTS "Platform admins can manage all subscriptions" ON public.subscriptions;
 CREATE POLICY "Platform admins can manage all subscriptions"
   ON public.subscriptions FOR ALL TO authenticated
   USING (public.has_role(auth.uid(), 'platform_admin'))
   WITH CHECK (public.has_role(auth.uid(), 'platform_admin'));
 
+DROP POLICY IF EXISTS "School users can view own settings" ON public.school_settings;
 CREATE POLICY "School users can view own settings"
   ON public.school_settings FOR SELECT TO authenticated
   USING (school_id = public.get_user_school_id());
 
+DROP POLICY IF EXISTS "School admins can update own settings" ON public.school_settings;
 CREATE POLICY "School admins can update own settings"
   ON public.school_settings FOR UPDATE TO authenticated
   USING (school_id = public.get_user_school_id() AND public.is_admin(auth.uid()));
 
+DROP POLICY IF EXISTS "Platform admins can manage all settings" ON public.school_settings;
 CREATE POLICY "Platform admins can manage all settings"
   ON public.school_settings FOR ALL TO authenticated
   USING (public.has_role(auth.uid(), 'platform_admin'))
   WITH CHECK (public.has_role(auth.uid(), 'platform_admin'));
 
+DROP POLICY IF EXISTS "School admins can view own audit logs" ON public.audit_logs;
 CREATE POLICY "School admins can view own audit logs"
   ON public.audit_logs FOR SELECT TO authenticated
   USING (school_id = public.get_user_school_id() AND public.is_admin(auth.uid()));
 
+DROP POLICY IF EXISTS "Platform admins can view all audit logs" ON public.audit_logs;
 CREATE POLICY "Platform admins can view all audit logs"
   ON public.audit_logs FOR SELECT TO authenticated
   USING (public.has_role(auth.uid(), 'platform_admin'));
 
+DROP POLICY IF EXISTS "Authenticated users can insert audit logs" ON public.audit_logs;
 CREATE POLICY "Authenticated users can insert audit logs"
   ON public.audit_logs FOR INSERT TO authenticated
   WITH CHECK (school_id = public.get_user_school_id());
 
+DROP POLICY IF EXISTS "Platform admins can manage onboarding" ON public.onboarding_logs;
 CREATE POLICY "Platform admins can manage onboarding"
   ON public.onboarding_logs FOR ALL TO authenticated
   USING (public.has_role(auth.uid(), 'platform_admin'))
   WITH CHECK (public.has_role(auth.uid(), 'platform_admin'));
 
 -- 8. Functions
+DROP FUNCTION IF EXISTS public.lookup_school_by_code(TEXT);
 CREATE OR REPLACE FUNCTION public.lookup_school_by_code(p_code TEXT)
 RETURNS TABLE(id BIGINT, name TEXT, code TEXT, logo TEXT, active BOOLEAN)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public'
@@ -129,6 +150,7 @@ AS $$
   LIMIT 1;
 $$;
 
+DROP FUNCTION IF EXISTS public.log_audit_event(TEXT, TEXT, TEXT, TEXT, JSONB, JSONB);
 CREATE OR REPLACE FUNCTION public.log_audit_event(
   p_action TEXT, p_module TEXT,
   p_entity_type TEXT DEFAULT '', p_entity_id TEXT DEFAULT '',
@@ -142,6 +164,7 @@ BEGIN
 END;
 $$;
 
+DROP FUNCTION IF EXISTS public.get_saas_analytics();
 CREATE OR REPLACE FUNCTION public.get_saas_analytics()
 RETURNS TABLE(
   total_schools BIGINT, active_schools BIGINT, inactive_schools BIGINT,
@@ -166,6 +189,7 @@ BEGIN
 END;
 $$;
 
+DROP FUNCTION IF EXISTS public.get_all_schools();
 CREATE OR REPLACE FUNCTION public.get_all_schools()
 RETURNS TABLE(
   id BIGINT, name TEXT, code TEXT, email TEXT, phone TEXT,
@@ -191,6 +215,7 @@ BEGIN
 END;
 $$;
 
+DROP FUNCTION IF EXISTS public.onboard_new_school(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT);
 CREATE OR REPLACE FUNCTION public.onboard_new_school(
   p_name TEXT, p_email TEXT, p_phone TEXT DEFAULT '', p_address TEXT DEFAULT '',
   p_city TEXT DEFAULT '', p_country TEXT DEFAULT 'Kenya', p_plan TEXT DEFAULT 'starter',
@@ -207,10 +232,12 @@ BEGIN
   INSERT INTO public.schools_school (
     name, email, phone, address, city, country,
     subscription_plan, subscription_status, subscription_start,
-    contact_person, contact_phone, active
+    contact_person, contact_phone, status, active, details,
+    created_at, updated_at
   ) VALUES (
     p_name, p_email, p_phone, p_address, p_city, p_country,
-    p_plan, 'trial', NOW(), p_contact_person, p_contact_phone, TRUE
+    p_plan, 'trial', NOW(), p_contact_person, p_contact_phone, 'active', TRUE, '{}'::jsonb,
+    NOW(), NOW()
   ) RETURNING schools_school.id, schools_school.code::TEXT INTO v_school_id, v_school_code;
   INSERT INTO public.school_settings (school_id) VALUES (v_school_id);
   INSERT INTO public.subscriptions (school_id, plan_name, status, start_date, end_date)

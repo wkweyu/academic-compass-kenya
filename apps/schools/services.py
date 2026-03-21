@@ -1,6 +1,7 @@
 from copy import deepcopy
 from datetime import datetime, timedelta
 from decimal import Decimal
+import logging
 import re
 
 from django.core.exceptions import ValidationError
@@ -44,6 +45,9 @@ from .models import (
     TaskStatus,
     UpsellOpportunity,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 ONBOARDING_STEP_SEQUENCE = [
@@ -2182,6 +2186,13 @@ def create_lead(*, staff_id, school_name, school_email='', school_phone='', scho
 
 @transaction.atomic
 def create_school_task(*, school, created_by, title, description='', assigned_to=None, due_at=None, step='', onboarding_progress=None, lead=None, is_required=True, metadata=None):
+    logger.info(
+        "Step 3: Creating school task | school_id=%s title=%s step=%s assigned_to=%s",
+        getattr(school, 'id', None),
+        title,
+        step,
+        getattr(assigned_to, 'id', None),
+    )
     _validate_school_scope(school=school, onboarding_progress=onboarding_progress, lead=lead)
     task = SchoolTask(
         school=school,
@@ -2228,6 +2239,11 @@ def create_school_task(*, school, created_by, title, description='', assigned_to
 
 @transaction.atomic
 def start_onboarding_for_school(*, school, staff):
+    logger.info(
+        "Step 2: Starting onboarding progress | school_id=%s staff_id=%s",
+        getattr(school, 'id', None),
+        getattr(staff, 'id', None),
+    )
     progress, created = OnboardingProgress.objects.select_for_update().get_or_create(
         school=school,
         defaults={
@@ -2266,6 +2282,14 @@ def start_onboarding_for_school(*, school, staff):
         created_tasks.append(task)
         existing_keys.add(task_key)
 
+    logger.info(
+        "Step 4: Onboarding progress synchronized | school_id=%s progress_id=%s created=%s task_count=%s",
+        school.id,
+        progress.id,
+        created,
+        len(created_tasks),
+    )
+
     log_activity(
         school=school,
         actor=staff,
@@ -2279,6 +2303,13 @@ def start_onboarding_for_school(*, school, staff):
 
 @transaction.atomic
 def initialize_school_onboarding(*, school_id, staff_id, source='direct_onboarding', priority=LeadPriority.MEDIUM):
+    logger.info(
+        "Step 1: Creating school record context for onboarding | school_id=%s staff_id=%s source=%s priority=%s",
+        school_id,
+        staff_id,
+        source,
+        priority,
+    )
     staff = _get_active_user(staff_id)
     try:
         school = School.objects.select_for_update().get(pk=school_id)
@@ -2321,6 +2352,13 @@ def initialize_school_onboarding(*, school_id, staff_id, source='direct_onboardi
         )
         _save_with_validation(lead)
 
+    logger.info(
+        "Step 1.1: Lead prepared for onboarding | school_id=%s lead_id=%s lead_created=%s",
+        school.id,
+        lead.id,
+        lead_created,
+    )
+
     school.status = SchoolStatus.ONBOARDING
     school.assigned_staff = staff
     school.converted_at = school.converted_at or timezone.now()
@@ -2337,6 +2375,12 @@ def initialize_school_onboarding(*, school_id, staff_id, source='direct_onboardi
         },
     )
     _save_with_validation(school)
+
+    logger.info(
+        "Step 1.2: School state updated to onboarding | school_id=%s assigned_staff_id=%s",
+        school.id,
+        staff.id,
+    )
 
     progress = start_onboarding_for_school(school=school, staff=staff)
     send_notification(
@@ -2356,6 +2400,12 @@ def initialize_school_onboarding(*, school_id, staff_id, source='direct_onboardi
         metadata={'lead_id': lead.id, 'onboarding_progress_id': progress.id, 'source': source},
         lead=lead,
         onboarding_progress=progress,
+    )
+    logger.info(
+        "Step 5: School onboarding initialized successfully | school_id=%s lead_id=%s progress_id=%s",
+        school.id,
+        lead.id,
+        progress.id,
     )
     return {
         'school': school,

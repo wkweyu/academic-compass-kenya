@@ -1,14 +1,15 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { PlatformAccessProfile, PlatformStaffMember, SaasCommunication, SaasTierFeature, saasService, SaaSSchool } from "@/services/saasService";
+import { PlatformAccessProfile, PlatformManagedUser, PlatformStaffMember, SaasCommunication, SaasTierFeature, saasService, SaaSSchool } from "@/services/saasService";
 import { useAuth } from "@/hooks/useAuth";
 import {
   Building2, Users, GraduationCap, Plus, Power, PowerOff,
   Shield, LogOut, Clock, CheckCircle, Search, Mail, Loader2,
   Pencil, Send, Eye, X, ChevronDown, Activity, BarChart3,
   Globe, Phone, MapPin, CalendarDays, TrendingUp, CreditCard,
-  FileText, History, MessageSquare, AlertTriangle, ExternalLink
+  FileText, History, MessageSquare, AlertTriangle, ExternalLink,
+  Trash2, UserCog
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -136,6 +137,154 @@ const ACCESS_RULES: Record<string, { allowed: string[]; blocked: string[] }> = {
 };
 
 const getRoleLabel = (role?: string | null) => ROLE_LABELS[role || ""] || "Console User";
+
+/* ─────────── Platform Staff Management ─────────── */
+const StaffManagementTab = ({
+  users,
+  isLoading,
+  canManagePortfolios,
+  onCreateUser,
+  onDeleteUser,
+  creating,
+  deletingUserId,
+}: {
+  users: PlatformManagedUser[];
+  isLoading: boolean;
+  canManagePortfolios: boolean;
+  onCreateUser: (payload: { email: string; first_name: string; last_name: string; role: string; password: string }) => void;
+  onDeleteUser: (userId: number) => void;
+  creating: boolean;
+  deletingUserId: number | null;
+}) => {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({
+    email: "",
+    first_name: "",
+    last_name: "",
+    role: "support",
+    password: "",
+  });
+
+  if (!canManagePortfolios) return null;
+
+  const handleCreate = () => {
+    if (!form.email || !form.role) {
+      toast.error("Email and role are required");
+      return;
+    }
+    onCreateUser(form);
+    setOpen(false);
+    setForm({ email: "", first_name: "", last_name: "", role: "support", password: "" });
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <UserCog className="w-4 h-4 text-muted-foreground" /> Platform Management
+            </CardTitle>
+            <CardDescription className="text-xs">Manage platform administrators and support staff</CardDescription>
+          </div>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-2"><Plus className="w-4 h-4" /> New User</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create Platform User</DialogTitle>
+                <DialogDescription>Add a new user and assign a role.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3">
+                <Input placeholder="Email" type="email" value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} />
+                <div className="grid grid-cols-2 gap-3">
+                  <Input placeholder="First Name" value={form.first_name} onChange={(e) => setForm((prev) => ({ ...prev, first_name: e.target.value }))} />
+                  <Input placeholder="Last Name" value={form.last_name} onChange={(e) => setForm((prev) => ({ ...prev, last_name: e.target.value }))} />
+                </div>
+                <Select value={form.role} onValueChange={(v) => setForm((prev) => ({ ...prev, role: v }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="platform_admin">Platform Admin</SelectItem>
+                    <SelectItem value="support">Support</SelectItem>
+                    <SelectItem value="account_manager">Account Manager</SelectItem>
+                    <SelectItem value="marketer">Marketer</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input placeholder="Temporary Password (optional)" type="text" value={form.password} onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))} />
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+                <Button onClick={handleCreate} disabled={creating}>
+                  {creating ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Creating...</> : "Create User"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : users.length === 0 ? (
+          <div className="text-center py-12">
+            <Users className="w-10 h-10 mx-auto text-muted-foreground/40 mb-3" />
+            <p className="text-muted-foreground">No platform staff found</p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Staff Member</TableHead>
+                <TableHead>Primary Role</TableHead>
+                <TableHead>Secondary Roles</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {users.map((member) => (
+                <TableRow key={member.id}>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="font-medium">{member.full_name || "No Name"}</span>
+                      <span className="text-xs text-muted-foreground">{member.email}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="capitalize">
+                      {getRoleLabel(member.role)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      <span className="text-xs text-muted-foreground">—</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      title="Delete User"
+                      onClick={() => onDeleteUser(member.id)}
+                      disabled={deletingUserId === member.id}
+                    >
+                      {deletingUserId === member.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
 
 const CommunicationDetailDialog = ({
   communication,
@@ -1068,14 +1217,16 @@ const StatusBadge = ({ status }: { status: string }) => {
 
 /* ─────────── School Card ─────────── */
 const SchoolCard = ({
-  school, onToggle, onPlanChange, onView, canManageSchoolStatus, canManageSubscriptions
+  school, onToggle, onPlanChange, onView, onDelete, canManageSchoolStatus, canManageSubscriptions, canDeleteSchool
 }: {
   school: SaaSSchool;
   onToggle: () => void;
   onPlanChange: (plan: string) => void;
   onView: () => void;
+  onDelete: () => void;
   canManageSchoolStatus: boolean;
   canManageSubscriptions: boolean;
+  canDeleteSchool: boolean;
 }) => (
   <Card className={`group transition-all hover:shadow-lg hover:-translate-y-[2px] ${!school.active ? "opacity-60" : ""}`}>
     <CardContent className="p-4">
@@ -1128,6 +1279,40 @@ const SchoolCard = ({
           >
             {school.active ? <PowerOff className="w-3.5 h-3.5" /> : <Power className="w-3.5 h-3.5" />}
           </Button>
+
+          {canDeleteSchool && (
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                  title="Delete School"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Delete School</DialogTitle>
+                  <DialogDescription>
+                    Are you sure you want to delete <strong>{school.name}</strong>? This action will remove all associated data and cannot be undone.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter className="gap-2 sm:gap-0">
+                  <DialogTrigger asChild>
+                    <Button variant="outline">Cancel</Button>
+                  </DialogTrigger>
+                  <Button
+                    variant="destructive"
+                    onClick={onDelete}
+                  >
+                    Confirm Delete
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
       </div>
     </CardContent>
@@ -1222,6 +1407,7 @@ const SaaSDashboardPage = () => {
   const canManageSubscriptions = accessProfile?.can_manage_subscriptions === true;
   const canManagePortfolios = accessProfile?.can_manage_portfolios === true;
   const canViewAuditLogs = accessProfile?.can_view_audit_logs === true;
+  const canDeleteSchools = accessProfile?.primary_role === "platform_admin"; // Only platform admins can delete
 
   const { data: analytics } = useQuery({
     queryKey: ["saas-analytics"],
@@ -1259,6 +1445,12 @@ const SaaSDashboardPage = () => {
     enabled: authorized && canManagePortfolios,
   });
 
+  const { data: managedUsers = [], isLoading: managedUsersLoading } = useQuery({
+    queryKey: ["saas-managed-users"],
+    queryFn: () => saasService.listManagedUsers(),
+    enabled: authorized && canManagePortfolios,
+  });
+
   const dueTrialCount = dueSubscriptions.filter((d) => (d.subscription_status || "").includes("trial")).length;
   const dueRenewalCount = dueSubscriptions.filter((d) => (d.days_left ?? 9999) >= 0 && (d.days_left ?? 9999) <= 14 && !(d.subscription_status || "").includes("trial")).length;
   const overdueInvoices = dueSubscriptions.filter((d) => (d.invoice_status || "") === "overdue").length;
@@ -1290,6 +1482,41 @@ const SaaSDashboardPage = () => {
       queryClient.invalidateQueries({ queryKey: ["saas-schools"] });
       queryClient.invalidateQueries({ queryKey: ["saas-analytics"] });
       toast.success("Subscription updated");
+    },
+  });
+
+  const deleteSchoolMutation = useMutation({
+    mutationFn: (id: number) => saasService.deleteSchool(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["saas-schools"] });
+      queryClient.invalidateQueries({ queryKey: ["saas-analytics"] });
+      toast.success("School deleted successfully");
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to delete school");
+    },
+  });
+
+  const createManagedUserMutation = useMutation({
+    mutationFn: (payload: { email: string; first_name: string; last_name: string; role: string; password: string }) =>
+      saasService.createManagedUser(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["saas-managed-users"] });
+      toast.success("User created successfully");
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.email?.[0] || err.message || "Failed to create user");
+    },
+  });
+
+  const deleteManagedUserMutation = useMutation({
+    mutationFn: (userId: number) => saasService.deleteManagedUser(userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["saas-managed-users"] });
+      toast.success("User deleted successfully");
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to delete user");
     },
   });
 
@@ -1419,6 +1646,11 @@ const SaaSDashboardPage = () => {
             <TabsTrigger value="communications" className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <MessageSquare className="w-3.5 h-3.5" /> Communication Hub
             </TabsTrigger>
+            {canManagePortfolios && (
+              <TabsTrigger value="management" className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                <UserCog className="w-3.5 h-3.5" /> Platform Management
+              </TabsTrigger>
+            )}
             {canViewAuditLogs && (
               <TabsTrigger value="audit" className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                 <Activity className="w-3.5 h-3.5" /> Audit Logs
@@ -1496,8 +1728,10 @@ const SaaSDashboardPage = () => {
                     onToggle={() => toggleSchoolMutation.mutate({ id: school.id, active: !school.active })}
                     onPlanChange={(plan) => updatePlanMutation.mutate({ id: school.id, plan, status: school.subscription_status })}
                     onView={() => { setSelectedSchool(school); setDetailOpen(true); }}
+                    onDelete={() => deleteSchoolMutation.mutate(school.id)}
                     canManageSchoolStatus={canManageSchoolStatus}
                     canManageSubscriptions={canManageSubscriptions}
+                    canDeleteSchool={canDeleteSchools}
                   />
                 ))
               )}
@@ -1506,6 +1740,18 @@ const SaaSDashboardPage = () => {
 
           <TabsContent value="communications" className="mt-4">
             <AdminCommunicationHub schools={schools} />
+          </TabsContent>
+
+          <TabsContent value="management" className="mt-4">
+            <StaffManagementTab
+              users={managedUsers}
+              isLoading={managedUsersLoading}
+              canManagePortfolios={canManagePortfolios}
+              onCreateUser={(payload) => createManagedUserMutation.mutate(payload)}
+              onDeleteUser={(userId) => deleteManagedUserMutation.mutate(userId)}
+              creating={createManagedUserMutation.isPending}
+              deletingUserId={deleteManagedUserMutation.isPending ? (deleteManagedUserMutation.variables as number) : null}
+            />
           </TabsContent>
 
           <TabsContent value="audit" className="mt-4">
@@ -1612,9 +1858,15 @@ const OnboardForm = ({ onSuccess }: { onSuccess: () => void }) => {
     setSubmitting(true);
     try {
       const normalizedName = formatSchoolName(form.name);
+      if (import.meta.env.DEV) {
+        console.info("Onboarding Step 1: Creating school record", { schoolName: normalizedName });
+      }
       const res = await saasService.onboardSchool({ ...form, name: normalizedName });
 
       try {
+        if (import.meta.env.DEV) {
+          console.info("Onboarding Step 2: Initializing onboarding workflow", { schoolId: res.school_id });
+        }
         await saasService.initializeSchoolOnboarding(res.school_id, {
           source: "saas_dashboard",
           priority: "MEDIUM",
@@ -1624,44 +1876,59 @@ const OnboardForm = ({ onSuccess }: { onSuccess: () => void }) => {
         return;
       }
 
-      let adminCredentialsReady = false;
-
-      if (createAdmin && form.admin_email && form.admin_password) {
-        try {
-          await saasService.provisionSchoolAdminAccess({
-            schoolId: res.school_id,
-            schoolCode: res.school_code,
-            schoolName: normalizedName,
-            schoolEmail: form.email,
-            contactPerson: form.contact_person,
-            adminEmail: form.admin_email,
-            adminPassword: form.admin_password,
-          });
-          adminCredentialsReady = true;
-          setNotificationSent(true);
-          toast.success("School admin account created and emailed");
-        } catch (adminErr: unknown) {
-          toast.error(`Admin account creation failed: ${getErrorMessage(adminErr, "Unknown error")}`);
-        }
-      }
-
-      if (!adminCredentialsReady) {
-        try {
-          await saasService.sendOnboardingNotification(
-            res.school_id, res.school_code, normalizedName, form.email, form.contact_person,
-            undefined,
-            undefined
-          );
-          setNotificationSent(true);
-          toast.success("Onboarding email sent");
-        } catch {
-          toast.error("School created, but notification email failed");
-        }
-      }
-
       setResult(res);
+      if (import.meta.env.DEV) {
+        console.info("Onboarding Step 5: Completed", { schoolId: res.school_id, schoolCode: res.school_code });
+      }
       toast.success(`School onboarded! Code: ${res.school_code}`);
       onSuccess();
+
+      void (async () => {
+        let adminCredentialsReady = false;
+
+        if (createAdmin && form.admin_email && form.admin_password) {
+          try {
+            if (import.meta.env.DEV) {
+              console.info("Onboarding Step 3: Provisioning school admin access", { schoolId: res.school_id, adminEmail: form.admin_email });
+            }
+            await saasService.provisionSchoolAdminAccess({
+              schoolId: res.school_id,
+              schoolCode: res.school_code,
+              schoolName: normalizedName,
+              schoolEmail: form.email,
+              contactPerson: form.contact_person,
+              adminEmail: form.admin_email,
+              adminPassword: form.admin_password,
+            });
+            adminCredentialsReady = true;
+            setNotificationSent(true);
+            toast.success("School admin account created and emailed");
+          } catch (adminErr: unknown) {
+            toast.error(`Admin account creation failed: ${getErrorMessage(adminErr, "Unknown error")}`);
+          }
+        }
+
+        if (!adminCredentialsReady) {
+          try {
+            if (import.meta.env.DEV) {
+              console.info("Onboarding Step 4: Sending onboarding notification", { schoolId: res.school_id });
+            }
+            await saasService.sendOnboardingNotification(
+              res.school_id,
+              res.school_code,
+              normalizedName,
+              form.email,
+              form.contact_person,
+              undefined,
+              undefined,
+            );
+            setNotificationSent(true);
+            toast.success("Onboarding email sent");
+          } catch {
+            toast.error("School created, but notification email failed");
+          }
+        }
+      })();
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, "Failed to onboard school"));
     } finally {

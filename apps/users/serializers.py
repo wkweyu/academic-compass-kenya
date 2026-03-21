@@ -30,3 +30,11 @@ class UserRoleChangeSerializer(serializers.Serializer):
     onboarding_target_staff_id = serializers.IntegerField(required=False)
     school_target_staff_id = serializers.IntegerField(required=False)
     notes = serializers.CharField(required=False, allow_blank=True)
+
+
+class UserCreateSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    role = serializers.CharField(max_length=50)
+    password = serializers.CharField(max_length=128, required=False, allow_blank=True)

@@ -7,20 +7,76 @@ from rest_framework.response import Response
 from apps.schools.services import change_staff_role, get_role_change_impact, normalize_role
 
 from .models import User
-from .serializers import UserRoleChangePreviewSerializer, UserRoleChangeSerializer, UserSerializer
+from .serializers import UserCreateSerializer, UserRoleChangePreviewSerializer, UserRoleChangeSerializer, UserSerializer
 
 
 def _ensure_manager_access(user):
     if getattr(user, 'is_superuser', False) or getattr(user, 'is_staff', False):
         return user
-    if normalize_role(getattr(user, 'role', '')) == 'manager':
+    # Handle platform_admin and manager as authorized roles for user management
+    role = normalize_role(getattr(user, 'role', '')).lower()
+    if role in ['manager', 'platform_admin']:
         return user
-    raise PermissionDenied('Only managers can perform role changes.')
+    raise PermissionDenied('Only platform administrators or managers can perform user management.')
 
-class UserListView(generics.ListAPIView):
+class UserListView(generics.ListCreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = User.objects.all().order_by('first_name', 'last_name', 'email')
+        role = self.request.query_params.get('role')
+        if role:
+            queryset = queryset.filter(role=role)
+        return queryset
+
+    def create(self, request, *args, **kwargs):
+        _ensure_manager_access(request.user)
+        serializer = UserCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        payload = serializer.validated_data
+
+        email = payload['email'].strip().lower()
+        if User.objects.filter(email=email).exists():
+            raise ValidationError({'email': 'A user with this email already exists.'})
+
+        first_name = payload.get('first_name', '').strip()
+        last_name = payload.get('last_name', '').strip()
+        role = normalize_role(payload.get('role', 'staff'))
+        password = payload.get('password') or 'ChangeMe123!'
+
+        username_base = email.split('@')[0]
+        username = username_base
+        suffix = 1
+        while User.objects.filter(username=username).exists():
+            suffix += 1
+            username = f"{username_base}{suffix}"
+
+        user = User.objects.create_user(
+            username=username,
+            email=email,
+            password=password,
+            first_name=first_name,
+            last_name=last_name,
+            role=role,
+            is_staff=True,
+        )
+        return Response(UserSerializer(user).data, status=201)
+
+
+class UserDeleteView(generics.DestroyAPIView):
+    queryset = User.objects.all()
+    permission_classes = [permissions.IsAuthenticated]
+    lookup_url_kwarg = 'user_id'
+
+    def destroy(self, request, *args, **kwargs):
+        _ensure_manager_access(request.user)
+        user = self.get_object()
+        if user.id == request.user.id:
+            raise ValidationError({'detail': 'You cannot delete your own account.'})
+        user.delete()
+        return Response({'detail': 'User deleted successfully.'}, status=200)
 
 class CurrentUserView(generics.RetrieveAPIView):
     serializer_class = UserSerializer

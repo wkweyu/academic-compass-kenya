@@ -52,7 +52,6 @@ const navGroups: { label: string; items: NavItem[] }[] = [
     label: 'Overview',
     items: [
       { id: 'dashboard', title: 'Dashboard', url: '/dashboard', icon: BarChart3 },
-      { id: 'onboarding', title: 'Onboarding', url: '/onboarding', icon: GraduationCap },
       { id: 'communications', title: 'Communication', url: '/communications', icon: MessageSquare },
     ],
   },

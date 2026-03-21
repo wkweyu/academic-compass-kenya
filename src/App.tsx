@@ -11,7 +11,6 @@ import AuthPage from "./pages/AuthPage";
 import SaaSLoginPage from "./pages/SaaSLoginPage";
 import SaaSDashboardPage from "./pages/SaaSDashboardPage";
 import DashboardPage from "./pages/DashboardPage";
-import OnboardingPage from "./pages/OnboardingPage";
 import CommunicationsPage from "./pages/CommunicationsPage";
 import ExamsPage from "./pages/ExamsPage";
 import StudentsPage from "./pages/StudentsPage";
@@ -55,7 +54,6 @@ const App = () => (
               <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/onboarding" element={<OnboardingPage />} />
                 <Route path="/communications" element={<CommunicationsPage />} />
                 <Route path="/exams" element={<ExamsPage />} />
                 <Route path="/exams/types" element={<ExamsPage />} />

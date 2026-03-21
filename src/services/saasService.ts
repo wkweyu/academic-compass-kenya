@@ -126,6 +126,16 @@ export interface PlatformStaffMember {
   roles: string[];
 }
 
+export interface PlatformManagedUser {
+  id: number;
+  username: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  role: string;
+}
+
 export interface SchoolAdminAccessPayload {
   schoolId: number;
   schoolCode: string;
@@ -441,6 +451,10 @@ export const saasService = {
     if (error) throw error;
   },
 
+  async deleteSchool(schoolId: number): Promise<void> {
+    await api.delete(`/api/schools/${schoolId}/delete/`);
+  },
+
   async sendInvoiceNotification(invoiceId: number): Promise<void> {
     const { data: inv } = await supabase.from("saas_invoices").select("school_id").eq("id", invoiceId).single();
     if (!inv) throw new Error("Invoice not found");
@@ -469,6 +483,26 @@ export const saasService = {
     const { data, error } = await supabase.rpc("list_platform_staff");
     if (error) throw error;
     return (data || []) as PlatformStaffMember[];
+  },
+
+  async listManagedUsers(): Promise<PlatformManagedUser[]> {
+    const response = await api.get<PlatformManagedUser[]>("/api/users/");
+    return response.data || [];
+  },
+
+  async createManagedUser(payload: {
+    email: string;
+    first_name?: string;
+    last_name?: string;
+    role: string;
+    password?: string;
+  }): Promise<PlatformManagedUser> {
+    const response = await api.post<PlatformManagedUser>("/api/users/", payload);
+    return response.data;
+  },
+
+  async deleteManagedUser(userId: number): Promise<void> {
+    await api.delete(`/api/users/${userId}/`);
   },
 
   async updateSchoolPortfolioOwner(schoolId: number, ownerUserId: string | null): Promise<void> {
