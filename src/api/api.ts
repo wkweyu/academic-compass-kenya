@@ -3,11 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Resolves the backend API URL based on environment and current hostname.
- * Ensures consistent handling for local development and Render deployments.
  */
 export function resolveApiBaseUrl() {
   if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL.replace(/\/api\/?$/, "");
+    return import.meta.env.VITE_API_URL.replace(/\/api\/?$/, "").replace(/\/+$/, "");
   }
 
   if (typeof window === 'undefined') {
@@ -35,7 +34,7 @@ export function resolveApiBaseUrl() {
 }
 
 const BASE_URL = resolveApiBaseUrl();
-const API_ROOT = `${BASE_URL}/api`;
+const API_ROOT = `${BASE_URL}/api/`; // Trailing slash is important for Axios baseURL
 
 // Axios instance for backend communication
 const axiosInstance = axios.create({
@@ -64,19 +63,16 @@ function getCSRFToken() {
 // Request interceptor to attach authentication
 axiosInstance.interceptors.request.use(
   async (config) => {
-    // 1. Django Token Auth (Priority for system-level actions)
     const token = localStorage.getItem("authToken");
     if (token) {
       config.headers.Authorization = `Token ${token}`;
     } else {
-      // 2. Supabase JWT Auth (Session-based)
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.access_token) {
         config.headers.Authorization = `Bearer ${session.access_token}`;
       }
     }
 
-    // 3. CSRF Protection for state-changing requests
     if (!["get", "GET", "head", "HEAD", "options", "OPTIONS"].includes(config.method || "")) {
       const csrfToken = getCSRFToken();
       if (csrfToken) {
@@ -89,7 +85,7 @@ axiosInstance.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor for consistent error handling and redirects
+// Response interceptor
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -98,7 +94,6 @@ axiosInstance.interceptors.response.use(
     }
     
     if (error.response?.status === 401) {
-      // Clear expired tokens and redirect to login if not already there
       localStorage.removeItem("authToken");
       const { data: { session } } = await supabase.auth.getSession();
       if (!session && !window.location.pathname.startsWith('/auth') && !window.location.pathname.startsWith('/saas/login')) {
@@ -111,32 +106,37 @@ axiosInstance.interceptors.response.use(
 );
 
 /**
- * Core API utility for making requests to the Django backend.
- * Base URL is automatically set to /api
+ * Core API utility.
+ * Axios treats URLs starting with / as absolute from origin,
+ * so we must ensure cleanUrl does NOT start with /.
  */
 export const api = {
   get: <T>(url: string, params?: object) => {
-    const cleanUrl = url.startsWith('/api/') ? url.replace('/api/', '/') : url;
+    let cleanUrl = url.startsWith('/api/') ? url.replace('/api/', '') : url;
+    if (cleanUrl.startsWith('/')) cleanUrl = cleanUrl.substring(1);
     return axiosInstance.get<T>(cleanUrl, { params });
   },
   post: <T>(url: string, data?: object) => {
-    // Specialized handling for root paths like /api-token-auth/
-    if (url.startsWith('/api-token-auth/')) {
-        return axios.create({ baseURL: resolveApiBaseUrl() }).post<T>(url, data);
+    if (url.includes('api-token-auth')) {
+        return axios.create({ baseURL: BASE_URL }).post<T>(url, data);
     }
-    const cleanUrl = url.startsWith('/api/') ? url.replace('/api/', '/') : url;
+    let cleanUrl = url.startsWith('/api/') ? url.replace('/api/', '') : url;
+    if (cleanUrl.startsWith('/')) cleanUrl = cleanUrl.substring(1);
     return axiosInstance.post<T>(cleanUrl, data);
   },
   put: <T>(url: string, data: object) => {
-    const cleanUrl = url.startsWith('/api/') ? url.replace('/api/', '/') : url;
+    let cleanUrl = url.startsWith('/api/') ? url.replace('/api/', '') : url;
+    if (cleanUrl.startsWith('/')) cleanUrl = cleanUrl.substring(1);
     return axiosInstance.put<T>(cleanUrl, data);
   },
   patch: <T>(url: string, data: object) => {
-    const cleanUrl = url.startsWith('/api/') ? url.replace('/api/', '/') : url;
+    let cleanUrl = url.startsWith('/api/') ? url.replace('/api/', '') : url;
+    if (cleanUrl.startsWith('/')) cleanUrl = cleanUrl.substring(1);
     return axiosInstance.patch<T>(cleanUrl, data);
   },
   delete: <T>(url: string) => {
-    const cleanUrl = url.startsWith('/api/') ? url.replace('/api/', '/') : url;
+    let cleanUrl = url.startsWith('/api/') ? url.replace('/api/', '') : url;
+    if (cleanUrl.startsWith('/')) cleanUrl = cleanUrl.substring(1);
     return axiosInstance.delete<T>(cleanUrl);
   },
 };
@@ -185,16 +185,15 @@ export async function signIn(email: string, password: string) {
 }
 
 export async function getCurrentUser(): Promise<AuthenticatedUserProfile> {
-  // Use /api/users/me/
-  const response = await api.get<AuthenticatedUserProfile>("/users/me/");
+  const response = await api.get<AuthenticatedUserProfile>("users/me/");
   return response.data;
 }
 
 export async function signOut() {
   try {
-    await api.post("/auth/logout/");
+    await api.post("auth/logout/");
   } catch (err) {
-    console.warn("Logout request failed, clearing local session anyway.");
+    console.warn("Logout request failed.");
   } finally {
     localStorage.removeItem("authToken");
     await supabase.auth.signOut();
@@ -203,7 +202,7 @@ export async function signOut() {
 
 export async function signUp(email: string, password: string, password2: string) {
   try {
-    const response = await api.post("/auth/registration/", {
+    const response = await api.post("auth/registration/", {
       email,
       password1: password,
       password2: password2,

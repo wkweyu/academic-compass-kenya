@@ -11,11 +11,13 @@ from django.db import connection
 from django.shortcuts import redirect
 from decouple import config
 
-def root_view(request):
+def root_view(request, path=''):
     """Enhanced root view with health check info or redirect to frontend"""
     frontend_url = config('FRONTEND_URL', default='').strip()
     if frontend_url and not request.GET.get('no_redirect'):
-        return redirect(frontend_url)
+        # Construct target URL with path for SPA deep links
+        target = f"{frontend_url.rstrip('/')}/{path}"
+        return redirect(target)
 
     return HttpResponse(f"""
     <html>
@@ -129,7 +131,9 @@ urlpatterns = [
 
     # Dashboard API
     path('api/dashboard/', include('apps.dashboard.urls')),
-    
+
+    # Catch-all redirect to frontend (MUST BE LAST)
+    path('<path:path>', root_view),
 ]
 
 # Serve media/static during development

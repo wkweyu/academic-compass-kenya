@@ -2,15 +2,16 @@ import { authHeaders, resolveApiBaseUrl } from './api';
 import { parseError, StandardError, ErrorCategory, ErrorSeverity } from '@/utils/errorHandler';
 
 const BASE_URL = resolveApiBaseUrl();
-const API_ROOT = `${BASE_URL}/api`;
+const API_ROOT = `${BASE_URL}/api/`;
 
 /**
- * Builds a fully qualified API URL from an endpoint string.
- * Ensures the result starts with BASE_URL/api/
+ * Builds a fully qualified API URL.
+ * In fetch, we can use absolute URLs without issue.
  */
 function buildApiUrl(endpoint: string) {
-  const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
-  return `${API_ROOT}/${cleanEndpoint}`;
+  let cleanEndpoint = endpoint.startsWith('/api/') ? endpoint.replace('/api/', '') : endpoint;
+  if (cleanEndpoint.startsWith('/')) cleanEndpoint = cleanEndpoint.substring(1);
+  return `${API_ROOT}${cleanEndpoint}`;
 }
 
 async function readResponseBody(response: Response) {
@@ -84,7 +85,6 @@ export class ApiError extends Error {
 
 /**
  * Standard fetch-based client for API calls.
- * Prepends /api to all endpoints automatically.
  */
 async function client<T>(
   endpoint: string,
