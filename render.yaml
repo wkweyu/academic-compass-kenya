@@ -19,7 +19,7 @@ services:
       - key: ALLOWED_HOSTS
         value: localhost,127.0.0.1,academic-compass-api.onrender.com
       - key: SUPABASE_DB_URL
-        sync: false
+        value: postgresql://placeholder:placeholder@placeholder.supabase.co:5432/postgres?sslmode=require
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_ANON_KEY
