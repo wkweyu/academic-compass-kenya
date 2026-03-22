@@ -8,21 +8,27 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from rest_framework.authtoken.views import obtain_auth_token
 from django.db import connection
+from django.shortcuts import redirect
+from decouple import config
 
 def root_view(request):
-    """Enhanced root view with health check info"""
-    return HttpResponse("""
+    """Enhanced root view with health check info or redirect to frontend"""
+    frontend_url = config('FRONTEND_URL', default='').strip()
+    if frontend_url and not request.GET.get('no_redirect'):
+        return redirect(frontend_url)
+
+    return HttpResponse(f"""
     <html>
     <head>
         <title>SkoolTrack Pro API</title>
         <style>
-            body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
-            .container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-            h1 { color: #2563eb; }
-            .status { padding: 10px; background: #10b981; color: white; border-radius: 4px; display: inline-block; }
-            ul { line-height: 1.8; }
-            a { color: #2563eb; text-decoration: none; }
-            a:hover { text-decoration: underline; }
+            body {{ font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }}
+            .container {{ background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+            h1 {{ color: #2563eb; }}
+            .status {{ padding: 10px; background: #10b981; color: white; border-radius: 4px; display: inline-block; }}
+            ul {{ line-height: 1.8; }}
+            a {{ color: #2563eb; text-decoration: none; }}
+            a:hover {{ text-decoration: underline; }}
         </style>
     </head>
     <body>
@@ -30,28 +36,29 @@ def root_view(request):
             <h1>✅ SkoolTrack Pro API Server</h1>
             <div class="status">Django Backend is Running</div>
             
+            <h2>🔗 Quick Links:</h2>
+            <ul>
+                <li><a href="{frontend_url or 'http://localhost:5173'}">Main Application Dashboard</a></li>
+                <li><a href="{(frontend_url or 'http://localhost:5173').rstrip('/')}/saas/dashboard">SaaS Platform Admin</a></li>
+                <li><a href="/admin/">Django Admin (Backend)</a></li>
+            </ul>
+
             <h2>🔍 Health Checks:</h2>
             <ul>
                 <li><a href="/health/">/health/</a> - Backend health status</li>
-                <li><a href="/api-test/">/api-test/</a> - Authentication test (requires login)</li>
+                <li><a href="/api-test/">/api-test/</a> - Authentication test</li>
             </ul>
             
             <h2>📚 API Endpoints:</h2>
             <ul>
-                <li><a href="/admin/">Admin Panel</a></li>
-                <li><a href="/api/teachers/">/api/teachers/</a> - Teachers API</li>
-                <li><a href="/api/students/">/api/students/</a> - Students API</li>
-                <li><a href="/api/schools/">/api/schools/</a> - Schools API</li>
-                <li><a href="/api/dashboard/">/api/dashboard/</a> - Dashboard API</li>
-            </ul>
-            
-            <h2>🖥️ Frontend:</h2>
-            <ul>
-                <li><a href="http://localhost:8080">http://localhost:8080</a> (Development)</li>
+                <li><a href="/api/teachers/">/api/teachers/</a></li>
+                <li><a href="/api/students/">/api/students/</a></li>
+                <li><a href="/api/schools/">/api/schools/</a></li>
+                <li><a href="/api/dashboard/">/api/dashboard/</a></li>
             </ul>
             
             <h2>📖 Setup Guide:</h2>
-            <p>If you're having issues registering teachers, check <code>BACKEND_SETUP.md</code> for troubleshooting steps.</p>
+            <p>Check <code>BACKEND_SETUP.md</code> for troubleshooting steps.</p>
         </div>
     </body>
     </html>

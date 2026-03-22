@@ -17,7 +17,7 @@ services:
       - key: DEBUG
         value: "false"
       - key: ALLOWED_HOSTS
-        value: localhost,127.0.0.1
+        value: "*"
       - key: SUPABASE_DB_URL
         sync: false
       - key: SUPABASE_URL
@@ -39,11 +39,10 @@ services:
       - key: DB_SSL_REQUIRE
         value: "true"
 
-  - type: web
+  - type: static
     name: academic-compass-web
-    runtime: static
     buildCommand: npm ci && npm run build
-    staticPublishPath: dist
+    publishDir: dist
     routes:
       - type: rewrite
         source: /*

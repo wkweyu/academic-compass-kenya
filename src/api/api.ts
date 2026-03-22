@@ -1,7 +1,11 @@
 import axios from "axios";
 import { supabase } from "@/integrations/supabase/client";
 
-function resolveApiBaseUrl() {
+/**
+ * Resolves the backend API URL based on environment and current hostname.
+ * Ensures consistent handling for local development and Render deployments.
+ */
+export function resolveApiBaseUrl() {
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL.replace(/\/api\/?$/, "");
   }
@@ -16,24 +20,31 @@ function resolveApiBaseUrl() {
     return 'http://localhost:8000';
   }
 
-  if (hostname.endsWith('.onrender.com') && hostname.includes('-web')) {
-    const apiHostname = hostname.replace(/-web(?=\.onrender\.com$)/, '-api');
-    return `${protocol}//${apiHostname}`;
+  // Handle Render dual-service deployment pattern
+  if (hostname.endsWith('.onrender.com')) {
+    if (hostname.includes('-web')) {
+      const apiHostname = hostname.replace(/-web(?=\.onrender\.com$)/, '-api');
+      return `${protocol}//${apiHostname}`;
+    }
+    if (hostname.includes('-api')) {
+      return origin;
+    }
   }
 
   return origin;
 }
 
-const API_URL = resolveApiBaseUrl();
+const BASE_URL = resolveApiBaseUrl();
+const API_ROOT = `${BASE_URL}/api`;
 
-// Axios instance
+// Axios instance for backend communication
 const axiosInstance = axios.create({
-  baseURL: API_URL,
+  baseURL: API_ROOT,
   headers: { "Content-Type": "application/json" },
-  withCredentials: true, // Required for session authentication
+  withCredentials: true,
 });
 
-// Function to get CSRF token
+// Function to get CSRF token from cookies
 function getCSRFToken() {
   const name = "csrftoken=";
   const decodedCookie = decodeURIComponent(document.cookie);
@@ -50,22 +61,23 @@ function getCSRFToken() {
   return "";
 }
 
-// Attach authentication to every request
+// Request interceptor to attach authentication
 axiosInstance.interceptors.request.use(
   async (config) => {
-    // Try token authentication first
+    // 1. Django Token Auth (Priority for system-level actions)
     const token = localStorage.getItem("authToken");
     if (token) {
       config.headers.Authorization = `Token ${token}`;
     } else {
+      // 2. Supabase JWT Auth (Session-based)
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.access_token) {
         config.headers.Authorization = `Bearer ${session.access_token}`;
       }
     }
 
-    // Add CSRF token for all non-GET requests (required for session auth)
-    if (config.method !== "get" && config.method !== "GET") {
+    // 3. CSRF Protection for state-changing requests
+    if (!["get", "GET", "head", "HEAD", "options", "OPTIONS"].includes(config.method || "")) {
       const csrfToken = getCSRFToken();
       if (csrfToken) {
         config.headers["X-CSRFToken"] = csrfToken;
@@ -77,7 +89,7 @@ axiosInstance.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor for error handling
+// Response interceptor for consistent error handling and redirects
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -86,11 +98,10 @@ axiosInstance.interceptors.response.use(
     }
     
     if (error.response?.status === 401) {
-      // Token expired or invalid
+      // Clear expired tokens and redirect to login if not already there
       localStorage.removeItem("authToken");
       const { data: { session } } = await supabase.auth.getSession();
-      // Only redirect if not already on auth page
-      if (!session && window.location.pathname !== '/auth') {
+      if (!session && !window.location.pathname.startsWith('/auth') && !window.location.pathname.startsWith('/saas/login')) {
         window.location.href = "/auth";
       }
     }
@@ -99,20 +110,42 @@ axiosInstance.interceptors.response.use(
   }
 );
 
-// Generic API methods
+/**
+ * Core API utility for making requests to the Django backend.
+ * Base URL is automatically set to /api
+ */
 export const api = {
-  get: <T>(url: string, params?: object) =>
-    axiosInstance.get<T>(url, { params }),
-  post: <T>(url: string, data?: object) => axiosInstance.post<T>(url, data),
-  put: <T>(url: string, data: object) => axiosInstance.put<T>(url, data),
-  patch: <T>(url: string, data: object) => axiosInstance.patch<T>(url, data),
-  delete: <T>(url: string) => axiosInstance.delete<T>(url),
+  get: <T>(url: string, params?: object) => {
+    const cleanUrl = url.startsWith('/api/') ? url.replace('/api/', '/') : url;
+    return axiosInstance.get<T>(cleanUrl, { params });
+  },
+  post: <T>(url: string, data?: object) => {
+    // Specialized handling for root paths like /api-token-auth/
+    if (url.startsWith('/api-token-auth/')) {
+        return axios.create({ baseURL: resolveApiBaseUrl() }).post<T>(url, data);
+    }
+    const cleanUrl = url.startsWith('/api/') ? url.replace('/api/', '/') : url;
+    return axiosInstance.post<T>(cleanUrl, data);
+  },
+  put: <T>(url: string, data: object) => {
+    const cleanUrl = url.startsWith('/api/') ? url.replace('/api/', '/') : url;
+    return axiosInstance.put<T>(cleanUrl, data);
+  },
+  patch: <T>(url: string, data: object) => {
+    const cleanUrl = url.startsWith('/api/') ? url.replace('/api/', '/') : url;
+    return axiosInstance.patch<T>(cleanUrl, data);
+  },
+  delete: <T>(url: string) => {
+    const cleanUrl = url.startsWith('/api/') ? url.replace('/api/', '/') : url;
+    return axiosInstance.delete<T>(cleanUrl);
+  },
 };
 
-// Auth API
+// --- Authentication API Helpers ---
+
 interface ApiResponse {
-  key?: string; // dj-rest-auth returns "key" for login
-  token?: string; // token auth returns "token"
+  key?: string;
+  token?: string;
   [key: string]: any;
 }
 
@@ -141,53 +174,36 @@ export async function signIn(email: string, password: string) {
       localStorage.setItem("authToken", response.data.token);
       return response.data;
     }
-
-    throw new Error("No token received");
+    throw new Error("No token received from server");
   } catch (err: any) {
-    if (import.meta.env.DEV) {
-      console.error("Login error:", err.message);
-    }
     throw new Error(
       err.response?.data?.non_field_errors?.[0] ||
-        err.response?.data?.error ||
-        "Login failed: check email and password"
+      err.response?.data?.error ||
+      "Login failed: please check your credentials"
     );
   }
 }
 
 export async function getCurrentUser(): Promise<AuthenticatedUserProfile> {
-  try {
-    // Try the correct Django user endpoint
-    const response = await api.get<AuthenticatedUserProfile>("/api/users/me/");
-    return response.data;
-  } catch (err: any) {
-    if (import.meta.env.DEV) {
-      console.error("User fetch error:", err.message);
-    }
-    throw new Error("Failed to fetch user");
-  }
+  // Use /api/users/me/
+  const response = await api.get<AuthenticatedUserProfile>("/users/me/");
+  return response.data;
 }
 
 export async function signOut() {
   try {
-    await api.post("/api/auth/logout/");
-  } catch (err: any) {
-    if (import.meta.env.DEV) {
-      console.error("Logout error:", err.message);
-    }
+    await api.post("/auth/logout/");
+  } catch (err) {
+    console.warn("Logout request failed, clearing local session anyway.");
   } finally {
     localStorage.removeItem("authToken");
     await supabase.auth.signOut();
   }
 }
 
-export async function signUp(
-  email: string,
-  password: string,
-  password2: string
-) {
+export async function signUp(email: string, password: string, password2: string) {
   try {
-    const response = await api.post<ApiResponse>("/api/auth/registration/", {
+    const response = await api.post("/auth/registration/", {
       email,
       password1: password,
       password2: password2,
@@ -196,35 +212,26 @@ export async function signUp(
     if (response.data.key) {
       localStorage.setItem("authToken", response.data.key);
     }
-
     return response.data;
   } catch (err: any) {
-    if (import.meta.env.DEV) {
-      console.error("Registration error:", err.message);
-    }
     throw new Error(
       err.response?.data?.email?.[0] ||
-        err.response?.data?.password1?.[0] ||
-        "Registration failed"
+      err.response?.data?.password1?.[0] ||
+      "Registration failed"
     );
   }
 }
 
-// Auth headers helper for backwards compatibility
 export function authHeaders() {
   const token = localStorage.getItem("authToken");
   return token ? { Authorization: `Token ${token}` } : {};
 }
 
-// Test API connection
 export async function testConnection() {
   try {
-    const response = await api.get("/");
+    const response = await axiosInstance.get("/health/");
     return response.status === 200;
   } catch (error) {
-    if (import.meta.env.DEV) {
-      console.error("API connection test failed:", error);
-    }
     return false;
   }
 }
