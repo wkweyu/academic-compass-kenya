@@ -25,11 +25,11 @@ services:
       - key: SUPABASE_ANON_KEY
         sync: false
       - key: FRONTEND_URL
-        sync: false
+        value: https://academic-compass-web.onrender.com
       - key: CORS_ALLOWED_ORIGINS
-        sync: false
+        value: https://academic-compass-web.onrender.com
       - key: CSRF_TRUSTED_ORIGINS
-        sync: false
+        value: https://academic-compass-web.onrender.com
       - key: COOKIE_SECURE
         value: "true"
       - key: COOKIE_SAMESITE
@@ -51,7 +51,7 @@ services:
       - key: NODE_VERSION
         value: 20.18.0
       - key: VITE_API_URL
-        sync: false
+        value: https://academic-compass-api.onrender.com
       - key: VITE_SUPABASE_URL
         sync: false
       - key: VITE_SUPABASE_ANON_KEY
