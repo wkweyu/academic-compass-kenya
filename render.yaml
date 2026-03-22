@@ -44,6 +44,13 @@ services:
     runtime: static
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://academic-compass-api.onrender.com
+      - key: VITE_SUPABASE_URL
+        value: https://basvqricgupbxgznsfms.supabase.co
+      - key: VITE_SUPABASE_ANON_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJhc3ZxcmljZ3VwYnhnem5zZm1zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQwMzc2NzAsImV4cCI6MjA2OTYxMzY3MH0.NMw_FM-eJUHTg1t7xWtjbiYQtQ-iscj3oq_HxXQHWsY
     routes:
       - type: rewrite
         source: /*
