@@ -1,6 +1,7 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
 from django.shortcuts import get_object_or_404
-from rest_framework import generics, permissions
+from rest_framework import generics, permissions, status
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
@@ -43,12 +44,13 @@ class UserListView(generics.ListCreateAPIView):
 
         first_name = payload.get('first_name', '').strip()
         last_name = payload.get('last_name', '').strip()
-        role = normalize_role(payload.get('role', 'staff'))
+        role = normalize_role(payload.get('role', 'support'))
         password = payload.get('password') or 'ChangeMe123!'
 
         username_base = email.split('@')[0]
         username = username_base
         suffix = 1
+        # Check both username and email for collisions
         while User.objects.filter(username=username).exists():
             suffix += 1
             username = f"{username_base}{suffix}"
@@ -61,8 +63,9 @@ class UserListView(generics.ListCreateAPIView):
             last_name=last_name,
             role=role,
             is_staff=True,
+            is_active=True,
         )
-        return Response(UserSerializer(user).data, status=201)
+        return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
 
 
 class UserDeleteView(generics.DestroyAPIView):
@@ -75,8 +78,25 @@ class UserDeleteView(generics.DestroyAPIView):
         user = self.get_object()
         if user.id == request.user.id:
             raise ValidationError({'detail': 'You cannot delete your own account.'})
-        user.delete()
-        return Response({'detail': 'User deleted successfully.'}, status=200)
+
+        with transaction.atomic():
+            # If platform staff, check for portfolio assignments
+            if not user.school_id and user.auth_user_id:
+                # We need to unassign or reassign schools in their portfolio
+                from django.db import connection
+                with connection.cursor() as cursor:
+                    # Use standard check if table exists
+                    cursor.execute(
+                        "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'school_portfolio_assignments')"
+                    )
+                    if cursor.fetchone()[0]:
+                        cursor.execute(
+                            'DELETE FROM school_portfolio_assignments WHERE owner_user_id = %s',
+                            [user.auth_user_id]
+                        )
+
+            user.delete()
+        return Response({'detail': 'User deleted successfully.'}, status=status.HTTP_200_OK)
 
 class CurrentUserView(generics.RetrieveAPIView):
     serializer_class = UserSerializer
