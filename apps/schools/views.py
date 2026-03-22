@@ -196,6 +196,7 @@ class SchoolDeleteView(generics.GenericAPIView):
                 return cursor.fetchone() is not None
 
         cleanup_targets = [
+            # SaaS management tables
             ('school_portfolio_assignments', 'school_id'),
             ('school_settings', 'school_id'),
             ('subscriptions', 'school_id'),
@@ -211,9 +212,39 @@ class SchoolDeleteView(generics.GenericAPIView):
             ('schools_onboardingprogress', 'school_id'),
             ('schools_upsellopportunity', 'school_id'),
             ('schools_lead', 'school_id'),
+
+            # School operational tables
+            ('attendance', 'school_id'),
+            ('scores', 'school_id'),
+            ('exams_exam', 'school_id'),
+            ('exams_examtype', 'school_id'),
+            ('exams_reportcardconfig', 'school_id'),
+            ('exams_reportcardexamselection', 'school_id'),
+            ('fees_feebalance', 'school_id'),
+            ('fees_feestructure', 'school_id'),
+            ('fees_paymenttransaction', 'school_id'),
+            ('fees_votehead', 'school_id'),
+            ('grade_scales', 'school_id'),
+            ('iga_activity', 'school_id'),
+            ('iga_activitybudget', 'school_id'),
+            ('iga_activityexpense', 'school_id'),
+            ('iga_inventorymovement', 'school_id'),
+            ('iga_inventorystock', 'school_id'),
+            ('iga_producesale', 'school_id'),
+            ('iga_productionrecord', 'school_id'),
+            ('iga_product', 'school_id'),
+            ('settings_termsetting', 'school_id'),
             ('students', 'school_id'),
-            ('teachers', 'school_id'),
+            ('streams', 'school_id'),
             ('classes', 'school_id'),
+            ('teachers', 'school_id'),
+            ('teacher_subject_assignments', 'school_id'),
+            ('students_classsubjectallocation', 'school_id'),
+            ('student_transfers', 'school_id'),
+            ('student_promotions', 'school_id'),
+            ('student_reports', 'school_id'),
+            ('users', 'school_id'),
+            ('django_admin_log', 'user_id'),
         ]
 
         with transaction.atomic():
@@ -222,10 +253,20 @@ class SchoolDeleteView(generics.GenericAPIView):
                 for table_name, column_name in cleanup_targets:
                     if _table_has_column(table_name, column_name):
                         # Use quoted table names for safety and lowercase for potential Supabase tables
-                        cursor.execute(
-                            f'DELETE FROM "{table_name}" WHERE "{column_name}" = %s',
-                            [school_id],
-                        )
+                        try:
+                            cursor.execute(
+                                f'DELETE FROM "{table_name}" WHERE "{column_name}" = %s',
+                                [school_id],
+                            )
+                        except Exception as e:
+                            logger.warning("Failed to delete from %s: %s", table_name, str(e))
+
+                # Handle users specially (if they are linked to the school)
+                cursor.execute('SELECT id FROM "users" WHERE "school_id" = %s', [school_id])
+                school_user_ids = [row[0] for row in cursor.fetchall()]
+                for user_id in school_user_ids:
+                    if _table_has_column('django_admin_log', 'user_id'):
+                        cursor.execute('DELETE FROM "django_admin_log" WHERE "user_id" = %s', [user_id])
 
                 cursor.execute('DELETE FROM "schools_school" WHERE "id" = %s', [school_id])
                 if cursor.rowcount == 0:

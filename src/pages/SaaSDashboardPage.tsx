@@ -32,10 +32,9 @@ import { AdminCommunicationHub } from "@/components/communication/AdminCommunica
 import { toast } from "sonner";
 
 const ROLE_LABELS: Record<string, string> = {
-  platform_admin: "Platform Admin",
-  support: "Support",
-  account_manager: "Account Manager",
-  marketer: "Marketer",
+  platform_admin: "Platform Owner",
+  support: "Support User",
+  marketer: "Marketer (Account Manager)",
 };
 
 const formatSchoolName = (name: string) => {
@@ -207,13 +206,9 @@ const StaffManagementTab = ({
                     <SelectValue placeholder="Role" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="platform_admin">Platform Admin</SelectItem>
-                    <SelectItem value="support">Support</SelectItem>
-                    <SelectItem value="account_manager">Account Manager</SelectItem>
-                    <SelectItem value="marketer">Marketer</SelectItem>
-                    <SelectItem value="manager">Manager</SelectItem>
-                    <SelectItem value="finance">Finance</SelectItem>
-                    <SelectItem value="transport">Transport</SelectItem>
+                    <SelectItem value="platform_admin">Platform Owner (Super Admin)</SelectItem>
+                    <SelectItem value="support">Support User</SelectItem>
+                    <SelectItem value="marketer">Marketer (Account Manager)</SelectItem>
                   </SelectContent>
                 </Select>
                 <Input placeholder="Temporary Password (optional)" type="text" value={form.password} onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))} />
@@ -1094,7 +1089,7 @@ const SchoolDetailDialog = ({
                           <SelectContent>
                             <SelectItem value="unassigned">Unassigned</SelectItem>
                             {portfolioStaff
-                              .filter((staff) => ["account_manager", "marketer"].includes(staff.primary_role))
+                              .filter((staff) => ["account_manager", "marketer", "platform_admin"].includes(staff.primary_role))
                               .map((staff) => (
                                 <SelectItem key={staff.user_id} value={staff.user_id}>
                                   {staff.full_name} · {getRoleLabel(staff.primary_role)}
@@ -1405,7 +1400,7 @@ const SaaSDashboardPage = () => {
   }, [user, authLoading, accessLoading, accessProfile, navigate]);
 
   const authorized = accessProfile?.can_view_dashboard === true;
-  const canOnboardSchools = accessProfile?.can_onboard_schools === true;
+  const canOnboardSchools = accessProfile?.can_onboard_schools === true || accessProfile?.primary_role === "marketer";
   const canManageSchoolStatus = accessProfile?.can_manage_school_status === true;
   const canManageSubscriptions = accessProfile?.can_manage_subscriptions === true;
   const canManagePortfolios = accessProfile?.can_manage_portfolios === true;
@@ -1452,6 +1447,12 @@ const SaaSDashboardPage = () => {
     queryKey: ["saas-managed-users"],
     queryFn: () => saasService.listManagedUsers(),
     enabled: authorized && canManagePortfolios,
+  });
+
+  const { data: allInvoices = [], isLoading: allInvoicesLoading } = useQuery({
+    queryKey: ["saas-all-invoices"],
+    queryFn: () => saasService.getInvoices(),
+    enabled: authorized && (accessProfile?.primary_role === "platform_admin" || accessProfile?.primary_role === "support"),
   });
 
   const dueTrialCount = dueSubscriptions.filter((d) => (d.subscription_status || "").includes("trial")).length;
@@ -1588,6 +1589,39 @@ const SaaSDashboardPage = () => {
           ))}
         </div>
 
+        {/* Billing Overview */}
+        {(accessProfile?.primary_role === "platform_admin" || accessProfile?.primary_role === "support") && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+             <Card className="bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200">
+                <CardContent className="pt-4">
+                   <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 mb-1">
+                      <TrendingUp className="w-4 h-4" />
+                      <span className="text-xs font-bold uppercase">Total Revenue (Paid)</span>
+                   </div>
+                   <p className="text-2xl font-bold">KES {(allInvoices || []).filter(inv => inv.status === 'paid').reduce((sum, inv) => sum + Number(inv.amount), 0).toLocaleString()}</p>
+                </CardContent>
+             </Card>
+             <Card className="bg-amber-50 dark:bg-amber-950/20 border-amber-200">
+                <CardContent className="pt-4">
+                   <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 mb-1">
+                      <Clock className="w-4 h-4" />
+                      <span className="text-xs font-bold uppercase">Pending Collections</span>
+                   </div>
+                   <p className="text-2xl font-bold">KES {(allInvoices || []).filter(inv => ['draft', 'sent', 'overdue'].includes(inv.status)).reduce((sum, inv) => sum + Number(inv.amount), 0).toLocaleString()}</p>
+                </CardContent>
+             </Card>
+             <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200">
+                <CardContent className="pt-4">
+                   <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400 mb-1">
+                      <FileText className="w-4 h-4" />
+                      <span className="text-xs font-bold uppercase">Active Subscriptions</span>
+                   </div>
+                   <p className="text-2xl font-bold">{schools.filter(s => s.subscription_status === 'active').length}</p>
+                </CardContent>
+             </Card>
+          </div>
+        )}
+
         {/* Due Soon Panel */}
         <Card>
           <CardHeader className="pb-2">
@@ -1646,6 +1680,16 @@ const SaaSDashboardPage = () => {
             <TabsTrigger value="schools" className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <Building2 className="w-3.5 h-3.5" /> Schools
             </TabsTrigger>
+            {(accessProfile?.primary_role === "platform_admin" || accessProfile?.primary_role === "support") && (
+              <TabsTrigger value="usage" className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                <BarChart3 className="w-3.5 h-3.5" /> Usage Reports
+              </TabsTrigger>
+            )}
+            {(accessProfile?.primary_role === "platform_admin" || accessProfile?.primary_role === "support") && (
+              <TabsTrigger value="billing" className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                <CreditCard className="w-3.5 h-3.5" /> Global Billing
+              </TabsTrigger>
+            )}
             <TabsTrigger value="communications" className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <MessageSquare className="w-3.5 h-3.5" /> Communication Hub
             </TabsTrigger>
@@ -1739,6 +1783,162 @@ const SaaSDashboardPage = () => {
                 ))
               )}
             </div>
+          </TabsContent>
+
+          <TabsContent value="usage" className="mt-4">
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card>
+                   <CardHeader>
+                      <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                         <Users className="w-4 h-4 text-primary" /> Student Enrollment Trends
+                      </CardTitle>
+                      <CardDescription className="text-xs">Top schools by student population and capacity utilization.</CardDescription>
+                   </CardHeader>
+                   <CardContent>
+                      <div className="space-y-4">
+                         {schools.sort((a, b) => b.student_count - a.student_count).slice(0, 5).map(s => (
+                            <div key={s.id} className="space-y-1">
+                               <div className="flex justify-between text-xs font-medium">
+                                  <span>{formatSchoolName(s.name)}</span>
+                                  <span>{s.student_count} Students</span>
+                               </div>
+                               <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+                                  <div
+                                    className="bg-primary h-full transition-all"
+                                    style={{ width: `${Math.min((s.student_count / 1000) * 100, 100)}%` }}
+                                  />
+                               </div>
+                            </div>
+                         ))}
+                      </div>
+                   </CardContent>
+                </Card>
+
+                <Card>
+                   <CardHeader>
+                      <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                         <Shield className="w-4 h-4 text-primary" /> Plan Adoption
+                      </CardTitle>
+                      <CardDescription className="text-xs">Distribution of subscription tiers across the platform.</CardDescription>
+                   </CardHeader>
+                   <CardContent className="flex flex-col items-center justify-center py-6">
+                      <div className="grid grid-cols-3 gap-8 w-full text-center">
+                         <div>
+                            <p className="text-2xl font-bold">{schools.filter(s => s.subscription_plan === 'starter').length}</p>
+                            <p className="text-[10px] uppercase text-muted-foreground font-semibold">Starter</p>
+                         </div>
+                         <div>
+                            <p className="text-2xl font-bold">{schools.filter(s => s.subscription_plan === 'standard').length}</p>
+                            <p className="text-[10px] uppercase text-muted-foreground font-semibold">Standard</p>
+                         </div>
+                         <div>
+                            <p className="text-2xl font-bold">{schools.filter(s => s.subscription_plan === 'enterprise').length}</p>
+                            <p className="text-[10px] uppercase text-muted-foreground font-semibold">Enterprise</p>
+                         </div>
+                      </div>
+                   </CardContent>
+                </Card>
+             </div>
+
+             <Card className="mt-4">
+                <CardHeader>
+                   <CardTitle className="text-sm font-semibold">Detailed School Activity Log</CardTitle>
+                   <CardDescription className="text-xs">Latest onboarding and system updates per school.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                   <div className="rounded-md border">
+                      <Table>
+                         <TableHeader>
+                            <TableRow>
+                               <TableHead>School</TableHead>
+                               <TableHead>Code</TableHead>
+                               <TableHead>Status</TableHead>
+                               <TableHead>Created At</TableHead>
+                               <TableHead>Account Manager</TableHead>
+                            </TableRow>
+                         </TableHeader>
+                         <TableBody>
+                            {schools.slice(0, 10).map(s => (
+                               <TableRow key={s.id} className="text-xs">
+                                  <TableCell className="font-medium">{formatSchoolName(s.name)}</TableCell>
+                                  <TableCell className="font-mono">{s.code}</TableCell>
+                                  <TableCell><StatusBadge status={s.subscription_status} /></TableCell>
+                                  <TableCell>{new Date(s.created_at).toLocaleDateString()}</TableCell>
+                                  <TableCell>{s.portfolio_owner_name || "—"}</TableCell>
+                               </TableRow>
+                            ))}
+                         </TableBody>
+                      </Table>
+                   </div>
+                </CardContent>
+             </Card>
+          </TabsContent>
+
+          <TabsContent value="billing" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-primary" /> Comprehensive Billing Dashboard
+                </CardTitle>
+                <CardDescription className="text-xs">Manage invoices, track revenue, and monitor payment status across all schools.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Invoice #</TableHead>
+                        <TableHead>School</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Due Date</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {allInvoicesLoading ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8">
+                            <Loader2 className="w-6 h-6 animate-spin mx-auto" />
+                          </TableCell>
+                        </TableRow>
+                      ) : allInvoices.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                            No invoices found.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        allInvoices.map((inv) => (
+                          <TableRow key={inv.id} className="text-xs">
+                            <TableCell className="font-mono">{inv.invoice_number}</TableCell>
+                            <TableCell className="font-medium">{formatSchoolName(schools.find(s => s.id === inv.school_id)?.name || `School #${inv.school_id}`)}</TableCell>
+                            <TableCell className="font-semibold">KES {Number(inv.amount).toLocaleString()}</TableCell>
+                            <TableCell>{new Date(inv.due_date).toLocaleDateString()}</TableCell>
+                            <TableCell>
+                              <Badge variant={inv.status === 'paid' ? 'default' : inv.status === 'overdue' ? 'destructive' : 'secondary'}>
+                                {inv.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => {
+                                 const s = schools.find(sch => sch.id === inv.school_id);
+                                 if (s) {
+                                   setSelectedSchool(s);
+                                   setDetailOpen(true);
+                                 }
+                              }}>
+                                <Eye className="w-3.5 h-3.5" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="communications" className="mt-4">
