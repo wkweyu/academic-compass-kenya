@@ -36,6 +36,7 @@ import AccountingPage from "./pages/AccountingPage";
 import PayrollPage from "./pages/PayrollPage";
 import IGAPage from "./pages/IGAPage";
 import NotFound from "./pages/NotFound";
+import OnboardingPage from "./pages/OnboardingPage";
 
 const queryClient = new QueryClient();
 
@@ -51,6 +52,7 @@ const App = () => (
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/saas/login" element={<SaaSLoginPage />} />
               <Route path="/saas/dashboard" element={<SaaSDashboardPage />} />
+              <Route path="/onboarding" element={<OnboardingPage />} />
               <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/dashboard" element={<DashboardPage />} />
