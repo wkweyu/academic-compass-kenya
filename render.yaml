@@ -39,9 +39,8 @@ services:
       - key: DB_SSL_REQUIRE
         value: "true"
 
-  - type: web
+  - type: static
     name: academic-compass-web
-    runtime: static
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
     envVars:
