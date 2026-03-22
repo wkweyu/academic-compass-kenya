@@ -22,7 +22,7 @@ def student_photo_path(instance, filename):
 
 class Class(models.Model):
     """Model for school classes (Grade 1, Grade 2, etc.)"""
-    name = models.CharField(max_length=50, unique=True)
+    name = models.CharField(max_length=50)
     grade_level = models.IntegerField()
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -33,6 +33,9 @@ class Class(models.Model):
         verbose_name = 'Class'
         verbose_name_plural = 'Classes'
         ordering = ['grade_level', 'name']
+        constraints = [
+            models.UniqueConstraint(fields=['school', 'name'], name='classes_school_name_unique'),
+        ]
     
     def __str__(self):
         return self.name

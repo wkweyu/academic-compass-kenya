@@ -63,16 +63,25 @@ export const classService = {
   },
 
   async createClass(data: Omit<Class, "id" | "created_at" | "total_streams" | "total_students" | "capacity" | "school">): Promise<Class> {
-    const { data: schoolId } = await supabase.rpc('get_user_school_id');
-    
+    const { data: schoolId, error: schoolError } = await supabase.rpc('get_user_school_id');
+
+    if (schoolError || !schoolId) {
+      throw schoolError || new Error('Unable to determine user school');
+    }
+
     const { data: newClass, error } = await supabase
       .from('classes')
-      .insert({
-        name: data.name,
-        grade_level: data.grade_level,
-        description: data.description || '',
-        school_id: schoolId
-      })
+      .upsert(
+        {
+          name: data.name,
+          grade_level: data.grade_level,
+          description: data.description || '',
+          school_id: schoolId,
+        },
+        {
+          onConflict: 'school_id,name',
+        },
+      )
       .select()
       .single();
     

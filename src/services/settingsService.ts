@@ -1,35 +1,67 @@
 import { supabase } from "@/integrations/supabase/client";
 import { SchoolProfile, TermSetting, AcademicYearSetting, SystemSettings, GradingSystemSettings } from "@/types/settings";
+import { classService } from "@/services/classService";
+import { streamSettingsService } from "@/services/streamSettingsService";
+import {
+  getLegacySchoolTypeFromManagedClassGroups,
+  hasManagedClassGroupConfiguration,
+  normalizeManagedClassGroups,
+} from "@/utils/schoolClassGroups";
+
+export interface SchoolSetupStatus {
+  profileReady: boolean;
+  termsReady: boolean;
+  classesReady: boolean;
+  streamsReady: boolean;
+  complete: boolean;
+}
+
+const normalizeSchoolProfile = (profile: SchoolProfile): SchoolProfile => {
+  const managedClassGroups = normalizeManagedClassGroups(profile.managed_class_groups, profile.type);
+
+  return {
+    ...profile,
+    managed_class_groups: managedClassGroups,
+    type: getLegacySchoolTypeFromManagedClassGroups(managedClassGroups, profile.type),
+  };
+};
+
+const buildSchoolProfilePayload = (profile: Partial<SchoolProfile>) => {
+  const managedClassGroups = normalizeManagedClassGroups(profile.managed_class_groups, profile.type);
+
+  return {
+    ...profile,
+    managed_class_groups: managedClassGroups,
+    type: getLegacySchoolTypeFromManagedClassGroups(managedClassGroups, profile.type),
+  };
+};
 
 export const settingsService = {
   getSchoolProfile: async (): Promise<SchoolProfile | null> => {
     try {
-      console.log('Fetching school profile...');
       const { data, error } = await supabase.rpc('get_or_create_school_profile');
       
       if (error) {
-        console.error('RPC error:', error);
         throw error;
       }
       
-      console.log('School profile data:', data);
       if (!data || data.length === 0) {
-        console.log('No school profile found');
         return null;
       }
       
-      return data[0] as SchoolProfile;
+      return normalizeSchoolProfile(data[0] as SchoolProfile);
     } catch (error: any) {
-      console.error('Error fetching school profile:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error fetching school profile:', error);
+      }
       throw error;
     }
   },
 
   createSchoolProfile: async (profile: Omit<SchoolProfile, "id" | "code" | "created_at" | "active">): Promise<SchoolProfile> => {
     try {
-      console.log('Creating school profile via RPC:', profile);
+      const payload = buildSchoolProfilePayload(profile);
       const { data: userData, error: userError } = await supabase.auth.getUser();
-      console.log('Current user:', userData?.user?.id);
       
       if (userError || !userData?.user) {
         throw new Error('User not authenticated');
@@ -37,52 +69,56 @@ export const settingsService = {
       
       // Use RPC function to create school with elevated privileges
       const { data, error } = await supabase.rpc('create_school_profile', {
-        p_name: profile.name,
-        p_address: profile.address,
-        p_phone: profile.phone,
-        p_email: profile.email,
-        p_type: profile.type || '',
-        p_motto: profile.motto || '',
-        p_website: profile.website || '',
-        p_logo: profile.logo || ''
+        p_name: payload.name,
+        p_address: payload.address,
+        p_phone: payload.phone,
+        p_email: payload.email,
+        p_type: payload.type || '',
+        p_managed_class_groups: payload.managed_class_groups || [],
+        p_motto: payload.motto || '',
+        p_website: payload.website || '',
+        p_logo: payload.logo || ''
       });
 
       if (error) {
-        console.error('Create school RPC error:', error);
-        console.error('Error details:', JSON.stringify(error, null, 2));
         throw error;
       }
-      
-      console.log('School created successfully via RPC:', data);
       
       // RPC returns an array, get the first item
       if (!data || data.length === 0) {
         throw new Error('School created but no data returned');
       }
       
-      return data[0] as SchoolProfile;
+      return normalizeSchoolProfile(data[0] as SchoolProfile);
     } catch (error) {
-      console.error('Failed to create school:', error);
+      if (import.meta.env.DEV) {
+        console.error('Failed to create school:', error);
+      }
       throw error;
     }
   },
 
   updateSchoolProfile: async (profile: Partial<SchoolProfile>): Promise<SchoolProfile> => {
-    const { data: currentProfile } = await supabase.rpc('get_or_create_school_profile');
-    if (!currentProfile || currentProfile.length === 0) {
-      throw new Error('No school profile found to update');
-    }
-
-    const schoolId = currentProfile[0].id;
-    const { data, error } = await supabase
-      .from('schools_school')
-      .update(profile)
-      .eq('id', schoolId)
-      .select()
-      .single();
+    const payload = buildSchoolProfilePayload(profile);
+    const { data, error } = await supabase.rpc('update_school_profile', {
+      p_name: payload.name,
+      p_address: payload.address,
+      p_phone: payload.phone,
+      p_email: payload.email,
+      p_type: payload.type || '',
+      p_managed_class_groups: payload.managed_class_groups || [],
+      p_motto: payload.motto || '',
+      p_website: payload.website || '',
+      p_logo: payload.logo || '',
+    });
 
     if (error) throw error;
-    return data as SchoolProfile;
+
+    if (!data || data.length === 0) {
+      throw new Error('School profile was updated, but no data was returned');
+    }
+
+    return normalizeSchoolProfile(data[0] as SchoolProfile);
   },
 
   deleteSchoolProfile: async (schoolId: number): Promise<void> => {
@@ -203,5 +239,25 @@ export const settingsService = {
   updateGradingSettings: async (settings: Partial<GradingSystemSettings>): Promise<GradingSystemSettings> => {
     // TODO: Implement backend endpoint
     throw new Error("Not implemented yet");
+  },
+
+  getSchoolSetupStatus: async (): Promise<SchoolSetupStatus> => {
+    const [profile, terms, classes, streamNames] = await Promise.all([
+      settingsService.getSchoolProfile(),
+      settingsService.getTermSettings(),
+      classService.getClasses(),
+      streamSettingsService.getStreamNames(),
+    ]);
+
+    const status: SchoolSetupStatus = {
+      profileReady: Boolean(profile?.name && profile?.address && profile?.phone && profile?.email && hasManagedClassGroupConfiguration(profile)),
+      termsReady: terms.length > 0,
+      classesReady: classes.length > 0,
+      streamsReady: streamNames.length > 0,
+      complete: false,
+    };
+
+    status.complete = status.profileReady && status.termsReady && status.classesReady && status.streamsReady;
+    return status;
   },
 };

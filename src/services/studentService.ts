@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { Student, StudentFilters, StudentStats, ImportResult } from "@/types/student";
+import { toSentenceCase } from "@/utils/nameFormatter";
 
 export const getStudents = async (
   params: StudentFilters = {}
@@ -10,7 +11,8 @@ export const getStudents = async (
       .select(`
         *,
         classes:current_class_id(id, name, grade_level),
-        streams:current_stream_id(id, name)
+        streams:current_stream_id(id, name),
+        transport_transportroute:transport_route_id(id, name, one_way_charge, two_way_charge)
       `);
     
     if (params.search) {
@@ -37,7 +39,7 @@ export const getStudents = async (
       id: item.id.toString(),
       admission_number: item.admission_number,
       level: item.level || 'Primary',
-      full_name: item.full_name,
+      full_name: toSentenceCase(item.full_name),
       first_name: item.first_name,
       last_name: item.last_name,
       date_of_birth: item.date_of_birth,
@@ -59,8 +61,9 @@ export const getStudents = async (
       status: item.status,
       is_active: item.is_active,
       is_on_transport: item.is_on_transport || false,
-      transport_route: item.transport_route,
+      transport_route: item.transport_route_id,
       transport_type: item.transport_type,
+      transport_route_name: item.transport_transportroute?.name || null,
       stream: item.streams?.name || '',
       photo: item.photo,
       photo_url: item.photo_url,
@@ -100,7 +103,7 @@ export const getStudentById = async (id: string): Promise<Student | null> => {
       id: data.id.toString(),
       admission_number: data.admission_number,
       level: data.level || 'Primary',
-      full_name: data.full_name,
+      full_name: toSentenceCase(data.full_name),
       first_name: data.first_name,
       last_name: data.last_name,
       date_of_birth: data.date_of_birth,
@@ -122,7 +125,7 @@ export const getStudentById = async (id: string): Promise<Student | null> => {
       status: data.status,
       is_active: data.is_active,
       is_on_transport: data.is_on_transport || false,
-      transport_route: data.transport_route,
+      transport_route: data.transport_route_id,
       transport_type: data.transport_type,
       stream: data.streams?.name || '',
       photo: data.photo,
@@ -246,10 +249,9 @@ async function generateAdmissionNumber(): Promise<string> {
 
 export const updateStudent = async (id: string, studentData: Partial<Student>): Promise<Student | null> => {
   try {
+    // Only include columns that actually exist in the students table
     const updateData: any = {
       full_name: studentData.full_name,
-      first_name: studentData.first_name,
-      last_name: studentData.last_name,
       date_of_birth: studentData.date_of_birth,
       gender: studentData.gender,
       guardian_name: studentData.guardian_name,
@@ -259,22 +261,11 @@ export const updateStudent = async (id: string, studentData: Partial<Student>): 
       current_class_id: studentData.current_class ? parseInt(studentData.current_class) : null,
       current_stream_id: studentData.current_stream ? parseInt(studentData.current_stream) : null,
       level: studentData.level,
-      academic_year: studentData.academic_year,
-      term: studentData.term,
-      upi_number: studentData.upi_number,
-      status: studentData.status,
+      admission_year: studentData.admission_year,
       is_on_transport: studentData.is_on_transport,
-      transport_route: studentData.transport_route,
-      transport_type: studentData.transport_type,
+      transport_route_id: studentData.transport_route && !isNaN(Number(studentData.transport_route)) ? Number(studentData.transport_route) : null,
+      transport_type: studentData.is_on_transport ? studentData.transport_type : null,
       photo: studentData.photo,
-      photo_url: studentData.photo_url,
-      address: studentData.address,
-      phone: studentData.phone,
-      email: studentData.email,
-      medical_conditions: studentData.medical_conditions,
-      emergency_contact: studentData.emergency_contact,
-      emergency_phone: studentData.emergency_phone,
-      previous_school: studentData.previous_school
     };
 
     // Remove undefined values
@@ -321,7 +312,7 @@ export const updateStudent = async (id: string, studentData: Partial<Student>): 
       status: data.status,
       is_active: data.is_active,
       is_on_transport: data.is_on_transport,
-      transport_route: data.transport_route,
+      transport_route: data.transport_route_id,
       transport_type: data.transport_type,
       stream: data.streams?.name || '',
       photo: data.photo,

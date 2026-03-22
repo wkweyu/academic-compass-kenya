@@ -6,60 +6,60 @@ import { settingsService } from '@/services/settingsService';
 import { classService } from '@/services/classService';
 import { SchoolProfile } from '@/types/settings';
 import { CheckCircle, Plus } from 'lucide-react';
+import {
+  getManagedClassGroupSummary,
+  getPredefinedClassTemplatesForManagedGroups,
+  hasManagedClassGroupConfiguration,
+  hasOnlyPrePrimaryManagedClassGroups,
+} from '@/utils/schoolClassGroups';
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return fallback;
+};
 
 export function PredefinedClassesTab() {
   const [loading, setLoading] = useState(false);
   const [schoolProfile, setSchoolProfile] = useState<SchoolProfile | null>(null);
+  const [existingClasses, setExistingClasses] = useState<number[]>([]);
   const [classesCreated, setClassesCreated] = useState(false);
 
   useEffect(() => {
-    loadSchoolProfile();
+    loadData();
   }, []);
 
-  const loadSchoolProfile = async () => {
+  const loadData = async () => {
     try {
-      const profile = await settingsService.getSchoolProfile();
+      const [profile, classes] = await Promise.all([
+        settingsService.getSchoolProfile(),
+        classService.getClasses(),
+      ]);
+
       setSchoolProfile(profile);
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to load school profile');
+      setExistingClasses(classes.map((item) => item.grade_level));
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to load school profile'));
     }
   };
 
-  const getPredefinedClasses = (schoolType: string) => {
-    const type = schoolType?.toLowerCase();
-    
-    if (type === 'pre-primary' || type === 'preprimary') {
-      return [
-        { name: 'Pre-Primary 1', grade_level: 1, description: 'Pre-Primary Year 1' },
-        { name: 'Pre-Primary 2', grade_level: 2, description: 'Pre-Primary Year 2' },
-      ];
-    } else if (type === 'mixed' || type === 'primary-secondary') {
-      return [
-        { name: 'Primary Grade 1', grade_level: 1, description: 'Primary School Grade 1' },
-        { name: 'Primary Grade 2', grade_level: 2, description: 'Primary School Grade 2' },
-        { name: 'Primary Grade 3', grade_level: 3, description: 'Primary School Grade 3' },
-        { name: 'Primary Grade 4', grade_level: 4, description: 'Primary School Grade 4' },
-        { name: 'Primary Grade 5', grade_level: 5, description: 'Primary School Grade 5' },
-        { name: 'Primary Grade 6', grade_level: 6, description: 'Primary School Grade 6' },
-        { name: 'Junior Secondary Grade 7', grade_level: 7, description: 'Junior Secondary School Grade 7' },
-        { name: 'Junior Secondary Grade 8', grade_level: 8, description: 'Junior Secondary School Grade 8' },
-        { name: 'Junior Secondary Grade 9', grade_level: 9, description: 'Junior Secondary School Grade 9' },
-      ];
-    }
-    
-    return [];
-  };
+  const predefinedClasses = getPredefinedClassTemplatesForManagedGroups(
+    schoolProfile?.managed_class_groups,
+    schoolProfile?.type,
+  );
+  const pendingClasses = predefinedClasses.filter((classTemplate) => !existingClasses.includes(classTemplate.grade_level));
+  const existingPredefinedCount = predefinedClasses.length - pendingClasses.length;
 
   const handleCreatePredefinedClasses = async () => {
-    if (!schoolProfile?.type) {
-      toast.error('School type not configured in school profile');
+    if (!hasManagedClassGroupConfiguration(schoolProfile)) {
+      toast.error('Managed class groups are not configured in the school profile');
       return;
     }
-
-    const predefinedClasses = getPredefinedClasses(schoolProfile.type);
     
-    if (predefinedClasses.length === 0) {
-      toast.error('No predefined classes available for this school type');
+    if (pendingClasses.length === 0) {
+      toast.error('No predefined classes are available for the configured class groups');
       return;
     }
 
@@ -67,33 +67,42 @@ export function PredefinedClassesTab() {
     try {
       let successCount = 0;
       let errorCount = 0;
+      let firstErrorMessage = '';
 
-      for (const classData of predefinedClasses) {
+      for (const classData of pendingClasses) {
         try {
           await classService.createClass(classData);
           successCount++;
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error(`Failed to create class ${classData.name}:`, error);
           errorCount++;
+          if (!firstErrorMessage) {
+            firstErrorMessage = getErrorMessage(error, `Failed to create ${classData.name}`);
+          }
         }
       }
 
       if (successCount > 0) {
         toast.success(`Created ${successCount} predefined class(es)`);
         setClassesCreated(true);
+        await loadData();
       }
       
       if (errorCount > 0) {
-        toast.error(`Failed to create ${errorCount} class(es). They may already exist.`);
+        toast.error(firstErrorMessage || `Failed to create ${errorCount} class(es).`);
       }
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to create predefined classes');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to create predefined classes'));
     } finally {
       setLoading(false);
     }
   };
 
-  const predefinedClasses = schoolProfile?.type ? getPredefinedClasses(schoolProfile.type) : [];
+  const managedClassGroupsLabel = getManagedClassGroupSummary(schoolProfile);
+  const prePrimaryOnly = hasOnlyPrePrimaryManagedClassGroups(
+    schoolProfile?.managed_class_groups,
+    schoolProfile?.type,
+  );
 
   return (
     <div className="space-y-6">
@@ -101,21 +110,29 @@ export function PredefinedClassesTab() {
         <CardHeader>
           <CardTitle>Predefined Classes</CardTitle>
           <CardDescription>
-            Based on your school type, automatically create the standard classes for your institution.
+            Based on your managed class groups, automatically create the standard classes for your institution.
             You can always create additional custom classes as needed.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {!schoolProfile?.type ? (
+          {!hasManagedClassGroupConfiguration(schoolProfile) ? (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
               <p className="text-sm text-yellow-800">
-                Please configure your school type in the <strong>School Profile</strong> tab first to see predefined class options.
+                Please configure the <strong>managed class groups</strong> in the <strong>School Profile</strong> tab first to see predefined class options.
+              </p>
+            </div>
+          ) : prePrimaryOnly ? (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <p className="text-sm text-amber-800">
+                <strong>Pre-Primary</strong> should be implemented separately from the grade-based class groups already used by the system.
+                To avoid breaking existing modules, predefined class auto-generation is intentionally disabled here until a dedicated
+                pre-primary class structure is introduced.
               </p>
             </div>
           ) : predefinedClasses.length === 0 ? (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-sm text-blue-800">
-                No predefined classes are available for school type <strong>{schoolProfile.type}</strong>.
+                No predefined classes are available for <strong>{managedClassGroupsLabel || 'the current class group setup'}</strong>.
                 You can manually create classes using the "Add Class" button in the Class Management page.
               </p>
             </div>
@@ -123,13 +140,20 @@ export function PredefinedClassesTab() {
             <>
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h3 className="font-medium text-blue-900 mb-2">
-                  School Type: <strong>{schoolProfile.type}</strong>
+                  Managed Class Groups: <strong>{managedClassGroupsLabel}</strong>
                 </h3>
                 <p className="text-sm text-blue-800 mb-3">
-                  The following {predefinedClasses.length} classes will be created:
+                  {pendingClasses.length === 0
+                    ? 'All predefined classes for the selected class groups already exist.'
+                    : `The following ${pendingClasses.length} missing class(es) will be created:`}
                 </p>
+                {existingPredefinedCount > 0 && (
+                  <p className="text-sm text-blue-800 mb-3">
+                    Already available: <strong>{existingPredefinedCount}</strong> of <strong>{predefinedClasses.length}</strong> predefined classes.
+                  </p>
+                )}
                 <ul className="space-y-2">
-                  {predefinedClasses.map((cls, index) => (
+                  {pendingClasses.map((cls, index) => (
                     <li key={index} className="flex items-center gap-2 text-sm text-blue-900">
                       <CheckCircle className="h-4 w-4" />
                       <strong>{cls.name}</strong> - Grade Level {cls.grade_level}
@@ -140,20 +164,20 @@ export function PredefinedClassesTab() {
 
               <Button
                 onClick={handleCreatePredefinedClasses}
-                disabled={loading || classesCreated}
+                disabled={loading || pendingClasses.length === 0 || classesCreated}
                 className="w-full"
               >
                 {loading ? (
                   'Creating Classes...'
-                ) : classesCreated ? (
+                ) : pendingClasses.length === 0 || classesCreated ? (
                   <>
                     <CheckCircle className="h-4 w-4 mr-2" />
-                    Classes Created
+                    Predefined Classes Ready
                   </>
                 ) : (
                   <>
                     <Plus className="h-4 w-4 mr-2" />
-                    Create Predefined Classes
+                    Create Missing Predefined Classes
                   </>
                 )}
               </Button>
@@ -166,6 +190,7 @@ export function PredefinedClassesTab() {
                   <li>Add custom classes manually</li>
                   <li>Create streams for each class</li>
                   <li>Modify class details as needed</li>
+                  <li>Keep pre-primary setup separate until its dedicated class structure is introduced</li>
                 </ul>
               </div>
             </>

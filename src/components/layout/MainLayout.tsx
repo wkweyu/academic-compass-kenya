@@ -1,59 +1,33 @@
-import { NavLink, Outlet } from 'react-router-dom';
-import { Menu, LogOut, User } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import {
-  SidebarProvider,
-  SidebarTrigger,
-} from '@/components/ui/sidebar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { AppSidebar } from '@/components/AppSidebar';
-import { useAuth } from '@/hooks/useAuth';
+import { Outlet } from 'react-router-dom';
+import { TopNavBar } from '@/components/layout/TopNavBar';
+import skooltrackLogo from '@/assets/skooltrack-logo.png';
 
 interface MainLayoutProps {
   children?: React.ReactNode;
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
-  const { user, signOut } = useAuth();
-
   return (
-    <SidebarProvider>
-      <div className="min-h-screen flex w-full">
-        <AppSidebar />
-        
-        <div className="flex flex-col flex-1">
-          {/* Header with sidebar trigger */}
-          <header className="h-14 flex items-center border-b px-4 lg:px-6">
-            <SidebarTrigger />
-            <div className="ml-auto">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="flex items-center gap-2">
-                    <User className="h-4 w-4" />
-                    {user?.email}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={signOut} className="text-destructive">
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Sign Out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </header>
-
-          {/* Main Content */}
-          <main className="flex-1 overflow-auto p-4 lg:p-6">
-            <Outlet />
-          </main>
+    <div className="min-h-screen flex flex-col w-full bg-background">
+      <TopNavBar />
+      
+      {/* Main Content */}
+      <main className="flex-1 overflow-auto">
+        <div className="max-w-[1600px] mx-auto px-4 lg:px-8 py-6">
+          <Outlet />
         </div>
-      </div>
-    </SidebarProvider>
+      </main>
+
+      {/* Footer */}
+      <footer className="border-t border-border bg-card py-3 px-4 lg:px-8 print:hidden">
+        <div className="max-w-[1600px] mx-auto flex items-center justify-between text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <img src={skooltrackLogo} alt="SkoolTrack Pro" className="h-5 w-auto opacity-60" />
+            <span>© {new Date().getFullYear()} SkoolTrack Pro</span>
+          </div>
+          <span>School Management System</span>
+        </div>
+      </footer>
+    </div>
   );
 }

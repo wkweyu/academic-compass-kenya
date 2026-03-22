@@ -18,6 +18,7 @@ export interface SchoolProfile {
   active: boolean;
   created_at: string;
   type?: string;
+  managed_class_groups?: string[];
   motto?: string;
   website?: string;
 }

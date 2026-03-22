@@ -1,17 +1,24 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ChangeEvent } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { settingsService } from '@/services/settingsService';
 import { SchoolProfile } from '@/types/settings';
 import { Loader2, Save, Upload } from 'lucide-react';
+import {
+  getLegacySchoolTypeFromManagedClassGroups,
+  getManagedClassGroupSummary,
+  hasManagedClassGroupConfiguration,
+  MANAGED_CLASS_GROUP_OPTIONS,
+  normalizeManagedClassGroups,
+} from '@/utils/schoolClassGroups';
 
 const schoolProfileSchema = z.object({
   name: z.string().min(1, 'School name is required'),
@@ -19,6 +26,7 @@ const schoolProfileSchema = z.object({
   phone: z.string().min(1, 'Phone number is required'),
   email: z.string().min(1, 'Email is required').email('Invalid email address'),
   type: z.string().optional(),
+  managed_class_groups: z.array(z.string()).default([]),
   motto: z.string().optional(),
   website: z.string().url('Invalid URL').optional().or(z.literal('')),
   logo: z.string().optional(),
@@ -30,7 +38,7 @@ export function SchoolProfileTab() {
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<SchoolProfile | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<SchoolProfileFormData>({
@@ -41,6 +49,7 @@ export function SchoolProfileTab() {
       phone: '',
       email: '',
       type: '',
+      managed_class_groups: [],
       motto: '',
       website: '',
       logo: '',
@@ -51,6 +60,24 @@ export function SchoolProfileTab() {
     loadSchoolProfile();
   }, []);
 
+  const syncFormWithProfile = (data: SchoolProfile) => {
+    const managedClassGroups = normalizeManagedClassGroups(data.managed_class_groups, data.type);
+
+    setProfile(data);
+    setIsCreating(false);
+    form.reset({
+      name: data.name,
+      address: data.address,
+      phone: data.phone,
+      email: data.email,
+      type: getLegacySchoolTypeFromManagedClassGroups(managedClassGroups, data.type),
+      managed_class_groups: managedClassGroups,
+      motto: data.motto || '',
+      website: data.website || '',
+      logo: data.logo || '',
+    });
+  };
+
   const loadSchoolProfile = async () => {
     try {
       setLoading(true);
@@ -59,18 +86,7 @@ export function SchoolProfileTab() {
       
       if (data) {
         console.log('Profile loaded:', data);
-        setProfile(data);
-        setIsCreating(false);
-        form.reset({
-          name: data.name,
-          address: data.address,
-          phone: data.phone,
-          email: data.email,
-          type: data.type || '',
-          motto: data.motto || '',
-          website: data.website || '',
-          logo: data.logo || '',
-        });
+        syncFormWithProfile(data);
       } else {
         console.log('No profile found, showing create form');
         setProfile(null);
@@ -83,44 +99,96 @@ export function SchoolProfileTab() {
         description: error?.message || 'Failed to load school profile',
         variant: 'destructive',
       });
-      // Still show the create form if loading fails
-      setProfile(null);
-      setIsCreating(true);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLogoUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'Invalid file',
+        description: 'Please upload an image file for the school logo.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        title: 'File too large',
+        description: 'Please upload a logo smaller than 2 MB.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setUploadingLogo(true);
+      const fileDataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('Unable to read the selected file'));
+        reader.readAsDataURL(file);
+      });
+
+      form.setValue('logo', fileDataUrl, { shouldDirty: true, shouldValidate: true });
+      toast({
+        title: 'Logo ready',
+        description: `${file.name} will be saved as your school logo.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Upload failed',
+        description: error.message || 'Unable to process the selected logo.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploadingLogo(false);
+      event.target.value = '';
     }
   };
 
   const onSubmit = async (data: SchoolProfileFormData) => {
     try {
       setLoading(true);
+      const managedClassGroups = normalizeManagedClassGroups(data.managed_class_groups, data.type);
+      const derivedType = getLegacySchoolTypeFromManagedClassGroups(managedClassGroups, data.type);
       
       if (isCreating) {
         // Create new school - all fields are validated by zod schema
-        await settingsService.createSchoolProfile({
+        const savedProfile = await settingsService.createSchoolProfile({
           name: data.name,
           address: data.address,
           phone: data.phone,
           email: data.email,
-          type: data.type,
+          type: derivedType,
+          managed_class_groups: managedClassGroups,
           motto: data.motto,
           website: data.website,
           logo: data.logo,
         });
+        syncFormWithProfile(savedProfile);
         toast({
           title: 'Success',
           description: 'School profile created successfully',
         });
       } else {
         // Update existing school
-        await settingsService.updateSchoolProfile(data);
+        const savedProfile = await settingsService.updateSchoolProfile({
+          ...data,
+          type: derivedType,
+          managed_class_groups: managedClassGroups,
+        });
+        syncFormWithProfile(savedProfile);
         toast({
           title: 'Success',
           description: 'School profile updated successfully',
         });
       }
-      
-      loadSchoolProfile();
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -130,34 +198,6 @@ export function SchoolProfileTab() {
       console.error(`${isCreating ? 'Create' : 'Update'} error:`, error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!profile?.id) return;
-    
-    if (!confirm('Are you sure you want to delete this school profile? This action cannot be undone and will affect all related data.')) {
-      return;
-    }
-
-    try {
-      setIsDeleting(true);
-      await settingsService.deleteSchoolProfile(profile.id);
-      toast({
-        title: 'Success',
-        description: 'School profile deleted successfully',
-      });
-      setProfile(null);
-      setIsCreating(true);
-      form.reset();
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to delete school profile',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsDeleting(false);
     }
   };
 
@@ -190,9 +230,22 @@ export function SchoolProfileTab() {
               <div>
                 <span className="font-semibold">Phone:</span> {profile.phone}
               </div>
+              {hasManagedClassGroupConfiguration(profile) && (
+                <div>
+                  <span className="font-semibold">Managed Class Groups:</span> {getManagedClassGroupSummary(profile)}
+                </div>
+              )}
               {profile.type && (
                 <div>
-                  <span className="font-semibold">Type:</span> {profile.type}
+                  <span className="font-semibold">Legacy Type:</span> {profile.type}
+                </div>
+              )}
+              {profile.logo && (
+                <div className="md:col-span-2">
+                  <span className="font-semibold">Logo:</span>
+                  <div className="mt-2">
+                    <img src={profile.logo} alt="School logo" className="h-20 w-20 rounded-md border object-contain p-1" />
+                  </div>
                 </div>
               )}
               {profile.website && (
@@ -221,9 +274,14 @@ export function SchoolProfileTab() {
           <CardTitle>
             {isCreating ? 'Create School Profile' : 'Edit School Profile'}
           </CardTitle>
-          {isCreating && (
+          {isCreating ? (
             <p className="text-sm text-muted-foreground mt-2">
               Welcome! Please create your school profile to get started.
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground mt-2">
+              Your school was created during onboarding. Review the prefilled details below, add the remaining setup information,
+              then save to complete your school profile.
             </p>
           )}
         </CardHeader>
@@ -307,23 +365,49 @@ export function SchoolProfileTab() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="type"
+                name="managed_class_groups"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>School Type</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select school type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="Primary">Primary School</SelectItem>
-                        <SelectItem value="Secondary">Secondary School</SelectItem>
-                        <SelectItem value="Pre-Primary">Pre-Primary</SelectItem>
-                        <SelectItem value="Mixed">Mixed (Primary & Secondary)</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <FormLabel>Managed Class Groups</FormLabel>
+                    <FormControl>
+                      <div className="space-y-3 rounded-md border p-4">
+                        {MANAGED_CLASS_GROUP_OPTIONS.map((option) => {
+                          const selectedValues = field.value || [];
+                          const isChecked = selectedValues.includes(option.value);
+
+                          return (
+                            <label
+                              key={option.value}
+                              className="flex items-start gap-3 rounded-md border p-3 transition-colors hover:bg-muted/40"
+                            >
+                              <Checkbox
+                                checked={isChecked}
+                                onCheckedChange={(checked) => {
+                                  const nextValues = checked
+                                    ? [...selectedValues, option.value]
+                                    : selectedValues.filter((value) => value !== option.value);
+
+                                  field.onChange(normalizeManagedClassGroups(nextValues));
+                                }}
+                              />
+                              <div className="space-y-1">
+                                <p className="text-sm font-medium leading-none">{option.label}</p>
+                                <p className="text-sm text-muted-foreground">{option.description}</p>
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </FormControl>
+                    <p className="text-sm text-muted-foreground">
+                      Select every section your school manages together. Existing modules keep using the current grade-based class
+                      logic, while setup and defaults now read this safe multi-select configuration first.
+                    </p>
+                    {(field.value?.length || 0) > 0 && (
+                      <p className="text-sm text-muted-foreground">
+                        Legacy fallback type: <strong>{getLegacySchoolTypeFromManagedClassGroups(field.value)}</strong>
+                      </p>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -363,32 +447,41 @@ export function SchoolProfileTab() {
               name="logo"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>School Logo URL</FormLabel>
+                  <FormLabel>School Logo</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter logo URL" {...field} />
+                    <div className="space-y-3">
+                      {field.value ? (
+                        <div className="flex items-center gap-4 rounded-md border p-3">
+                          <img src={field.value} alt="Selected school logo" className="h-16 w-16 rounded-md border object-contain p-1" />
+                          <div className="space-y-2">
+                            <p className="text-sm text-muted-foreground">Upload a clear square logo for best results.</p>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => form.setValue('logo', '', { shouldDirty: true, shouldValidate: true })}
+                            >
+                              Remove Logo
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed px-4 py-6 text-sm text-muted-foreground hover:bg-muted/50">
+                          {uploadingLogo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                          <span>{uploadingLogo ? 'Preparing logo...' : 'Choose logo image'}</span>
+                          <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} disabled={uploadingLogo} />
+                        </label>
+                      )}
+                    </div>
                   </FormControl>
+                  <p className="text-sm text-muted-foreground">Upload PNG, JPG, or SVG up to 2 MB.</p>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
             <div className="flex justify-between">
-              <div>
-                {!isCreating && (
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    onClick={handleDelete}
-                    disabled={loading || isDeleting}
-                  >
-                    {isDeleting ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      'Delete School'
-                    )}
-                  </Button>
-                )}
-              </div>
+              <div />
               <div className="flex space-x-4">
                 {!isCreating && (
                   <Button

@@ -4,32 +4,19 @@ import { DashboardData } from "@/types/dashboard";
 export const dashboardService = {
   async getDashboardData(): Promise<DashboardData> {
     try {
-      console.log('Fetching dashboard data...');
+      // Get user's school ID using RPC function (bypasses RLS)
+      const { data: schoolId, error: schoolError } = await supabase.rpc('get_user_school_id');
       
-      // Get user's school ID
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.error('User not authenticated');
-        throw new Error("Not authenticated");
+      if (schoolError) {
+        if (import.meta.env.DEV) {
+          console.error('Error getting school ID:', schoolError);
+        }
+        throw schoolError;
       }
-
-      const { data: userData, error: userError } = await supabase
-        .from("users")
-        .select("school_id")
-        .eq("auth_user_id", user.id)
-        .maybeSingle();
-
-      console.log('User data:', userData, 'Error:', userError);
-
-      if (userError) throw userError;
       
-      if (!userData?.school_id) {
-        console.warn('No school associated with user');
+      if (!schoolId) {
         throw new Error("No school associated with user");
       }
-
-      const schoolId = userData.school_id;
-      console.log('Using school ID:', schoolId);
 
       // Fetch all statistics in parallel
       const [
@@ -176,7 +163,9 @@ export const dashboardService = {
         performanceData,
       };
     } catch (error) {
-      console.error("Error fetching dashboard data:", error);
+      if (import.meta.env.DEV) {
+        console.error("Error fetching dashboard data:", error);
+      }
       return {
         stats: {
           totalExams: 0,

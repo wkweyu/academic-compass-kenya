@@ -9,11 +9,13 @@ class User(AbstractUser):
     Note: Roles are stored in Supabase user_roles table, not here
     """
     school = models.ForeignKey(School, on_delete=models.CASCADE, null=True, blank=True)
+    auth_user_id = models.UUIDField(unique=True, null=True, blank=True)
     email = models.EmailField(unique=True)
     phone = models.CharField(max_length=15, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    role = models.CharField(max_length=20, default='staff')
+    role = models.CharField(max_length=50, default='staff')
+    notification_preferences = models.JSONField(default=dict, blank=True)
     
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username', 'first_name', 'last_name']

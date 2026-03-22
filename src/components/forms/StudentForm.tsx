@@ -1,4 +1,5 @@
 import { useForm } from 'react-hook-form';
+import { escapeHtml } from '@/utils/escapeHtml';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -12,12 +13,14 @@ import { classService } from '@/services/classService';
 import { settingsService } from '@/services/settingsService';
 import { TermManager } from '@/utils/termManager';
 import { getSiblings, findPotentialSiblings, findExistingGuardian } from '@/services/guardianService';
+import { getTransportRoutes, TransportRoute } from '@/services/transportService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import AdmissionFormPrint from '@/components/AdmissionFormPrint';
 import { useState, useEffect } from 'react';
 import { Printer, Users, CheckCircle, X } from 'lucide-react';
 import { Guardian } from '@/types/guardian';
 import { toast } from 'sonner';
+import { toSentenceCase } from '@/utils/nameFormatter';
 
 const studentFormSchema = z.object({
   full_name: z.string().min(3, 'Full name must be at least 3 characters'),
@@ -71,6 +74,11 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
   const { data: streams = [] } = useQuery({
     queryKey: ['streams'],
     queryFn: () => classService.getStreams(),
+  });
+
+  const { data: transportRoutes = [] } = useQuery({
+    queryKey: ['transport-routes'],
+    queryFn: getTransportRoutes,
   });
 
   // Fetch term settings to auto-populate current term
@@ -215,7 +223,7 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
           
           // Transform form data to required Student format
           const studentData = {
-           full_name: data.full_name!,
+           full_name: toSentenceCase(data.full_name!),
            date_of_birth: data.date_of_birth!,
            gender: data.gender!,
            upi_number: data.upi_number,
@@ -280,7 +288,7 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
               <FormItem>
                 <FormLabel>Full Name</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g., John Doe" {...field} />
+                  <Input placeholder="e.g., John Doe" {...field} onBlur={(e) => { field.onBlur(); field.onChange(toSentenceCase(e.target.value)); }} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -608,15 +616,36 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
               <FormField
                 control={form.control}
                 name="transport_route"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Transport Route Number</FormLabel>
-                    <FormControl>
-                      <Input type="number" placeholder="e.g., 1, 2, 3" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                render={({ field }) => {
+                  const selectedRoute = transportRoutes.find((r: TransportRoute) => String(r.id) === field.value);
+                  const transportType = form.watch('transport_type');
+                  const charge = selectedRoute
+                    ? (transportType === 'two_way' ? selectedRoute.two_way_charge : selectedRoute.one_way_charge)
+                    : null;
+                  return (
+                    <FormItem>
+                      <FormLabel>Transport Route</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || ''}>
+                        <FormControl>
+                          <SelectTrigger><SelectValue placeholder="Select route" /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {transportRoutes.map((r: TransportRoute) => (
+                            <SelectItem key={r.id} value={String(r.id)}>
+                              {r.name} (1-way: {Number(r.one_way_charge).toLocaleString()}, 2-way: {Number(r.two_way_charge).toLocaleString()})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {charge !== null && (
+                        <p className="text-xs text-muted-foreground">
+                          Charge: KES {Number(charge).toLocaleString()}
+                        </p>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
               <FormField
                 control={form.control}
@@ -740,7 +769,7 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
                         printWindow.document.write(`
                           <html>
                             <head>
-                              <title>Admission Form - ${submittedStudent.full_name}</title>
+                              <title>Admission Form - ${escapeHtml(submittedStudent.full_name)}</title>
                               <style>
                                 body { 
                                   font-family: Arial, sans-serif; 

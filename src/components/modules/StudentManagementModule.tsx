@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { escapeHtml } from '@/utils/escapeHtml';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
@@ -491,29 +492,24 @@ const StudentManagementModule = () => {
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search students..."
+                placeholder="Search by name or admission number..."
                 value={filters.search || ''}
                 onChange={(e) => handleSearch(e.target.value)}
                 className="pl-10"
               />
             </div>
             <Select
-              value={filters.class || 'all'}
-              onValueChange={(value) => handleFilterChange('class', value)}
+              value={filters.class_id || 'all'}
+              onValueChange={(value) => handleFilterChange('class_id', value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Filter by class" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Classes</SelectItem>
-                <SelectItem value="Grade 1">Grade 1</SelectItem>
-                <SelectItem value="Grade 2">Grade 2</SelectItem>
-                <SelectItem value="Grade 3">Grade 3</SelectItem>
-                <SelectItem value="Grade 4">Grade 4</SelectItem>
-                <SelectItem value="Grade 5">Grade 5</SelectItem>
-                <SelectItem value="Grade 6">Grade 6</SelectItem>
-                <SelectItem value="Grade 7">Grade 7</SelectItem>
-                <SelectItem value="Grade 8">Grade 8</SelectItem>
+                {(classes || []).map((cls: any) => (
+                  <SelectItem key={cls.id} value={cls.id.toString()}>{cls.name}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Select
@@ -1118,7 +1114,7 @@ const StudentManagementModule = () => {
                         printWindow.document.write(`
                           <html>
                             <head>
-                              <title>Admission Form - ${printStudentData.full_name}</title>
+                              <title>Admission Form - ${escapeHtml(printStudentData.full_name)}</title>
                               <style>
                                 body { 
                                   font-family: Arial, sans-serif; 

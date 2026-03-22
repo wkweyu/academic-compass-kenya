@@ -31,8 +31,6 @@ export interface PromotionHistory {
 
 export const promoteStudent = async (data: PromotionData): Promise<void> => {
   try {
-    console.log('Promoting student:', data);
-    
     // Get current student info to maintain stream
     const { data: student, error: fetchError } = await supabase
       .from('students')
@@ -41,11 +39,8 @@ export const promoteStudent = async (data: PromotionData): Promise<void> => {
       .single();
 
     if (fetchError) {
-      console.error('Error fetching student:', fetchError);
       throw fetchError;
     }
-
-    console.log('Student data:', student);
 
     // Start a transaction by creating the promotion record
     const { error: promotionError } = await supabase
@@ -60,7 +55,6 @@ export const promoteStudent = async (data: PromotionData): Promise<void> => {
       });
 
     if (promotionError) {
-      console.error('Error creating promotion record:', promotionError);
       throw promotionError;
     }
 
@@ -75,13 +69,12 @@ export const promoteStudent = async (data: PromotionData): Promise<void> => {
       .eq('id', data.student_id);
 
     if (updateError) {
-      console.error('Error updating student:', updateError);
       throw updateError;
     }
-    
-    console.log('Student promoted successfully');
   } catch (error) {
-    console.error('Error promoting student:', error);
+    if (import.meta.env.DEV) {
+      console.error('Error promoting student:', error);
+    }
     throw error;
   }
 };
@@ -140,7 +133,9 @@ export const bulkPromoteStudents = async (data: BulkPromotionRequest): Promise<{
 
     return result;
   } catch (error) {
-    console.error('Error in bulk promotion:', error);
+    if (import.meta.env.DEV) {
+      console.error('Error in bulk promotion:', error);
+    }
     throw error;
   }
 };
@@ -198,7 +193,9 @@ export const getPromotionHistory = async (
       notes: item.notes || ''
     })) || [];
   } catch (error) {
-    console.error('Error fetching promotion history:', error);
+    if (import.meta.env.DEV) {
+      console.error('Error fetching promotion history:', error);
+    }
     throw error;
   }
 };
@@ -247,7 +244,9 @@ export const transferStudent = async (
 
     if (updateError) throw updateError;
   } catch (error) {
-    console.error('Error transferring student:', error);
+    if (import.meta.env.DEV) {
+      console.error('Error transferring student:', error);
+    }
     throw error;
   }
 };

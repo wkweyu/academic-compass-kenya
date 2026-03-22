@@ -9,7 +9,7 @@ from .views import (
 )
 
 router = DefaultRouter()
-router.register(r'students', StudentViewSet, basename='student')
+router.register(r'', StudentViewSet, basename='student')
 
 urlpatterns = router.urls + [
     path('classes/', ClassListCreateAPIView.as_view(), name='class-list-create'),

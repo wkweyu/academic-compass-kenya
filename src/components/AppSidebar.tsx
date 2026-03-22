@@ -1,4 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
+import { TermManager } from "@/utils/termManager";
 import { 
   BookOpen, 
   ClipboardList, 
@@ -16,6 +17,7 @@ import {
   CalendarCheck,
   Truck,
   ShoppingCart,
+  Sprout,
   FileCheck,
   FileClock
 } from 'lucide-react';
@@ -52,21 +54,50 @@ const studentNavigation = [
 ];
 
 const staffNavigation = [
-  { id: 'teachers', title: 'Staff & Teachers', url: '/teachers', icon: UserCheck },
+  {
+    id: 'teachers',
+    title: 'Staff & Teachers',
+    icon: UserCheck,
+    subItems: [
+      { id: 'staff-list', title: 'All Staff', url: '/teachers' },
+      { id: 'staff-assignments', title: 'Assignments', url: '/teachers/assignments' },
+      { id: 'staff-availability', title: 'Availability', url: '/teachers/availability' },
+      { id: 'staff-workload', title: 'Workload', url: '/teachers/workload' },
+      { id: 'staff-attendance', title: 'Attendance', url: '/teachers/attendance' },
+      { id: 'staff-leave', title: 'Leave Management', url: '/teachers/leave' },
+      { id: 'staff-performance', title: 'Performance', url: '/teachers/performance' },
+      { id: 'staff-reports', title: 'Reports', url: '/teachers/reports' },
+    ]
+  },
 ];
 
 const academicNavigation = [
-  { id: 'exams', title: 'Exam Management', url: '/exams', icon: ClipboardList },
-  { id: 'subjects', title: 'Subject Management', url: '/subjects', icon: BookOpen },
-  { id: 'scores', title: 'Score Entry', url: '/scores', icon: FileText },
-  { id: 'grading', title: 'Grading', url: '/grading', icon: FileCheck },
-  { id: 'results', title: 'Student Results', url: '/results', icon: GraduationCap },
+  {
+    id: 'exams',
+    title: 'Exam Management',
+    icon: ClipboardList,
+    subItems: [
+      { id: 'exams-sessions', title: 'Exam Sessions', url: '/exams' },
+      { id: 'term-reports', title: 'Term Reports', url: '/term-reports' },
+    ]
+  },
+  {
+    id: 'subjects',
+    title: 'Subject Management',
+    icon: BookOpen,
+    subItems: [
+      { id: 'subjects-list', title: 'All Subjects', url: '/subjects' },
+      { id: 'subjects-categories', title: 'Categories', url: '/subjects/categories' },
+      { id: 'subjects-allocations', title: 'Class Allocations', url: '/subjects/allocations' },
+    ]
+  },
 ];
 
 const financeNavigation = [
   { id: 'fees', title: 'Fees Management', url: '/fees', icon: Receipt },
   { id: 'transport', title: 'Transport', url: '/transport', icon: Truck },
   { id: 'procurement', title: 'Procurement', url: '/procurement', icon: ShoppingCart },
+  { id: 'iga', title: 'IGA Management', url: '/iga', icon: Sprout },
   { id: 'payroll', title: 'Payroll', url: '/payroll', icon: DollarSign },
   { id: 'accounting', title: 'Accounting', url: '/accounting', icon: CreditCard },
 ];
@@ -140,7 +171,7 @@ export function AppSidebar() {
           {!collapsed && (
             <div>
               <h1 className="text-lg font-semibold">CBC Exam System</h1>
-              <p className="text-sm text-muted-foreground">Academic Year 2024</p>
+              <p className="text-sm text-muted-foreground">Academic Year {TermManager.getCurrentYear()}</p>
             </div>
           )}
         </div>
@@ -158,7 +189,7 @@ export function AppSidebar() {
           <div className="mt-auto p-4">
             <div className="rounded-lg bg-muted p-3">
               <p className="text-sm font-medium">Current Term</p>
-              <p className="text-xs text-muted-foreground">Term 2, 2024</p>
+              <p className="text-xs text-muted-foreground">Term {TermManager.getCurrentTerm()}, {TermManager.getCurrentYear()}</p>
               <p className="text-xs text-muted-foreground mt-1">
                 Configure in Settings
               </p>

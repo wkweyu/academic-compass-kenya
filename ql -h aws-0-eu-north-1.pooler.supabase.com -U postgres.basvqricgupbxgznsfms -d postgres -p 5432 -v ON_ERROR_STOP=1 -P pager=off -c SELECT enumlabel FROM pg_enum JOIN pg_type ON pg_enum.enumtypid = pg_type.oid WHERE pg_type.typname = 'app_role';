@@ -1,0 +1,5 @@
+                                                enum_range                                                 
+-----------------------------------------------------------------------------------------------------------
+ {superadmin,schooladmin,finance,transport,teacher,parent,platform_admin,support,account_manager,marketer}
+(1 row)
+

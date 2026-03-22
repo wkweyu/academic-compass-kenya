@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Users, DollarSign, Calendar, Filter, Edit, Trash2, Eye, UserCheck, FileText, BookOpen } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Search, Users, DollarSign, Calendar, Filter, Edit, Trash2, Eye, UserCheck, FileText, BookOpen, Crown, Clock, BarChart3, Briefcase } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,9 +14,21 @@ import { Staff, StaffStats, StaffFilters, DEPARTMENTS, EMPLOYMENT_TYPES, STAFF_S
 import { staffService } from '@/services/teacherService';
 import { StaffForm } from '@/components/forms/StaffForm';
 import { DeleteConfirmationDialog } from '@/components/ui/DeleteConfirmationDialog';
+import StaffAttendanceModule from './StaffAttendanceModule';
+import StaffReportsModule from './StaffReportsModule';
+import TeacherAssignmentsModule from './TeacherAssignmentsModule';
+import LeaveManagementModule from './LeaveManagementModule';
+import TeacherAvailabilityModule from './TeacherAvailabilityModule';
+import TeacherPerformanceModule from './TeacherPerformanceModule';
+import TeacherWorkloadModule from './TeacherWorkloadModule';
 
-export const TeacherManagementModule = () => {
+interface TeacherManagementModuleProps {
+  defaultTab?: string;
+}
+
+export const TeacherManagementModule = ({ defaultTab = 'staff' }: TeacherManagementModuleProps) => {
   console.log('TeacherManagementModule rendering...');
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [staff, setStaff] = useState<Staff[]>([]);
   const [stats, setStats] = useState<StaffStats | null>(null);
@@ -43,12 +56,14 @@ export const TeacherManagementModule = () => {
       
       setStaff(staffData);
       setStats(statsData);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading staff data:', error);
+      const errorMessage = error?.standardError?.message || error?.message || "Failed to load staff data";
       toast({
-        title: "Error",
-        description: "Failed to load staff data",
+        title: "Backend Connection Error",
+        description: errorMessage,
         variant: "destructive",
+        duration: 10000, // Show for 10 seconds
       });
     } finally {
       setLoading(false);
@@ -64,11 +79,14 @@ export const TeacherManagementModule = () => {
       });
       setIsCreateStaffOpen(false);
       loadData();
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Error creating staff:', error);
+      const errorMessage = error?.standardError?.message || error?.message || "Failed to create staff member";
       toast({
-        title: "Error",
-        description: "Failed to create staff member",
+        title: "Backend Connection Error",
+        description: errorMessage,
         variant: "destructive",
+        duration: 10000, // Show for 10 seconds
       });
     }
   };
@@ -214,12 +232,16 @@ export const TeacherManagementModule = () => {
       )}
 
       {/* Main Content */}
-      <Tabs defaultValue="staff" className="space-y-4">
-        <TabsList>
+      <Tabs defaultValue={defaultTab} className="space-y-4" key={defaultTab}>
+        <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="staff">All Staff</TabsTrigger>
-          <TabsTrigger value="assignments">Teaching Assignments</TabsTrigger>
-          <TabsTrigger value="payroll">Payroll</TabsTrigger>
+          <TabsTrigger value="assignments">Assignments</TabsTrigger>
+          <TabsTrigger value="availability">Availability</TabsTrigger>
+          <TabsTrigger value="workload">Workload</TabsTrigger>
           <TabsTrigger value="attendance">Attendance</TabsTrigger>
+          <TabsTrigger value="leave">Leave</TabsTrigger>
+          <TabsTrigger value="performance">Performance</TabsTrigger>
+          <TabsTrigger value="reports">Reports</TabsTrigger>
         </TabsList>
 
         <TabsContent value="staff" className="space-y-4">
@@ -330,7 +352,7 @@ export const TeacherManagementModule = () => {
                     <TableHead>Category</TableHead>
                     <TableHead>Department</TableHead>
                     <TableHead>Job Title</TableHead>
-                    <TableHead>Employment Type</TableHead>
+                    <TableHead>HOD</TableHead>
                     <TableHead>Gross Salary</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Actions</TableHead>
@@ -354,7 +376,14 @@ export const TeacherManagementModule = () => {
                       <TableCell>{member.department}</TableCell>
                       <TableCell>{member.job_title}</TableCell>
                       <TableCell>
-                        <Badge variant="secondary">{member.employment_type}</Badge>
+                        {(member as any).is_hod ? (
+                          <Badge className="bg-amber-100 text-amber-800">
+                            <Crown className="h-3 w-3 mr-1" />
+                            HOD
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">-</span>
+                        )}
                       </TableCell>
                       <TableCell>{formatCurrency(member.gross_salary || 0)}</TableCell>
                       <TableCell>
@@ -362,9 +391,13 @@ export const TeacherManagementModule = () => {
                           {member.status}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => navigate(`/teachers/${member.id}`)}
+                          >
                             <Eye className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="sm">
@@ -388,47 +421,31 @@ export const TeacherManagementModule = () => {
         </TabsContent>
 
         <TabsContent value="assignments" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Teaching Assignments</CardTitle>
-              <CardDescription>Assign teachers to subjects and classes</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <BookOpen className="h-12 w-12 mx-auto mb-4" />
-                <p>Teaching assignment functionality is being set up...</p>
-                <p className="text-sm mt-2">This will allow you to assign teachers to specific subjects and classes.</p>
-              </div>
-            </CardContent>
-          </Card>
+          <TeacherAssignmentsModule />
         </TabsContent>
 
-        <TabsContent value="payroll" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Payroll Management</CardTitle>
-              <CardDescription>Process monthly payroll and generate payslips for all staff</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                Payroll management will be implemented next...
-              </div>
-            </CardContent>
-          </Card>
+        <TabsContent value="availability" className="space-y-4">
+          <TeacherAvailabilityModule />
+        </TabsContent>
+
+        <TabsContent value="workload" className="space-y-4">
+          <TeacherWorkloadModule />
         </TabsContent>
 
         <TabsContent value="attendance" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Staff Attendance</CardTitle>
-              <CardDescription>Track daily attendance and leave management for all staff</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                Attendance tracking will be implemented next...
-              </div>
-            </CardContent>
-          </Card>
+          <StaffAttendanceModule />
+        </TabsContent>
+
+        <TabsContent value="leave" className="space-y-4">
+          <LeaveManagementModule />
+        </TabsContent>
+
+        <TabsContent value="performance" className="space-y-4">
+          <TeacherPerformanceModule />
+        </TabsContent>
+
+        <TabsContent value="reports" className="space-y-4">
+          <StaffReportsModule />
         </TabsContent>
       </Tabs>
 
