@@ -111,8 +111,8 @@ WSGI_APPLICATION = 'skooltrack_pro.wsgi.application'
 # Database (Postgres/Supabase)
 DB_SSL_REQUIRE = config('DB_SSL_REQUIRE', default=not DEBUG, cast=bool)
 
-# Use SQLite for testing
-if 'test' in sys.argv:
+# Use SQLite for testing or in CI/sandbox environment
+if 'test' in sys.argv or config('CI', default=False, cast=bool):
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
