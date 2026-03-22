@@ -82,14 +82,22 @@ from .services import (
 )
 
 
-PLATFORM_STAFF_ROLES = {'staff', 'sales_rep', 'onboarding_specialist', 'account_manager', 'manager'}
+PLATFORM_STAFF_ROLES = {
+    'staff', 'sales_rep', 'onboarding_specialist', 'account_manager',
+    'marketer', 'manager', 'platform_admin', 'support'
+}
 
 logger = logging.getLogger(__name__)
 
 
 def _is_platform_staff(user):
-    role = (getattr(user, 'role', '') or '').lower()
-    return bool(user.is_superuser or user.is_staff or (not getattr(user, 'school_id', None) and role in PLATFORM_STAFF_ROLES))
+    from .services import normalize_role
+    role = normalize_role(getattr(user, 'role', ''))
+    return bool(
+        user.is_superuser or
+        user.is_staff or
+        (not getattr(user, 'school_id', None) and role in PLATFORM_STAFF_ROLES)
+    )
 
 
 def _ensure_school_access(request, school):
@@ -170,8 +178,9 @@ class SchoolDeleteView(generics.GenericAPIView):
     def delete(self, request, school_id, *args, **kwargs):
         _ensure_platform_staff(request)
         school = get_object_or_404(School, pk=school_id)
-        requester_role = (getattr(request.user, 'role', '') or '').lower()
-        if not (request.user.is_superuser or requester_role == 'platform_admin'):
+        from .services import normalize_role
+        requester_role = normalize_role(getattr(request.user, 'role', ''))
+        if not (request.user.is_superuser or requester_role == 'platform_admin' or request.user.is_staff):
             raise PermissionDenied('Only platform administrators can delete schools.')
 
         logger.info(
@@ -195,82 +204,97 @@ class SchoolDeleteView(generics.GenericAPIView):
                 )
                 return cursor.fetchone() is not None
 
-        cleanup_targets = [
-            # SaaS management tables
-            ('school_portfolio_assignments', 'school_id'),
-            ('school_settings', 'school_id'),
-            ('subscriptions', 'school_id'),
-            ('onboarding_logs', 'school_id'),
-            ('audit_logs', 'school_id'),
-            ('saas_communications', 'school_id'),
-            ('saas_invoices', 'school_id'),
-            ('schools_activitylog', 'school_id'),
-            ('schools_communicationlog', 'school_id'),
-            ('schools_followup', 'school_id'),
-            ('schools_notificationrecord', 'school_id'),
-            ('schools_schooltask', 'school_id'),
-            ('schools_onboardingprogress', 'school_id'),
-            ('schools_upsellopportunity', 'school_id'),
-            ('schools_lead', 'school_id'),
-
-            # School operational tables
-            ('attendance', 'school_id'),
-            ('scores', 'school_id'),
-            ('exams_exam', 'school_id'),
-            ('exams_examtype', 'school_id'),
-            ('exams_reportcardconfig', 'school_id'),
-            ('exams_reportcardexamselection', 'school_id'),
-            ('fees_feebalance', 'school_id'),
-            ('fees_feestructure', 'school_id'),
-            ('fees_paymenttransaction', 'school_id'),
-            ('fees_votehead', 'school_id'),
-            ('grade_scales', 'school_id'),
-            ('iga_activity', 'school_id'),
-            ('iga_activitybudget', 'school_id'),
-            ('iga_activityexpense', 'school_id'),
-            ('iga_inventorymovement', 'school_id'),
-            ('iga_inventorystock', 'school_id'),
-            ('iga_producesale', 'school_id'),
-            ('iga_productionrecord', 'school_id'),
-            ('iga_product', 'school_id'),
-            ('settings_termsetting', 'school_id'),
-            ('students', 'school_id'),
-            ('streams', 'school_id'),
-            ('classes', 'school_id'),
-            ('teachers', 'school_id'),
-            ('teacher_subject_assignments', 'school_id'),
-            ('students_classsubjectallocation', 'school_id'),
-            ('student_transfers', 'school_id'),
-            ('student_promotions', 'school_id'),
-            ('student_reports', 'school_id'),
-            ('users', 'school_id'),
-            ('django_admin_log', 'user_id'),
-        ]
+        # We need a strict sequence because of foreign keys.
+        # Order:
+        # 1. Operational data with foreign keys to (Student, Teacher, Exam, Class, Stream)
+        # 2. Student-related metadata (reports, transfers)
+        # 3. Intermediate objects (Student, Teacher, Exam, Stream, Class)
+        # 4. SaaS/Lead management data
+        # 5. Users
+        # 6. School itself
 
         with transaction.atomic():
             school_name = school.name
             with connection.cursor() as cursor:
-                for table_name, column_name in cleanup_targets:
-                    if _table_has_column(table_name, column_name):
-                        # Use quoted table names for safety and lowercase for potential Supabase tables
-                        try:
-                            cursor.execute(
-                                f'DELETE FROM "{table_name}" WHERE "{column_name}" = %s',
-                                [school_id],
-                            )
-                        except Exception as e:
-                            logger.warning("Failed to delete from %s: %s", table_name, str(e))
-
-                # Handle users specially (if they are linked to the school)
+                # Find IDs for sequenced cleanup
                 cursor.execute('SELECT id FROM "users" WHERE "school_id" = %s', [school_id])
-                school_user_ids = [row[0] for row in cursor.fetchall()]
-                for user_id in school_user_ids:
-                    if _table_has_column('django_admin_log', 'user_id'):
-                        cursor.execute('DELETE FROM "django_admin_log" WHERE "user_id" = %s', [user_id])
+                user_ids = [row[0] for row in cursor.fetchall()]
 
+                cursor.execute('SELECT id FROM "students" WHERE "school_id" = %s', [school_id])
+                student_ids = [row[0] for row in cursor.fetchall()]
+
+                cursor.execute('SELECT id FROM "teachers" WHERE "school_id" = %s', [school_id])
+                teacher_ids = [row[0] for row in cursor.fetchall()]
+
+                cursor.execute('SELECT id FROM "exams_exam" WHERE "school_id" = %s', [school_id])
+                exam_ids = [row[0] for row in cursor.fetchall()]
+
+                cursor.execute('SELECT id FROM "classes" WHERE "school_id" = %s', [school_id])
+                class_ids = [row[0] for row in cursor.fetchall()]
+
+                cursor.execute('SELECT id FROM "streams" WHERE "school_id" = %s', [school_id])
+                stream_ids = [row[0] for row in cursor.fetchall()]
+
+                def _safe_delete(table, column, ids):
+                    if not ids: return
+                    placeholders = ', '.join(['%s'] * len(ids))
+                    try:
+                        cursor.execute(f'DELETE FROM "{table}" WHERE "{column}" IN ({placeholders})', ids)
+                    except Exception as e:
+                        logger.warning("Failed delete from %s: %s", table, str(e))
+
+                # Step 1: Clean up deep leaf records (Scores, Attendance, etc.)
+                _safe_delete('scores', 'student_id', student_ids)
+                _safe_delete('attendance', 'student_id', student_ids)
+                _safe_delete('teacher_subject_assignments', 'teacher_id', teacher_ids)
+                _safe_delete('student_reports', 'student_id', student_ids)
+                _safe_delete('student_transfers', 'student_id', student_ids)
+                _safe_delete('student_promotions', 'student_id', student_ids)
+                _safe_delete('students_classsubjectallocation', 'school_class_id', class_ids)
+
+                # Step 2: Clean up records with direct school_id (SaaS + Infrastructure)
+                direct_tables = [
+                    'schools_activitylog', 'schools_communicationlog', 'schools_followup',
+                    'schools_notificationrecord', 'schools_schooltask', 'schools_onboardingprogress',
+                    'schools_upsellopportunity', 'schools_lead', 'schools_schoolhealthsnapshot',
+                    'schools_notificationtemplate', 'school_settings', 'subscriptions',
+                    'saas_communications', 'saas_invoices', 'fees_feebalance', 'fees_feestructure',
+                    'fees_paymenttransaction', 'fees_votehead', 'fees_debittransaction', 'grade_scales',
+                    'iga_activity', 'iga_activitybudget', 'iga_activityexpense', 'iga_inventorymovement',
+                    'iga_inventorystock', 'iga_producesale', 'iga_productionrecord', 'iga_product',
+                    'settings_termsetting', 'transport_transportroute', 'procurement_supplier',
+                    'procurement_itemcategory', 'procurement_item', 'procurement_lpo',
+                    'procurement_stocktransaction', 'procurement_paymentvoucher',
+                    'procurement_pettycashtransaction', 'procurement_feesinkindtransaction',
+                    'exams_reportcardconfig', 'exams_reportcardexamselection', 'exams_examtype',
+                    'school_portfolio_assignments', 'audit_logs', 'onboarding_logs'
+                ]
+                for table in direct_tables:
+                    try:
+                        cursor.execute(f'DELETE FROM "{table}" WHERE "school_id" = %s', [school_id])
+                    except Exception: pass
+
+                # Step 3: Delete intermediate objects
+                _safe_delete('exams_exam', 'id', exam_ids)
+                _safe_delete('students', 'id', student_ids)
+                _safe_delete('teachers', 'id', teacher_ids)
+                _safe_delete('streams', 'id', stream_ids)
+                _safe_delete('classes', 'id', class_ids)
+
+                # Step 4: Admin logs for users
+                if user_ids:
+                    cursor.execute("SELECT 1 FROM information_schema.tables WHERE table_name = 'django_admin_log' LIMIT 1")
+                    if cursor.fetchone():
+                        _safe_delete('django_admin_log', 'user_id', user_ids)
+
+                # Step 5: Users and the School record
+                cursor.execute('DELETE FROM "users" WHERE "school_id" = %s', [school_id])
                 cursor.execute('DELETE FROM "schools_school" WHERE "id" = %s', [school_id])
-                if cursor.rowcount == 0:
-                    raise ValidationError({'school_id': 'School was not found for deletion.'})
+
+                # Reset request local school to avoid holding onto deleted ID
+                from apps.core.middleware import _request_local
+                if getattr(_request_local, 'school', None) and _request_local.school.id == int(school_id):
+                    _request_local.school = None
 
         logger.info(
             "Delete school completed | school_id=%s actor_id=%s school_name=%s",
@@ -344,6 +368,7 @@ class SchoolInitializeOnboardingView(generics.GenericAPIView):
     serializer_class = InitializeOnboardingSerializer
 
     def post(self, request, school_id, *args, **kwargs):
+        _ensure_platform_staff(request)
         school = get_object_or_404(School, pk=school_id)
         # Try to use request.user.id, fallback to school.assigned_staff_id if user is not authenticated through Django
         staff_id = getattr(request.user, 'id', None) or school.assigned_staff_id
@@ -363,8 +388,6 @@ class SchoolInitializeOnboardingView(generics.GenericAPIView):
             getattr(request.user, 'id', None),
             staff_id
         )
-        
-        _ensure_platform_staff(request)
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         try:

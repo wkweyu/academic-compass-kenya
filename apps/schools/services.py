@@ -2316,24 +2316,27 @@ def initialize_school_onboarding(*, school_id, staff_id, source='direct_onboardi
     except School.DoesNotExist as exc:
         raise ValidationError({'school_id': 'School was not found.'}) from exc
 
-    lead, lead_created = Lead.objects.select_for_update().get_or_create(
-        school=school,
-        defaults={
-            'stage': LeadStage.WON,
-            'source': source,
-            'priority': priority,
-            'assigned_to': staff,
-            'created_by': staff,
-            'updated_by': staff,
-            'notes': 'Initialized from direct SaaS onboarding flow.',
-            'last_assigned_at': timezone.now(),
-            'converted_at': timezone.now(),
-            'conversion_metadata': {
+    lead = Lead.objects.select_for_update().filter(school=school).first()
+    lead_created = False
+
+    if not lead:
+        lead = Lead.objects.create(
+            school=school,
+            stage=LeadStage.WON,
+            source=source,
+            priority=priority,
+            assigned_to=staff,
+            created_by=staff,
+            updated_by=staff,
+            notes='Initialized from direct SaaS onboarding flow.',
+            last_assigned_at=timezone.now(),
+            converted_at=timezone.now(),
+            conversion_metadata={
                 'direct_onboarding': True,
                 'initialized_by_id': staff.id,
             },
-        },
-    )
+        )
+        lead_created = True
 
     if not lead_created:
         lead.stage = LeadStage.WON
@@ -2344,7 +2347,7 @@ def initialize_school_onboarding(*, school_id, staff_id, source='direct_onboardi
         lead.converted_at = lead.converted_at or timezone.now()
         lead.last_assigned_at = timezone.now()
         lead.conversion_metadata = _deep_merge_dict(
-            lead.conversion_metadata,
+            lead.conversion_metadata or {},
             {
                 'direct_onboarding': True,
                 'initialized_by_id': staff.id,

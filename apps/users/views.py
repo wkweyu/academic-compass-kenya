@@ -11,12 +11,14 @@ from .models import User
 from .serializers import UserCreateSerializer, UserRoleChangePreviewSerializer, UserRoleChangeSerializer, UserSerializer
 
 
-def _ensure_manager_access(user):
-    if getattr(user, 'is_superuser', False) or getattr(user, 'is_staff', False):
-        return user
-    # Handle platform_admin and manager as authorized roles for user management
+PLATFORM_STAFF_ROLES = {'staff', 'sales_rep', 'onboarding_specialist', 'account_manager', 'marketer', 'manager', 'platform_admin', 'support'}
+
+def _is_platform_staff(user):
     role = normalize_role(getattr(user, 'role', '')).lower()
-    if role in ['manager', 'platform_admin']:
+    return bool(user.is_superuser or user.is_staff or (not getattr(user, 'school_id', None) and role in PLATFORM_STAFF_ROLES))
+
+def _ensure_manager_access(user):
+    if _is_platform_staff(user):
         return user
     raise PermissionDenied('Only platform administrators or managers can perform user management.')
 
@@ -26,7 +28,7 @@ class UserListView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        queryset = User.objects.all().order_by('first_name', 'last_name', 'email')
+        queryset = User.objects.filter(school_id__isnull=True).order_by('first_name', 'last_name', 'email')
         role = self.request.query_params.get('role')
         if role:
             queryset = queryset.filter(role=role)
@@ -39,9 +41,6 @@ class UserListView(generics.ListCreateAPIView):
         payload = serializer.validated_data
 
         email = payload['email'].strip().lower()
-        if User.objects.filter(email=email).exists():
-            raise ValidationError({'email': 'A user with this email already exists.'})
-
         first_name = payload.get('first_name', '').strip()
         last_name = payload.get('last_name', '').strip()
         role = normalize_role(payload.get('role', 'support'))
@@ -51,6 +50,10 @@ class UserListView(generics.ListCreateAPIView):
         username = username_base
         suffix = 1
         # Check both username and email for collisions
+        if User.objects.filter(email=email).exists():
+            raise ValidationError({'email': 'A user with this email already exists.'})
+
+        # Check username collisions
         while User.objects.filter(username=username).exists():
             suffix += 1
             username = f"{username_base}{suffix}"
@@ -65,6 +68,7 @@ class UserListView(generics.ListCreateAPIView):
             is_staff=True,
             is_active=True,
         )
+
         return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
 
 
