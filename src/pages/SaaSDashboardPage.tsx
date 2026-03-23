@@ -208,6 +208,7 @@ const StaffManagementTab = ({
                   <SelectContent>
                     <SelectItem value="platform_admin">Platform Owner (Super Admin)</SelectItem>
                     <SelectItem value="support">Support User</SelectItem>
+                    <SelectItem value="account_manager">Account Manager</SelectItem>
                     <SelectItem value="marketer">Marketer (Account Manager)</SelectItem>
                   </SelectContent>
                 </Select>
@@ -939,10 +940,29 @@ const SchoolDetailDialog = ({
   const handleSavePortfolio = async () => {
     setAssigningPortfolio(true);
     try {
+      const nextOwnerId = portfolioOwnerId === "unassigned" ? null : portfolioOwnerId;
       await saasService.updateSchoolPortfolioOwner(
         school.id,
-        portfolioOwnerId === "unassigned" ? null : portfolioOwnerId,
+        nextOwnerId,
       );
+      const nextOwner = nextOwnerId
+        ? portfolioStaff.find((staff) => staff.user_id === nextOwnerId) || null
+        : null;
+
+      queryClient.setQueryData<SaaSSchool[]>(["saas-schools"], (currentSchools = []) =>
+        currentSchools.map((currentSchool) =>
+          currentSchool.id === school.id
+            ? {
+                ...currentSchool,
+                portfolio_owner_user_id: nextOwnerId,
+                portfolio_owner_name: nextOwner?.full_name || "",
+                portfolio_owner_email: nextOwner?.email || "",
+                portfolio_owner_role: nextOwner?.primary_role || "",
+              }
+            : currentSchool,
+        ),
+      );
+
       queryClient.invalidateQueries({ queryKey: ["saas-schools"] });
       toast.success(portfolioOwnerId === "unassigned" ? "Portfolio assignment cleared" : "Portfolio owner updated");
     } catch (err: any) {
@@ -1419,6 +1439,14 @@ const SaaSDashboardPage = () => {
     enabled: authorized,
   });
 
+  useEffect(() => {
+    if (!selectedSchool) return;
+    const refreshedSchool = schools.find((school) => school.id === selectedSchool.id);
+    if (refreshedSchool) {
+      setSelectedSchool(refreshedSchool);
+    }
+  }, [schools, selectedSchool?.id]);
+
   const { data: tiers = [] } = useQuery({
     queryKey: ["saas-tiers"],
     queryFn: () => saasService.getTierFeatures(),
@@ -1506,6 +1534,7 @@ const SaaSDashboardPage = () => {
       saasService.createManagedUser(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["saas-managed-users"] });
+      queryClient.invalidateQueries({ queryKey: ["saas-portfolio-staff"] });
       toast.success("User created successfully");
     },
     onError: (err: any) => {
@@ -1517,6 +1546,7 @@ const SaaSDashboardPage = () => {
     mutationFn: (userId: number) => saasService.deleteManagedUser(userId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["saas-managed-users"] });
+      queryClient.invalidateQueries({ queryKey: ["saas-portfolio-staff"] });
       toast.success("User deleted successfully");
     },
     onError: (err: any) => {

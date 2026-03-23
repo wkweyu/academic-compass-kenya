@@ -8,3 +8,9 @@ verify_jwt = false
 
 [functions.create-school-admin]
 verify_jwt = false
+
+[functions.create-platform-user]
+verify_jwt = false
+
+[functions.delete-platform-user]
+verify_jwt = false

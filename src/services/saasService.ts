@@ -497,18 +497,29 @@ export const saasService = {
     role: string;
     password?: string;
   }): Promise<PlatformManagedUser> {
-    const response = await api.post<PlatformManagedUser>("/api/users/", payload);
-    return response.data;
+    const { data, error } = await supabase.functions.invoke("create-platform-user", {
+      body: payload,
+    });
+    if (error) {
+      throw new Error(data?.error || error.message || "Failed to create user");
+    }
+    return data?.user as PlatformManagedUser;
   },
 
   async deleteManagedUser(userId: number): Promise<void> {
-    await api.delete(`/api/users/${userId}/`);
+    const { data, error } = await supabase.functions.invoke("delete-platform-user", {
+      body: { user_id: userId },
+    });
+    if (error) {
+      throw new Error(data?.error || error.message || "Failed to delete user");
+    }
   },
 
   async updateSchoolPortfolioOwner(schoolId: number, ownerUserId: string | null): Promise<void> {
-    const { error } = await supabase.rpc("update_school_portfolio_owner", {
+    const { error } = await supabase.rpc("assign_school_portfolio", {
       p_school_id: schoolId,
       p_owner_user_id: ownerUserId,
+      p_notes: "",
     });
     if (error) throw error;
   },
