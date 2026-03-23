@@ -1110,7 +1110,7 @@ const SchoolDetailDialog = ({
                           <SelectContent>
                             <SelectItem value="unassigned">Unassigned</SelectItem>
                             {portfolioStaff
-                              .filter((staff) => ["account_manager", "marketer", "platform_admin"].includes(staff.primary_role))
+                              .filter((staff) => ["account_manager", "marketer"].includes(staff.primary_role))
                               .map((staff) => (
                                 <SelectItem key={staff.user_id} value={staff.user_id}>
                                   {staff.full_name} · {getRoleLabel(staff.primary_role)}
