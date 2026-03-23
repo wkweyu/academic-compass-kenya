@@ -4,8 +4,6 @@ from rest_framework import status
 from apps.students.models import Student
 from .models import Attendance
 from datetime import datetime
-from django.conf import settings
-from twilio.rest import Client
 import logging
 
 # Get an instance of a logger
