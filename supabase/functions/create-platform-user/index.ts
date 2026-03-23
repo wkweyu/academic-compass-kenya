@@ -104,6 +104,20 @@ Deno.serve(async (req) => {
       return data;
     };
 
+    const getPublicUserRowByEmail = async (targetEmail: string) => {
+      const { data, error } = await serviceClient
+        .from("users")
+        .select("id, auth_user_id, email")
+        .ilike("email", targetEmail)
+        .maybeSingle();
+
+      if (error) {
+        throw new Error(`Failed to read existing user by email: ${error.message}`);
+      }
+
+      return data;
+    };
+
     let authUserId: string;
     const { data: createdAuthUser, error: createError } = await serviceClient.auth.admin.createUser({
       email,
@@ -146,6 +160,10 @@ Deno.serve(async (req) => {
       await new Promise((resolve) => setTimeout(resolve, 300));
     }
 
+    if (!publicUser) {
+      publicUser = await getPublicUserRowByEmail(email);
+    }
+
     const username = email;
 
     if (!publicUser) {
@@ -169,22 +187,25 @@ Deno.serve(async (req) => {
         throw new Error(`Failed to create public platform user: ${insertPublicUserError.message}`);
       }
     } else {
-      const { error: updatePublicUserError } = await serviceClient
-        .from("users")
-        .update({
-          username,
-          email,
-          first_name: firstName,
-          last_name: lastName,
-          school_id: null,
-          role,
-          is_active: true,
-          is_staff: true,
-          is_superuser: role === "platform_admin",
-          updated_at: new Date().toISOString(),
-        } as never)
-        .eq("auth_user_id", authUserId);
+      const publicUserPayload = {
+        auth_user_id: authUserId,
+        username,
+        email,
+        first_name: firstName,
+        last_name: lastName,
+        school_id: null,
+        role,
+        is_active: true,
+        is_staff: true,
+        is_superuser: role === "platform_admin",
+        updated_at: new Date().toISOString(),
+      } as never;
 
+      const updateQuery = publicUser.auth_user_id
+        ? serviceClient.from("users").update(publicUserPayload).eq("auth_user_id", authUserId)
+        : serviceClient.from("users").update(publicUserPayload).eq("id", publicUser.id);
+
+      const { error: updatePublicUserError } = await updateQuery;
       if (updatePublicUserError) {
         throw new Error(`Failed to update public platform user: ${updatePublicUserError.message}`);
       }

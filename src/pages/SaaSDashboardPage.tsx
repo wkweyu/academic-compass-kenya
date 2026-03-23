@@ -34,6 +34,7 @@ import { toast } from "sonner";
 const ROLE_LABELS: Record<string, string> = {
   platform_admin: "Platform Owner",
   support: "Support User",
+  account_manager: "Account Manager",
   marketer: "Marketer (Account Manager)",
 };
 
