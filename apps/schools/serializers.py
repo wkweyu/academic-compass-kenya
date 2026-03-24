@@ -86,6 +86,23 @@ class InitializeOnboardingSerializer(serializers.Serializer):
     priority = serializers.ChoiceField(choices=Lead._meta.get_field('priority').choices, required=False)
 
 
+class SchoolOnboardSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=255)
+    email = serializers.EmailField()
+    phone = serializers.CharField(required=False, allow_blank=True, max_length=20)
+    address = serializers.CharField(required=False, allow_blank=True)
+    city = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    country = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    plan = serializers.ChoiceField(
+        choices=[('starter', 'Starter'), ('standard', 'Standard'), ('enterprise', 'Enterprise')],
+        required=False,
+    )
+    contact_person = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    contact_phone = serializers.CharField(required=False, allow_blank=True, max_length=20)
+    source = serializers.CharField(required=False, allow_blank=True, max_length=100)
+    priority = serializers.ChoiceField(choices=Lead._meta.get_field('priority').choices, required=False)
+
+
 class SchoolTaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = SchoolTask

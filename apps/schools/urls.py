@@ -17,6 +17,7 @@ from .views import (
     OnboardingProgressDetailView,
     OnboardingStepProcessView,
     ProcessDueFollowUpsView,
+    SchoolOnboardView,
     SchoolCreateView,
     SchoolDeleteView,
     SchoolDetailView,
@@ -36,6 +37,7 @@ from .views import (
 urlpatterns = [
     path('', SchoolDetailView.as_view(), name='school-detail'),
     path('create/', SchoolCreateView.as_view(), name='school-create'),
+    path('onboard/', SchoolOnboardView.as_view(), name='school-onboard'),
     path('<int:school_id>/delete/', SchoolDeleteView.as_view(), name='school-delete'),
     path('leads/', LeadListCreateView.as_view(), name='lead-list-create'),
     path('leads/<int:lead_id>/convert/', LeadConvertView.as_view(), name='lead-convert'),

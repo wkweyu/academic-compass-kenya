@@ -2,11 +2,13 @@ import uuid
 from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import connection
 from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.schools.models import CommunicationType, LeadStage, OnboardingStep, School, SchoolStatus, TaskStatus
+from apps.schools.models import CommunicationType, Lead, LeadStage, OnboardingProgress, OnboardingStep, School, SchoolStatus, TaskStatus
 from apps.schools.services import (
 	calculate_school_health_score,
 	change_staff_role,
@@ -182,6 +184,53 @@ class SchoolSaaSPhase1Tests(TestCase):
 		self.assertEqual(response.data['school']['status'], SchoolStatus.ONBOARDING)
 		self.assertEqual(response.data['lead']['stage'], LeadStage.WON)
 		self.assertTrue(School.objects.get(pk=school.id).activity_logs.filter(action='school_onboarding_initialized').exists())
+
+	def test_transactional_onboard_endpoint_creates_school_subscription_and_progress(self):
+		response = self.client.post(
+			'/api/schools/onboard/',
+			{
+				'name': 'Transactional Academy',
+				'email': 'transactional@example.com',
+				'phone': '0712345678',
+				'address': 'Nairobi',
+				'city': 'Nairobi',
+				'country': 'Kenya',
+				'plan': 'starter',
+				'contact_person': 'Test Contact',
+				'contact_phone': '0712345678',
+			},
+			format='json',
+		)
+
+		self.assertEqual(response.status_code, 201)
+		school = School.objects.get(pk=response.data['school_id'])
+		self.assertEqual(school.status, SchoolStatus.ONBOARDING)
+		self.assertTrue(Lead.objects.filter(school=school, stage=LeadStage.WON).exists())
+		self.assertTrue(OnboardingProgress.objects.filter(school=school, current_step=OnboardingStep.BASIC_INFO).exists())
+
+		table_names = set(connection.introspection.table_names())
+		with connection.cursor() as cursor:
+			if 'school_settings' in table_names:
+				cursor.execute('SELECT COUNT(*) FROM school_settings WHERE school_id = %s', [school.id])
+				self.assertEqual(cursor.fetchone()[0], 1)
+			if 'subscriptions' in table_names:
+				cursor.execute('SELECT COUNT(*) FROM subscriptions WHERE school_id = %s', [school.id])
+				self.assertEqual(cursor.fetchone()[0], 1)
+
+	@patch('apps.schools.views.onboard_school_with_workflow', side_effect=DjangoValidationError({'detail': 'boom'}))
+	def test_transactional_onboard_endpoint_returns_error_payload(self, _mock_onboard):
+		response = self.client.post(
+			'/api/schools/onboard/',
+			{
+				'name': 'Rollback Academy',
+				'email': 'rollback@example.com',
+				'plan': 'starter',
+			},
+			format='json',
+		)
+
+		self.assertEqual(response.status_code, 400)
+		self.assertFalse(School.objects.filter(email='rollback@example.com').exists())
 
 
 class SchoolSaaSPhase2Tests(TestCase):

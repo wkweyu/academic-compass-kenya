@@ -1,4 +1,5 @@
 from copy import deepcopy
+import json
 from datetime import datetime, timedelta
 from decimal import Decimal
 import logging
@@ -6,7 +7,7 @@ import re
 
 from django.core.exceptions import ValidationError
 from django.db.models import Count, Max, Q, Sum
-from django.db import transaction
+from django.db import connection, transaction
 from django.utils import timezone
 
 from apps.attendance.models import Attendance
@@ -376,6 +377,106 @@ def _get_active_user(user_id):
         return User.objects.get(pk=user_id, is_active=True)
     except User.DoesNotExist as exc:
         raise ValidationError({'staff_id': 'Staff member was not found or is inactive.'}) from exc
+
+
+def _table_exists(table_name):
+    return table_name in connection.introspection.table_names()
+
+
+def _table_has_column(table_name, column_name):
+    if not _table_exists(table_name):
+        return False
+    with connection.cursor() as cursor:
+        description = connection.introspection.get_table_description(cursor, table_name)
+    return any(column.name == column_name for column in description)
+
+
+def _create_saas_subscription_records(*, school, plan, contact_person='', contact_phone=''):
+    normalized_plan = normalize_role(plan) or 'starter'
+    if normalized_plan not in {'starter', 'standard', 'enterprise'}:
+        raise ValidationError({'plan': 'Unsupported subscription plan.'})
+
+    current_time = timezone.now()
+    trial_end = current_time + timedelta(days=30)
+
+    school_column_updates = []
+    school_column_values = []
+    for column_name, value in (
+        ('subscription_plan', normalized_plan),
+        ('subscription_status', 'trial'),
+        ('subscription_start', current_time),
+        ('subscription_end', trial_end),
+        ('contact_person', contact_person or ''),
+        ('contact_phone', contact_phone or ''),
+        ('updated_at', current_time),
+    ):
+        if _table_has_column('schools_school', column_name):
+            school_column_updates.append(f'{column_name} = %s')
+            school_column_values.append(value)
+
+    with connection.cursor() as cursor:
+        if school_column_updates:
+            cursor.execute(
+                f"UPDATE schools_school SET {', '.join(school_column_updates)} WHERE id = %s",
+                [*school_column_values, school.id],
+            )
+
+        if _table_exists('school_settings'):
+            cursor.execute(
+                """
+                INSERT INTO school_settings (school_id)
+                VALUES (%s)
+                ON CONFLICT (school_id) DO NOTHING
+                """,
+                [school.id],
+            )
+
+        if _table_exists('subscriptions'):
+            cursor.execute(
+                """
+                INSERT INTO subscriptions (school_id, plan_name, status, billing_cycle, amount, start_date, end_date)
+                VALUES (%s, %s, 'trial', 'monthly', 0, %s, %s)
+                """,
+                [school.id, normalized_plan, current_time, trial_end],
+            )
+
+        if _table_exists('onboarding_logs'):
+            cursor.execute(
+                """
+                INSERT INTO onboarding_logs (school_id, step, status, details)
+                VALUES (%s, 'school_created', 'completed', %s)
+                """,
+                [school.id, json.dumps({'name': school.name, 'code': school.code})],
+            )
+
+    return normalized_plan
+
+
+def _auto_assign_portfolio_owner(*, school, staff):
+    normalized_role = normalize_role(getattr(staff, 'role', ''))
+    if normalized_role not in {'account_manager', 'marketer'} or not getattr(staff, 'auth_user_id', None):
+        return False
+    if not _table_exists('school_portfolio_assignments'):
+        return False
+
+    current_time = timezone.now()
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            INSERT INTO school_portfolio_assignments (school_id, owner_user_id, assigned_by, notes, updated_at)
+            VALUES (%s, %s, %s, %s, %s)
+            ON CONFLICT (school_id)
+            DO UPDATE SET
+                owner_user_id = EXCLUDED.owner_user_id,
+                assigned_by = EXCLUDED.assigned_by,
+                notes = EXCLUDED.notes,
+                updated_at = EXCLUDED.updated_at
+            """,
+            [school.id, staff.auth_user_id, staff.auth_user_id, 'Auto-assigned on onboarding', current_time],
+        )
+
+    return True
 
 
 def _get_user_capacity_limit(user):
@@ -2416,6 +2517,75 @@ def initialize_school_onboarding(*, school_id, staff_id, source='direct_onboardi
         'onboarding_progress': progress,
         'lead_created': lead_created,
     }
+
+
+@transaction.atomic
+def onboard_school_with_workflow(
+    *,
+    staff_id,
+    name,
+    email,
+    phone='',
+    address='',
+    city='',
+    country='Kenya',
+    plan='starter',
+    contact_person='',
+    contact_phone='',
+    source='saas_dashboard',
+    priority=LeadPriority.MEDIUM,
+):
+    staff = _get_active_user(staff_id)
+    current_time = timezone.now()
+
+    school = School(
+        name=name,
+        email=email,
+        phone=phone,
+        address=address,
+        active=True,
+        status=SchoolStatus.ACTIVE,
+    )
+    _save_with_validation(school)
+
+    school_column_updates = []
+    school_column_values = []
+    for column_name, value in (
+        ('city', city or ''),
+        ('country', country or 'Kenya'),
+        ('contact_person', contact_person or ''),
+        ('contact_phone', contact_phone or ''),
+        ('updated_at', current_time),
+    ):
+        if _table_has_column('schools_school', column_name):
+            school_column_updates.append(f'{column_name} = %s')
+            school_column_values.append(value)
+
+    if school_column_updates:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"UPDATE schools_school SET {', '.join(school_column_updates)} WHERE id = %s",
+                [*school_column_values, school.id],
+            )
+
+    normalized_plan = _create_saas_subscription_records(
+        school=school,
+        plan=plan,
+        contact_person=contact_person,
+        contact_phone=contact_phone,
+    )
+    portfolio_assigned = _auto_assign_portfolio_owner(school=school, staff=staff)
+
+    result = initialize_school_onboarding(
+        school_id=school.id,
+        staff_id=staff.id,
+        source=source,
+        priority=priority,
+    )
+    result['subscription_created'] = True
+    result['portfolio_assigned'] = portfolio_assigned
+    result['subscription_plan'] = normalized_plan
+    return result
 
 
 @transaction.atomic

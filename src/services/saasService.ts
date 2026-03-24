@@ -163,6 +163,15 @@ export interface InitializeSchoolOnboardingResponse {
   };
 }
 
+export interface TransactionalOnboardSchoolResponse extends InitializeSchoolOnboardingResponse {
+  success: boolean;
+  school_id: number;
+  school_code: string;
+  portfolio_assigned: boolean;
+  subscription_created: boolean;
+  subscription_plan: string;
+}
+
 export const saasService = {
   async getAccessProfile(): Promise<PlatformAccessProfile | null> {
     const { data, error } = await supabase.rpc("get_platform_access_profile");
@@ -238,19 +247,25 @@ export const saasService = {
     contact_person?: string;
     contact_phone?: string;
   }) {
-    const { data, error } = await supabase.rpc("onboard_new_school", {
-      p_name: params.name,
-      p_email: params.email,
-      p_phone: params.phone || "",
-      p_address: params.address || "",
-      p_city: params.city || "",
-      p_country: params.country || "Kenya",
-      p_plan: params.plan || "starter",
-      p_contact_person: params.contact_person || "",
-      p_contact_phone: params.contact_phone || "",
-    });
-    if (error) throw error;
-    return data?.[0] as { school_id: number; school_code: string };
+    try {
+      const response = await api.post<TransactionalOnboardSchoolResponse>("/api/schools/onboard/", {
+        ...params,
+        country: params.country || "Kenya",
+        plan: params.plan || "starter",
+        source: "saas_dashboard",
+        priority: "MEDIUM",
+      });
+      return response.data;
+    } catch (error: any) {
+      const detail = error?.response?.data?.error;
+      const message =
+        typeof detail === "string"
+          ? detail
+          : detail && typeof detail === "object"
+            ? Object.values(detail).flat().join(" ")
+            : error?.message || "Failed to onboard school";
+      throw new Error(message);
+    }
   },
 
   async initializeSchoolOnboarding(schoolId: number, payload?: { source?: string; priority?: string }) {

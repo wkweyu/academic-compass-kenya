@@ -2097,22 +2097,14 @@ const OnboardForm = ({ onSuccess }: { onSuccess: () => void }) => {
       }
       const res = await saasService.onboardSchool({ ...form, name: normalizedName });
 
-      try {
-        if (import.meta.env.DEV) {
-          console.info("Onboarding Step 2: Initializing onboarding workflow", { schoolId: res.school_id });
-        }
-        await saasService.initializeSchoolOnboarding(res.school_id, {
-          source: "saas_dashboard",
-          priority: "MEDIUM",
-        });
-      } catch (workflowErr: unknown) {
-        toast.error(getErrorMessage(workflowErr, "School created, but onboarding workflow initialization failed"));
-        return;
-      }
-
       setResult(res);
       if (import.meta.env.DEV) {
-        console.info("Onboarding Step 5: Completed", { schoolId: res.school_id, schoolCode: res.school_code });
+        console.info("Onboarding Step 5: Completed", {
+          schoolId: res.school_id,
+          schoolCode: res.school_code,
+          portfolioAssigned: res.portfolio_assigned,
+          subscriptionCreated: res.subscription_created,
+        });
       }
       toast.success(`School onboarded! Code: ${res.school_code}`);
       onSuccess();

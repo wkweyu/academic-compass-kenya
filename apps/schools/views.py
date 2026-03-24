@@ -32,6 +32,7 @@ from .serializers import (
     FollowUpSerializer,
     FollowUpSnoozeSerializer,
     InitializeOnboardingSerializer,
+    SchoolOnboardSerializer,
     LeadCreateSerializer,
     LeadSerializer,
     LeadStageTransitionSerializer,
@@ -69,6 +70,7 @@ from .services import (
     get_todays_follow_ups,
     identify_at_risk_schools,
     initialize_school_onboarding,
+    onboard_school_with_workflow,
     get_onboarding_progress_snapshot,
     log_communication,
     preview_notification_template,
@@ -170,6 +172,73 @@ class SchoolCreateView(generics.CreateAPIView):
 
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+
+class SchoolOnboardView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = SchoolOnboardSerializer
+
+    def post(self, request, *args, **kwargs):
+        _ensure_platform_staff(request)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        payload = serializer.validated_data
+
+        logger.info(
+            "Transactional school onboarding request received | actor_id=%s school_name=%s",
+            getattr(request.user, 'id', None),
+            payload.get('name'),
+        )
+
+        try:
+            result = onboard_school_with_workflow(
+                staff_id=request.user.id,
+                name=payload['name'],
+                email=payload['email'],
+                phone=payload.get('phone', ''),
+                address=payload.get('address', ''),
+                city=payload.get('city', ''),
+                country=payload.get('country') or 'Kenya',
+                plan=payload.get('plan') or 'starter',
+                contact_person=payload.get('contact_person', ''),
+                contact_phone=payload.get('contact_phone', ''),
+                source=payload.get('source') or 'saas_dashboard',
+                priority=payload.get('priority') or 'MEDIUM',
+            )
+        except DjangoValidationError as exc:
+            logger.exception(
+                "Transactional school onboarding failed | actor_id=%s school_name=%s",
+                getattr(request.user, 'id', None),
+                payload.get('name'),
+            )
+            error = _service_error(exc)
+            return Response({'success': False, 'error': getattr(error, 'detail', str(exc))}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as exc:
+            logger.exception(
+                "Transactional school onboarding crashed | actor_id=%s school_name=%s",
+                getattr(request.user, 'id', None),
+                payload.get('name'),
+            )
+            return Response(
+                {'success': False, 'error': str(exc) or 'Failed to onboard school.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response(
+            {
+                'success': True,
+                'school_id': result['school'].id,
+                'school_code': result['school'].code,
+                'school': SchoolSerializer(result['school']).data,
+                'lead': LeadSerializer(result['lead']).data,
+                'lead_created': result['lead_created'],
+                'onboarding_progress': get_onboarding_progress_snapshot(school_id=result['school'].id),
+                'portfolio_assigned': result['portfolio_assigned'],
+                'subscription_created': result['subscription_created'],
+                'subscription_plan': result['subscription_plan'],
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class SchoolDeleteView(generics.GenericAPIView):
