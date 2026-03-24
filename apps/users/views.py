@@ -1,4 +1,5 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import connection
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions, status
@@ -12,6 +13,7 @@ from .serializers import UserCreateSerializer, UserRoleChangePreviewSerializer, 
 
 
 PLATFORM_STAFF_ROLES = {'staff', 'sales_rep', 'onboarding_specialist', 'account_manager', 'marketer', 'manager', 'platform_admin', 'support'}
+SYNCABLE_PLATFORM_ROLES = ('platform_admin', 'support', 'account_manager', 'marketer')
 
 def _is_platform_staff(user):
     role = normalize_role(getattr(user, 'role', '')).lower()
@@ -21,6 +23,67 @@ def _ensure_manager_access(user):
     if _is_platform_staff(user):
         return user
     raise PermissionDenied('Only platform administrators or managers can perform user management.')
+
+
+def _repair_platform_auth_links_and_roles():
+    if connection.vendor != 'postgresql':
+        return {'linked_users': 0, 'role_grants': 0}
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM information_schema.tables
+                WHERE table_schema = 'auth' AND table_name = 'users'
+            )
+            """
+        )
+        has_auth_users = cursor.fetchone()[0]
+
+        cursor.execute(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM information_schema.tables
+                WHERE table_schema = 'public' AND table_name = 'user_roles'
+            )
+            """
+        )
+        has_user_roles = cursor.fetchone()[0]
+
+        if not has_auth_users or not has_user_roles:
+            return {'linked_users': 0, 'role_grants': 0}
+
+        cursor.execute(
+            """
+            UPDATE public.users AS pu
+            SET auth_user_id = au.id
+            FROM auth.users AS au
+            WHERE pu.school_id IS NULL
+              AND pu.auth_user_id IS NULL
+              AND LOWER(COALESCE(pu.email, '')) = LOWER(COALESCE(au.email, ''))
+              AND pu.role = ANY(%s)
+            """,
+            [list(SYNCABLE_PLATFORM_ROLES)],
+        )
+        linked_users = cursor.rowcount
+
+        cursor.execute(
+            """
+            INSERT INTO public.user_roles (user_id, role)
+            SELECT pu.auth_user_id, pu.role::public.app_role
+            FROM public.users AS pu
+            WHERE pu.school_id IS NULL
+              AND pu.auth_user_id IS NOT NULL
+              AND pu.role = ANY(%s)
+            ON CONFLICT (user_id, role) DO NOTHING
+            """,
+            [list(SYNCABLE_PLATFORM_ROLES)],
+        )
+        role_grants = cursor.rowcount
+
+    return {'linked_users': linked_users, 'role_grants': role_grants}
 
 class UserListView(generics.ListCreateAPIView):
     queryset = User.objects.all()
@@ -70,6 +133,15 @@ class UserListView(generics.ListCreateAPIView):
         )
 
         return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
+
+
+class PlatformUserRepairView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        _ensure_manager_access(request.user)
+        result = _repair_platform_auth_links_and_roles()
+        return Response({'success': True, **result}, status=status.HTTP_200_OK)
 
 
 class UserDeleteView(generics.DestroyAPIView):

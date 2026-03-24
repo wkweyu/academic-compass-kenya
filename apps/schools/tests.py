@@ -232,6 +232,21 @@ class SchoolSaaSPhase1Tests(TestCase):
 		self.assertEqual(response.status_code, 400)
 		self.assertFalse(School.objects.filter(email='rollback@example.com').exists())
 
+	@patch('apps.schools.views.get_onboarding_progress_snapshot', side_effect=RuntimeError('snapshot failed'))
+	def test_transactional_onboard_endpoint_rolls_back_if_response_build_fails(self, _mock_snapshot):
+		response = self.client.post(
+			'/api/schools/onboard/',
+			{
+				'name': 'Atomic Response Academy',
+				'email': 'atomic-response@example.com',
+				'plan': 'starter',
+			},
+			format='json',
+		)
+
+		self.assertEqual(response.status_code, 500)
+		self.assertFalse(School.objects.filter(email='atomic-response@example.com').exists())
+
 
 class SchoolSaaSPhase2Tests(TestCase):
 	def setUp(self):

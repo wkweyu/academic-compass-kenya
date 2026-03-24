@@ -173,6 +173,10 @@ export interface TransactionalOnboardSchoolResponse extends InitializeSchoolOnbo
 }
 
 export const saasService = {
+  async repairPlatformLinks(): Promise<void> {
+    await api.post<{ success: boolean }>("/api/users/repair-platform-links/", {});
+  },
+
   async getAccessProfile(): Promise<PlatformAccessProfile | null> {
     const { data, error } = await supabase.rpc("get_platform_access_profile");
     if (error) {
@@ -248,6 +252,7 @@ export const saasService = {
     contact_phone?: string;
   }) {
     try {
+      await this.repairPlatformLinks();
       const response = await api.post<TransactionalOnboardSchoolResponse>("/api/schools/onboard/", {
         ...params,
         country: params.country || "Kenya",
@@ -495,6 +500,7 @@ export const saasService = {
   },
 
   async listPlatformStaff(): Promise<PlatformStaffMember[]> {
+    await this.repairPlatformLinks();
     const { data, error } = await supabase.rpc("list_platform_staff");
     if (error) throw error;
     return (data || []) as PlatformStaffMember[];
@@ -531,6 +537,7 @@ export const saasService = {
   },
 
   async updateSchoolPortfolioOwner(schoolId: number, ownerUserId: string | null): Promise<void> {
+    await this.repairPlatformLinks();
     const { error } = await supabase.rpc("assign_school_portfolio", {
       p_school_id: schoolId,
       p_owner_user_id: ownerUserId,
