@@ -810,7 +810,7 @@ const StudentManagementModule = () => {
 
       {/* Create Student Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-5xl">
           <DialogHeader>
             <DialogTitle>Add New Student</DialogTitle>
             <DialogDescription>
@@ -826,7 +826,7 @@ const StudentManagementModule = () => {
 
       {/* Edit Student Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-5xl">
           <DialogHeader>
             <DialogTitle>Edit Student</DialogTitle>
             <DialogDescription>

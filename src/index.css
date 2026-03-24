@@ -6,6 +6,8 @@
 
 @layer base {
   :root {
+    --space-section: 1.5rem;
+    --space-field: 1rem;
     --background: 220 20% 97%;
     --foreground: 220 30% 12%;
 
@@ -119,6 +121,15 @@
     font-family: 'Inter', 'DM Sans', system-ui, sans-serif;
   }
 
+  button,
+  [role="button"],
+  input,
+  select,
+  textarea,
+  a {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+
   h1, h2, h3, h4, h5, h6 {
     font-family: 'DM Sans', 'Inter', system-ui, sans-serif;
   }
@@ -126,6 +137,26 @@
 
 /* Scrollbar styling */
 @layer utilities {
+  .erp-page-shell {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .erp-form-grid {
+    @apply grid gap-4 md:grid-cols-2;
+  }
+
+  .erp-form-section {
+    @apply space-y-4 rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm;
+  }
+
+  .erp-modal-body {
+    @apply max-h-[72vh] overflow-y-auto px-6 py-5 scrollbar-thin;
+  }
+
+  .erp-muted-panel {
+    @apply rounded-2xl border border-border/70 bg-muted/35;
+  }
+
   .scrollbar-thin {
     scrollbar-width: thin;
   }

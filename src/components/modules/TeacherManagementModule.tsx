@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Users, DollarSign, Calendar, Filter, Edit, Trash2, Eye, UserCheck, FileText, BookOpen, Crown, Clock, BarChart3, Briefcase } from 'lucide-react';
+import { Plus, Search, Users, DollarSign, Calendar, Edit, Trash2, Eye, UserCheck, FileText, Crown, Briefcase, Sparkles, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -136,16 +136,25 @@ export const TeacherManagementModule = ({ defaultTab = 'staff' }: TeacherManagem
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Staff Management</h1>
-          <p className="text-muted-foreground">
+      <Card className="overflow-hidden border-border/80 bg-gradient-to-br from-card via-card to-primary/5 shadow-sm">
+        <CardContent className="p-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
+                <span className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 font-medium text-primary">
+                  <Sparkles className="h-3.5 w-3.5" /> Staff settings
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-background px-3 py-1 font-medium text-muted-foreground">
+                  <ShieldCheck className="h-3.5 w-3.5" /> HR operations
+                </span>
+              </div>
+              <h1 className="text-3xl font-bold tracking-tight">Staff Management</h1>
+              <p className="mt-2 text-muted-foreground">
             Manage all staff records, assignments, and payroll (Teachers & Support Staff)
-          </p>
-        </div>
+              </p>
+            </div>
         
-        <div className="flex gap-2">
+            <div className="flex gap-2">
           <Button variant="outline">
             <FileText className="mr-2 h-4 w-4" />
             Reports
@@ -158,7 +167,7 @@ export const TeacherManagementModule = ({ defaultTab = 'staff' }: TeacherManagem
                 Add Staff Member
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-4xl">
+            <DialogContent className="sm:max-w-5xl">
               <DialogHeader>
                 <DialogTitle>Add New Staff Member</DialogTitle>
                 <DialogDescription>
@@ -171,13 +180,15 @@ export const TeacherManagementModule = ({ defaultTab = 'staff' }: TeacherManagem
               />
             </DialogContent>
           </Dialog>
-        </div>
-      </div>
+            </div>
+          </div>
+      </CardContent>
+      </Card>
 
       {/* Statistics Cards */}
       {stats && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
+          <Card className="border-border/80 shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Staff</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
@@ -190,7 +201,7 @@ export const TeacherManagementModule = ({ defaultTab = 'staff' }: TeacherManagem
             </CardContent>
           </Card>
           
-          <Card>
+          <Card className="border-border/80 shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Monthly Payroll</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -203,7 +214,7 @@ export const TeacherManagementModule = ({ defaultTab = 'staff' }: TeacherManagem
             </CardContent>
           </Card>
           
-          <Card>
+          <Card className="border-border/80 shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Avg. Experience</CardTitle>
               <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -216,7 +227,7 @@ export const TeacherManagementModule = ({ defaultTab = 'staff' }: TeacherManagem
             </CardContent>
           </Card>
           
-          <Card>
+          <Card className="border-border/80 shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">On Leave</CardTitle>
               <UserCheck className="h-4 w-4 text-muted-foreground" />
@@ -233,7 +244,7 @@ export const TeacherManagementModule = ({ defaultTab = 'staff' }: TeacherManagem
 
       {/* Main Content */}
       <Tabs defaultValue={defaultTab} className="space-y-4" key={defaultTab}>
-        <TabsList className="flex-wrap h-auto gap-1">
+        <TabsList className="h-auto flex-wrap gap-1 rounded-2xl border border-border/70 bg-muted/40 p-2">
           <TabsTrigger value="staff">All Staff</TabsTrigger>
           <TabsTrigger value="assignments">Assignments</TabsTrigger>
           <TabsTrigger value="availability">Availability</TabsTrigger>
@@ -245,20 +256,28 @@ export const TeacherManagementModule = ({ defaultTab = 'staff' }: TeacherManagem
         </TabsList>
 
         <TabsContent value="staff" className="space-y-4">
-          <Card>
+          <Card className="border-border/80 shadow-sm">
             <CardHeader>
               <CardTitle>Staff Records</CardTitle>
               <CardDescription>Manage all staff personal and employment information</CardDescription>
             </CardHeader>
             <CardContent>
               {/* Filters */}
-              <div className="flex gap-4 mb-6 flex-wrap">
-                <div className="flex-1 min-w-64">
+              <div className="mb-6 space-y-4">
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <Badge variant="outline">{staff.length} matching staff</Badge>
+                  <Badge variant="secondary">Search and role filtering</Badge>
+                  <Badge variant="secondary">Payroll overview</Badge>
+                </div>
+
+              <div className="flex gap-4 flex-wrap">
+                <div className="relative min-w-64 flex-1">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     placeholder="Search staff..."
                     value={filters.search || ''}
                     onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                    className="max-w-sm"
+                    className="max-w-sm pl-10"
                   />
                 </div>
                 
@@ -342,8 +361,17 @@ export const TeacherManagementModule = ({ defaultTab = 'staff' }: TeacherManagem
                   </SelectContent>
                 </Select>
               </div>
+              </div>
 
               {/* Staff Table */}
+              {staff.length === 0 && !loading ? (
+                <div className="erp-muted-panel flex flex-col items-center justify-center px-6 py-12 text-center">
+                  <Users className="h-8 w-8 text-primary" />
+                  <p className="mt-4 text-base font-semibold text-foreground">No staff records matched this view</p>
+                  <p className="mt-2 max-w-md text-sm text-muted-foreground">Adjust the filters or add a new staff member to begin tracking assignments, payroll, and attendance.</p>
+                </div>
+              ) : (
+              <div className="overflow-hidden rounded-2xl border border-border/70">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -416,6 +444,8 @@ export const TeacherManagementModule = ({ defaultTab = 'staff' }: TeacherManagem
                   ))}
                 </TableBody>
               </Table>
+              </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

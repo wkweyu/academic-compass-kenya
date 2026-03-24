@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PlatformAccessProfile, PlatformManagedUser, PlatformStaffMember, SaasCommunication, SaasTierFeature, saasService, SaaSSchool } from "@/services/saasService";
@@ -9,7 +9,8 @@ import {
   Pencil, Send, Eye, X, ChevronDown, Activity, BarChart3,
   Globe, Phone, MapPin, CalendarDays, TrendingUp, CreditCard,
   FileText, History, MessageSquare, AlertTriangle, ExternalLink,
-  Trash2, UserCog
+  Trash2, UserCog, Bell, Sparkles, School, Check, ArrowRight,
+  ArrowLeft, Settings2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +29,16 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Progress } from "@/components/ui/progress";
 import { AdminCommunicationHub } from "@/components/communication/AdminCommunicationHub";
 import { toast } from "sonner";
 
@@ -138,6 +149,71 @@ const ACCESS_RULES: Record<string, { allowed: string[]; blocked: string[] }> = {
 
 const getRoleLabel = (role?: string | null) => ROLE_LABELS[role || ""] || "Console User";
 
+const getInitials = (value?: string | null) => {
+  if (!value) return "SC";
+  const tokens = value.trim().split(/\s+/).filter(Boolean);
+  return tokens.slice(0, 2).map((token) => token[0]?.toUpperCase() || "").join("") || "SC";
+};
+
+const getAcademicPeriodLabel = () => {
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const term = month <= 4 ? 1 : month <= 8 ? 2 : 3;
+  return `Term ${term}, ${now.getFullYear()}`;
+};
+
+const PLAN_STYLES: Record<string, { badge: string; accent: string; description: string; recommended?: boolean }> = {
+  starter: {
+    badge: "border-slate-300 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-200",
+    accent: "from-slate-100 to-white dark:from-slate-900 dark:to-slate-950",
+    description: "Best for new and growing schools getting started with core operations.",
+  },
+  standard: {
+    badge: "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-950/40 dark:text-blue-200",
+    accent: "from-blue-100 to-white dark:from-blue-950/60 dark:to-slate-950",
+    description: "Balanced option for schools that need stronger operational and finance tooling.",
+    recommended: true,
+  },
+  enterprise: {
+    badge: "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200",
+    accent: "from-emerald-100 to-white dark:from-emerald-950/60 dark:to-slate-950",
+    description: "Full-scale setup for large schools with advanced operational requirements.",
+  },
+};
+
+const FormSectionHeader = ({ icon, title, description }: { icon: React.ReactNode; title: string; description?: string }) => (
+  <div className="flex items-start gap-3">
+    <div className="mt-0.5 rounded-xl bg-primary/10 p-2 text-primary">{icon}</div>
+    <div className="space-y-1">
+      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+      {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
+    </div>
+  </div>
+);
+
+const FieldLabel = ({ label, required = false }: { label: string; required?: boolean }) => (
+  <Label className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+    {label}
+    {required ? <span className="ml-1 text-destructive">*</span> : null}
+  </Label>
+);
+
+const EmptyStatePanel = ({
+  icon,
+  title,
+  description,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+}) => (
+  <div className="erp-muted-panel flex flex-col items-center justify-center px-6 py-12 text-center">
+    <div className="mb-4 rounded-2xl bg-primary/10 p-3 text-primary">{icon}</div>
+    <p className="text-base font-semibold text-foreground">{title}</p>
+    <p className="mt-2 max-w-sm text-sm text-muted-foreground">{description}</p>
+  </div>
+);
+
 /* ─────────── Platform Staff Management ─────────── */
 const StaffManagementTab = ({
   users,
@@ -157,6 +233,8 @@ const StaffManagementTab = ({
   deletingUserId: number | null;
 }) => {
   const [open, setOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
   const [form, setForm] = useState({
     email: "",
     first_name: "",
@@ -164,6 +242,17 @@ const StaffManagementTab = ({
     role: "support",
     password: "",
   });
+
+  const filteredUsers = useMemo(() => {
+    return users.filter((user) => {
+      const matchesSearch =
+        !searchValue ||
+        user.full_name.toLowerCase().includes(searchValue.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchValue.toLowerCase());
+      const matchesRole = roleFilter === "all" || user.role === roleFilter;
+      return matchesSearch && matchesRole;
+    });
+  }, [users, searchValue, roleFilter]);
 
   if (!canManagePortfolios) return null;
 
@@ -178,42 +267,73 @@ const StaffManagementTab = ({
   };
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <UserCog className="w-4 h-4 text-muted-foreground" /> Platform Management
+    <Card className="overflow-hidden border-border/80 shadow-sm">
+      <CardHeader className="space-y-4 border-b border-border/70 bg-gradient-to-r from-card to-muted/25 pb-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-2">
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
+              <UserCog className="h-4 w-4 text-primary" /> Platform Management
             </CardTitle>
-            <CardDescription className="text-xs">Manage platform administrators and support staff</CardDescription>
+            <CardDescription className="max-w-2xl text-sm">
+              Manage platform administrators, support staff, and portfolio-facing users from one place.
+            </CardDescription>
+            <div className="flex flex-wrap gap-2 text-xs">
+              <Badge variant="outline">{users.length} total staff</Badge>
+              <Badge variant="secondary">Searchable roster</Badge>
+              <Badge variant="secondary">Role-based provisioning</Badge>
+            </div>
           </div>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-2"><Plus className="w-4 h-4" /> New User</Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-2xl">
               <DialogHeader>
-                <DialogTitle>Create Platform User</DialogTitle>
-                <DialogDescription>Add a new user and assign a role.</DialogDescription>
+                <DialogTitle className="flex items-center gap-2"><UserCog className="h-4 w-4 text-primary" /> Create Platform User</DialogTitle>
+                <DialogDescription>Add a new platform user with the correct access level and optional temporary password.</DialogDescription>
               </DialogHeader>
-              <div className="space-y-3">
-                <Input placeholder="Email" type="email" value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} />
-                <div className="grid grid-cols-2 gap-3">
-                  <Input placeholder="First Name" value={form.first_name} onChange={(e) => setForm((prev) => ({ ...prev, first_name: e.target.value }))} />
-                  <Input placeholder="Last Name" value={form.last_name} onChange={(e) => setForm((prev) => ({ ...prev, last_name: e.target.value }))} />
-                </div>
-                <Select value={form.role} onValueChange={(v) => setForm((prev) => ({ ...prev, role: v }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="platform_admin">Platform Owner (Super Admin)</SelectItem>
-                    <SelectItem value="support">Support User</SelectItem>
-                    <SelectItem value="account_manager">Account Manager</SelectItem>
-                    <SelectItem value="marketer">Marketer (Account Manager)</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Input placeholder="Temporary Password (optional)" type="text" value={form.password} onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))} />
+              <div className="erp-modal-body space-y-6">
+                <section className="erp-form-section">
+                  <FormSectionHeader icon={<Mail className="h-4 w-4" />} title="Identity" description="Basic profile information used for account creation and access recovery." />
+                  <div className="erp-form-grid">
+                    <div className="space-y-2 md:col-span-2">
+                      <FieldLabel label="Email Address" required />
+                      <Input placeholder="name@school.com" type="email" value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <FieldLabel label="First Name" />
+                      <Input placeholder="First name" value={form.first_name} onChange={(e) => setForm((prev) => ({ ...prev, first_name: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <FieldLabel label="Last Name" />
+                      <Input placeholder="Last name" value={form.last_name} onChange={(e) => setForm((prev) => ({ ...prev, last_name: e.target.value }))} />
+                    </div>
+                  </div>
+                </section>
+
+                <section className="erp-form-section">
+                  <FormSectionHeader icon={<Shield className="h-4 w-4" />} title="Access & Security" description="Choose the right role and optionally set a temporary password for first login." />
+                  <div className="erp-form-grid">
+                    <div className="space-y-2">
+                      <FieldLabel label="Role" required />
+                      <Select value={form.role} onValueChange={(v) => setForm((prev) => ({ ...prev, role: v }))}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="platform_admin">Platform Owner (Super Admin)</SelectItem>
+                          <SelectItem value="support">Support User</SelectItem>
+                          <SelectItem value="account_manager">Account Manager</SelectItem>
+                          <SelectItem value="marketer">Marketer (Account Manager)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <FieldLabel label="Temporary Password" />
+                      <Input placeholder="Leave blank to auto-generate" type="text" value={form.password} onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))} />
+                    </div>
+                  </div>
+                </section>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
@@ -224,17 +344,35 @@ const StaffManagementTab = ({
             </DialogContent>
           </Dialog>
         </div>
+
+        <div className="erp-form-grid">
+          <div className="relative md:col-span-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input value={searchValue} onChange={(e) => setSearchValue(e.target.value)} placeholder="Search by staff name or email" className="pl-10" />
+          </div>
+          <div className="md:col-span-1">
+            <Select value={roleFilter} onValueChange={setRoleFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filter by role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All roles</SelectItem>
+                <SelectItem value="platform_admin">Platform Owner</SelectItem>
+                <SelectItem value="support">Support</SelectItem>
+                <SelectItem value="account_manager">Account Manager</SelectItem>
+                <SelectItem value="marketer">Marketer</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
-        ) : users.length === 0 ? (
-          <div className="text-center py-12">
-            <Users className="w-10 h-10 mx-auto text-muted-foreground/40 mb-3" />
-            <p className="text-muted-foreground">No platform staff found</p>
-          </div>
+        ) : filteredUsers.length === 0 ? (
+          <EmptyStatePanel icon={<Users className="h-8 w-8" />} title="No staff matched this view" description="Try a different name, email, or role filter to find the user you need." />
         ) : (
           <Table>
             <TableHeader>
@@ -246,7 +384,7 @@ const StaffManagementTab = ({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map((member) => (
+              {filteredUsers.map((member) => (
                 <TableRow key={member.id}>
                   <TableCell>
                     <div className="flex flex-col">
@@ -1014,11 +1152,11 @@ const SchoolDetailDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-5xl">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <div>
-              <DialogTitle className="text-lg">{editing ? "Edit School" : "School Details"}</DialogTitle>
+              <DialogTitle className="flex items-center gap-2 text-lg"><Building2 className="h-4 w-4 text-primary" /> {editing ? "Edit School" : "School Details"}</DialogTitle>
               <DialogDescription>
                 <code className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">{school.code}</code>
               </DialogDescription>
@@ -1031,9 +1169,44 @@ const SchoolDetailDialog = ({
           </div>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <div className="erp-modal-body space-y-6">
+          {!editing && (
+            <div className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
+              <div className="rounded-2xl border border-border/70 bg-gradient-to-br from-card to-muted/20 p-5 shadow-sm">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-2">
+                    <Badge className="rounded-full" variant="outline">{school.subscription_plan} plan</Badge>
+                    <h2 className="text-2xl font-bold tracking-tight text-foreground">{formatSchoolName(school.name)}</h2>
+                    <p className="text-sm text-muted-foreground">{school.email || "Email not configured yet"}</p>
+                  </div>
+                  <div className="rounded-2xl bg-primary/10 px-3 py-2 text-right text-primary">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em]">Portfolio</p>
+                    <p className="text-sm font-semibold text-foreground">{school.portfolio_owner_name || "Unassigned"}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="erp-form-section">
+                <FormSectionHeader icon={<Activity className="h-4 w-4" />} title="Quick Snapshot" description="Key enrollment and subscription indicators at a glance." />
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="rounded-xl bg-muted/50 p-3">
+                    <p className="text-lg font-bold text-foreground">{school.student_count}</p>
+                    <p className="text-xs text-muted-foreground">Students</p>
+                  </div>
+                  <div className="rounded-xl bg-muted/50 p-3">
+                    <p className="text-lg font-bold text-foreground">{school.teacher_count}</p>
+                    <p className="text-xs text-muted-foreground">Teachers</p>
+                  </div>
+                  <div className="rounded-xl bg-muted/50 p-3">
+                    <p className="text-sm font-bold capitalize text-foreground">{school.subscription_status}</p>
+                    <p className="text-xs text-muted-foreground">Status</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <Tabs defaultValue="details" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-3 rounded-2xl border border-border/70 bg-muted/50 p-1">
               <TabsTrigger value="details">Details</TabsTrigger>
               <TabsTrigger value="subscription">Subscriptions</TabsTrigger>
               <TabsTrigger value="communication">Communication</TabsTrigger>
@@ -1041,34 +1214,35 @@ const SchoolDetailDialog = ({
 
             <TabsContent value="details" className="space-y-4 pt-4">
               {editing ? (
-                <div className="space-y-3">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">School Name</Label>
+                <div className="erp-form-section space-y-4">
+                  <FormSectionHeader icon={<Pencil className="h-4 w-4" />} title="School Details" description="Update contact and location details in a cleaner, consistent form layout." />
+                  <div className="space-y-2">
+                    <FieldLabel label="School Name" required />
                     <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Email</Label>
+                  <div className="erp-form-grid">
+                    <div className="space-y-2">
+                      <FieldLabel label="Email" />
                       <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
                     </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Phone</Label>
+                    <div className="space-y-2">
+                      <FieldLabel label="Phone" />
                       <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-xs text-muted-foreground">City</Label>
+                  <div className="erp-form-grid">
+                    <div className="space-y-2">
+                      <FieldLabel label="City" />
                       <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
                     </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Country</Label>
+                    <div className="space-y-2">
+                      <FieldLabel label="Country" />
                       <Input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} />
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-6">
                   <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
                     <DetailRow icon={<Building2 className="w-3.5 h-3.5" />} label="Name" value={formatSchoolName(school.name)} />
                     <DetailRow icon={<Mail className="w-3.5 h-3.5" />} label="Email" value={school.email} />
@@ -1098,7 +1272,7 @@ const SchoolDetailDialog = ({
                   {canManagePortfolios && (
                     <>
                       <Separator />
-                      <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
+                      <div className="erp-form-section">
                         <div>
                           <p className="text-sm font-medium text-foreground">Portfolio ownership</p>
                           <p className="text-xs text-muted-foreground">Assign this school to an account manager or marketer.</p>
@@ -1128,7 +1302,7 @@ const SchoolDetailDialog = ({
                   {canRepairAccess && (
                     <>
                       <Separator />
-                      <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
+                      <div className="erp-form-section">
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <p className="text-sm font-medium text-foreground">Admin access</p>
@@ -1487,6 +1661,13 @@ const SaaSDashboardPage = () => {
   const dueTrialCount = dueSubscriptions.filter((d) => (d.subscription_status || "").includes("trial")).length;
   const dueRenewalCount = dueSubscriptions.filter((d) => (d.days_left ?? 9999) >= 0 && (d.days_left ?? 9999) <= 14 && !(d.subscription_status || "").includes("trial")).length;
   const overdueInvoices = dueSubscriptions.filter((d) => (d.invoice_status || "") === "overdue").length;
+  const notificationCount = dueTrialCount + dueRenewalCount + overdueInvoices;
+  const academicPeriodLabel = getAcademicPeriodLabel();
+  const profileDisplayName =
+    user?.user_metadata?.full_name ||
+    [user?.user_metadata?.first_name, user?.user_metadata?.last_name].filter(Boolean).join(" ") ||
+    user?.email ||
+    "Console User";
 
   const filteredSchools = schools.filter((s) => {
     const matchesSearch = s.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -1572,28 +1753,71 @@ const SaaSDashboardPage = () => {
 
   return (
     <div className="min-h-screen bg-muted/30">
-      {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 px-6 py-3">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-primary rounded-lg flex items-center justify-center">
-              <Shield className="w-5 h-5 text-primary-foreground" />
+      <header className="sticky top-0 z-50 border-b border-border/70 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
+        <div className="erp-page-shell py-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-accent text-primary-foreground shadow-lg shadow-primary/20">
+                <School className="h-7 w-7" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="outline" className="rounded-full border-primary/25 bg-primary/5 text-primary">Platform Console</Badge>
+                  <Badge variant="secondary" className="rounded-full">{academicPeriodLabel}</Badge>
+                </div>
+                <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">SkoolTrack Platform</h1>
+                <p className="text-sm text-muted-foreground">Academic Compass Kenya SaaS operations, onboarding, billing, and portfolio oversight.</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-base font-bold text-foreground leading-tight">SkoolTrack Platform</h1>
-              <p className="text-[11px] text-muted-foreground">Management Console</p>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="flex items-center gap-2 rounded-2xl border border-border/70 bg-card/80 px-3 py-2 shadow-sm">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                  <Bell className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Alerts</p>
+                  <p className="text-sm font-semibold text-foreground">{notificationCount} items need attention</p>
+                </div>
+              </div>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="h-auto justify-start gap-3 rounded-2xl border-border/70 bg-card/80 px-3 py-2 text-left shadow-sm">
+                    <Avatar className="h-10 w-10 border border-border/70">
+                      <AvatarFallback className="bg-primary/10 font-semibold text-primary">{getInitials(profileDisplayName)}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-foreground">{profileDisplayName}</p>
+                      <p className="truncate text-xs text-muted-foreground">{getRoleLabel(accessProfile.primary_role)}</p>
+                    </div>
+                    <ChevronDown className="ml-1 h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64 rounded-xl border-border/70 p-2">
+                  <DropdownMenuLabel className="px-3 py-2">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-foreground">{profileDisplayName}</p>
+                      <p className="text-xs text-muted-foreground">{user?.email}</p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="gap-2 rounded-lg px-3 py-2">
+                    <Settings2 className="h-4 w-4 text-muted-foreground" />
+                    {getRoleLabel(accessProfile.primary_role)} access
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="gap-2 rounded-lg px-3 py-2" onClick={() => signOut()}>
+                    <LogOut className="h-4 w-4 text-muted-foreground" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground hidden sm:inline">{user?.email}</span>
-            <Button variant="ghost" size="sm" onClick={() => signOut()} className="gap-1.5 text-muted-foreground hover:text-foreground">
-              <LogOut className="w-4 h-4" /> Sign Out
-            </Button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto p-6 space-y-6">
+      <main className="erp-page-shell py-6 space-y-6">
         {accessProfile && <AccessSummaryCard accessProfile={accessProfile} />}
 
         {/* Analytics Cards */}
@@ -1765,16 +1989,16 @@ const SaaSDashboardPage = () => {
                   <DialogTrigger asChild>
                     <Button className="gap-2 shrink-0"><Plus className="w-4 h-4" /> Onboard School</Button>
                   </DialogTrigger>
-                  <DialogContent className="sm:max-w-lg">
+                  <DialogContent className="sm:max-w-4xl">
                     <DialogHeader>
-                      <DialogTitle>Onboard New School</DialogTitle>
-                      <DialogDescription>Register a new school and set up their admin account</DialogDescription>
+                      <DialogTitle className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" /> Onboard New School</DialogTitle>
+                      <DialogDescription>Register a school, choose the right plan, and prepare the admin access flow with clearer step-by-step guidance.</DialogDescription>
                     </DialogHeader>
                     <OnboardForm onSuccess={() => {
                       setOnboardOpen(false);
                       queryClient.invalidateQueries({ queryKey: ["saas-schools"] });
                       queryClient.invalidateQueries({ queryKey: ["saas-analytics"] });
-                    }} />
+                    }} onCancel={() => setOnboardOpen(false)} tiers={tiers} />
                   </DialogContent>
                 </Dialog>
               )}
@@ -1793,11 +2017,7 @@ const SaaSDashboardPage = () => {
                   <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                 </div>
               ) : filteredSchools.length === 0 ? (
-                <div className="text-center py-12">
-                  <Building2 className="w-10 h-10 mx-auto text-muted-foreground/40 mb-3" />
-                  <p className="text-muted-foreground font-medium">No schools found</p>
-                  <p className="text-xs text-muted-foreground mt-1">Try adjusting your search or filter</p>
-                </div>
+                <EmptyStatePanel icon={<Building2 className="h-8 w-8" />} title="No schools matched your filters" description="Try a different search term, change the status filter, or onboard a new school to get started." />
               ) : (
                 filteredSchools.map((school) => (
                   <SchoolCard
@@ -1833,12 +2053,7 @@ const SaaSDashboardPage = () => {
                                   <span>{formatSchoolName(s.name)}</span>
                                   <span>{s.student_count} Students</span>
                                </div>
-                               <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
-                                  <div
-                                    className="bg-primary h-full transition-all"
-                                    style={{ width: `${Math.min((s.student_count / 1000) * 100, 100)}%` }}
-                                  />
-                               </div>
+                               <Progress value={Math.min((s.student_count / 1000) * 100, 100)} className="h-1.5" />
                             </div>
                          ))}
                       </div>
@@ -2043,16 +2258,31 @@ const SaaSDashboardPage = () => {
 };
 
 /* ─────────── Onboard Form ─────────── */
-const OnboardForm = ({ onSuccess }: { onSuccess: () => void }) => {
+const OnboardForm = ({ onSuccess, onCancel, tiers = [] }: { onSuccess: () => void; onCancel: () => void; tiers?: SaasTierFeature[] }) => {
   const [form, setForm] = useState({
     name: "", email: "", phone: "", address: "", city: "", country: "Kenya",
     plan: "starter", contact_person: "", contact_phone: "",
     admin_email: "", admin_password: "",
   });
+  const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ school_id: number; school_code: string } | null>(null);
   const [notificationSent, setNotificationSent] = useState(false);
   const [createAdmin, setCreateAdmin] = useState(true);
+
+  const onboardingSteps = [
+    { title: "School Profile", description: "Basic identity and contact details." },
+    { title: "Subscription", description: "Select the plan that fits this school best." },
+    { title: "Admin Access", description: "Prepare the admin account and review before submit." },
+  ];
+
+  const planOptions = tiers.length
+    ? tiers
+    : [
+        { tier_name: "starter", onboarding_fee: 50000, annual_fee: 30000, max_students: 250, max_users: 10, modules: ["core", "attendance", "exams"] },
+        { tier_name: "standard", onboarding_fee: 75000, annual_fee: 50000, max_students: 750, max_users: 30, modules: ["core", "attendance", "exams", "fees"] },
+        { tier_name: "enterprise", onboarding_fee: 100000, annual_fee: 100000, max_students: 1000000, max_users: 1000000, modules: ["core", "attendance", "exams", "fees", "transport"] },
+      ];
 
   const getErrorMessage = (error: unknown, fallback: string) => {
     if (error instanceof Error && error.message) {
@@ -2080,7 +2310,20 @@ const OnboardForm = ({ onSuccess }: { onSuccess: () => void }) => {
     crypto.getRandomValues(array);
     let pass = "";
     for (let i = 0; i < 12; i++) pass += chars.charAt(array[i] % chars.length);
-    setForm({ ...form, admin_password: pass });
+    setForm((prev) => ({ ...prev, admin_password: pass }));
+  };
+
+  const canAdvance =
+    (step === 0 && Boolean(form.name.trim() && form.email.trim())) ||
+    (step === 1 && Boolean(form.plan)) ||
+    (step === 2 && (!createAdmin || Boolean(form.admin_email.trim() && form.admin_password.trim())));
+
+  const handleNextStep = () => {
+    if (!canAdvance) {
+      toast.error(step === 0 ? "School name and email are required" : step === 2 ? "Admin email and password are required" : "Please complete this step before continuing");
+      return;
+    }
+    setStep((current) => Math.min(current + 1, onboardingSteps.length - 1));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -2107,7 +2350,6 @@ const OnboardForm = ({ onSuccess }: { onSuccess: () => void }) => {
         });
       }
       toast.success(`School onboarded! Code: ${res.school_code}`);
-      onSuccess();
 
       void (async () => {
         let adminCredentialsReady = false;
@@ -2164,87 +2406,243 @@ const OnboardForm = ({ onSuccess }: { onSuccess: () => void }) => {
 
   if (result) {
     return (
-      <div className="text-center space-y-4 py-6">
-        <div className="w-14 h-14 rounded-full bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center mx-auto">
-          <CheckCircle className="w-7 h-7 text-emerald-600 dark:text-emerald-400" />
-        </div>
-        <div>
-          <p className="text-lg font-semibold text-foreground">School Created!</p>
-          <p className="text-sm text-muted-foreground mt-1">The school has been successfully onboarded</p>
-        </div>
-        <div className="bg-muted rounded-lg p-4">
-          <p className="text-xs text-muted-foreground mb-1">School Code</p>
-          <p className="text-2xl font-mono font-bold text-primary">{result.school_code}</p>
-        </div>
-        {createAdmin && (
-          <div className="bg-muted rounded-lg p-3 text-left text-sm space-y-1">
-            <p className="text-xs text-muted-foreground font-medium">Admin Credentials</p>
-            <p className="font-medium text-foreground">{form.admin_email}</p>
-            <p className="font-mono text-xs text-muted-foreground">{form.admin_password}</p>
+      <div className="flex h-full flex-col overflow-hidden">
+        <div className="erp-modal-body space-y-6 text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+            <CheckCircle className="h-8 w-8" />
           </div>
-        )}
-        {notificationSent && (
-          <div className="flex items-center justify-center gap-2 text-sm text-emerald-700 dark:text-emerald-400">
-            <Mail className="w-4 h-4" /> Login details emailed to {form.email}
+          <div className="space-y-2">
+            <p className="text-2xl font-semibold text-foreground">School Created Successfully</p>
+            <p className="text-sm text-muted-foreground">The onboarding transaction completed and the school is ready for the next setup actions.</p>
           </div>
-        )}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="erp-form-section text-left">
+              <FieldLabel label="School Code" />
+              <p className="text-3xl font-bold tracking-tight text-primary">{result.school_code}</p>
+            </div>
+            <div className="erp-form-section text-left">
+              <FieldLabel label="Subscription Plan" />
+              <p className="text-lg font-semibold capitalize text-foreground">{form.plan}</p>
+              <p className="text-sm text-muted-foreground">Admin setup {createAdmin ? "enabled" : "deferred"}</p>
+            </div>
+          </div>
+          {createAdmin && (
+            <div className="erp-form-section text-left">
+              <FormSectionHeader icon={<Shield className="h-4 w-4" />} title="Admin Credentials" description="Share these secure details only through your approved onboarding process." />
+              <div className="erp-form-grid">
+                <div className="space-y-1">
+                  <FieldLabel label="Admin Email" />
+                  <p className="text-sm font-medium text-foreground">{form.admin_email}</p>
+                </div>
+                <div className="space-y-1">
+                  <FieldLabel label="Temporary Password" />
+                  <p className="font-mono text-sm text-foreground">{form.admin_password}</p>
+                </div>
+              </div>
+            </div>
+          )}
+          {notificationSent ? (
+            <div className="inline-flex items-center justify-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+              <Mail className="h-4 w-4" /> Login details emailed to {form.email}
+            </div>
+          ) : null}
+        </div>
+        <div className="mt-auto flex flex-col-reverse gap-2 border-t border-border/80 bg-background/95 px-6 py-4 sm:flex-row sm:justify-end">
+          <Button variant="outline" onClick={onCancel}>Stay Here</Button>
+          <Button onClick={onSuccess}>Close & Refresh Dashboard</Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
-      <div>
-        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">School Information</Label>
-        <div className="space-y-3 mt-2">
-          <Input placeholder="School Name *" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <Input placeholder="School Email *" type="email" required value={form.email} onChange={(e) => handleEmailChange(e.target.value)} />
-          <div className="grid grid-cols-2 gap-3">
-            <Input placeholder="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-            <Input placeholder="City" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
+    <form onSubmit={handleSubmit} className="flex h-full flex-col overflow-hidden">
+      <div className="erp-modal-body space-y-6">
+        <section className="space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Guided onboarding</p>
+              <p className="text-sm text-muted-foreground">Complete each section before creating the school.</p>
+            </div>
+            <Badge variant="outline" className="rounded-full">Step {step + 1} of {onboardingSteps.length}</Badge>
           </div>
-          <Input placeholder="Address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
-          <div className="grid grid-cols-2 gap-3">
-            <Input placeholder="Contact Person" value={form.contact_person} onChange={(e) => setForm({ ...form, contact_person: e.target.value })} />
-            <Input placeholder="Contact Phone" value={form.contact_phone} onChange={(e) => setForm({ ...form, contact_phone: e.target.value })} />
+          <Progress value={((step + 1) / onboardingSteps.length) * 100} className="h-2" />
+          <div className="grid gap-3 md:grid-cols-3">
+            {onboardingSteps.map((item, index) => {
+              const active = index === step;
+              const complete = index < step;
+              return (
+                <button
+                  key={item.title}
+                  type="button"
+                  onClick={() => setStep(index)}
+                  className={`rounded-2xl border p-4 text-left transition ${active ? "border-primary bg-primary/5 shadow-sm" : "border-border/70 bg-card hover:border-primary/40"}`}
+                >
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${complete ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                      {complete ? <Check className="h-4 w-4" /> : index + 1}
+                    </span>
+                    <p className="text-sm font-semibold text-foreground">{item.title}</p>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{item.description}</p>
+                </button>
+              );
+            })}
           </div>
+        </section>
+
+        {step === 0 ? (
+          <section className="erp-form-section">
+            <FormSectionHeader icon={<School className="h-4 w-4" />} title="School Information" description="Capture the school identity and main operational contacts before setup begins." />
+            <div className="erp-form-grid">
+              <div className="space-y-2 md:col-span-2">
+                <FieldLabel label="School Name" required />
+                <Input placeholder="Springfield International School" required value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <FieldLabel label="School Email" required />
+                <Input placeholder="info@school.com" type="email" required value={form.email} onChange={(e) => handleEmailChange(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <FieldLabel label="Phone" />
+                <Input placeholder="0712 345 678" value={form.phone} onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <FieldLabel label="City" />
+                <Input placeholder="Nairobi" value={form.city} onChange={(e) => setForm((prev) => ({ ...prev, city: e.target.value }))} />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <FieldLabel label="Address" />
+                <Input placeholder="School address" value={form.address} onChange={(e) => setForm((prev) => ({ ...prev, address: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <FieldLabel label="Contact Person" />
+                <Input placeholder="Contact name" value={form.contact_person} onChange={(e) => setForm((prev) => ({ ...prev, contact_person: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <FieldLabel label="Contact Phone" />
+                <Input placeholder="0700 000 000" value={form.contact_phone} onChange={(e) => setForm((prev) => ({ ...prev, contact_phone: e.target.value }))} />
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        {step === 1 ? (
+          <section className="space-y-4">
+            <FormSectionHeader icon={<CreditCard className="h-4 w-4" />} title="Choose Subscription Plan" description="Use the highlighted recommendation or match the plan to the school size and feature needs." />
+            <div className="grid gap-4 lg:grid-cols-3">
+              {planOptions.map((option) => {
+                const style = PLAN_STYLES[option.tier_name] || PLAN_STYLES.starter;
+                const selected = form.plan === option.tier_name;
+                return (
+                  <button
+                    key={option.tier_name}
+                    type="button"
+                    onClick={() => setForm((prev) => ({ ...prev, plan: option.tier_name }))}
+                    className={`rounded-2xl border p-5 text-left transition ${selected ? "border-primary bg-primary/5 shadow-md shadow-primary/10" : "border-border/70 bg-card hover:border-primary/40"}`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-lg font-semibold capitalize text-foreground">{option.tier_name}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">{style.description}</p>
+                      </div>
+                      {style.recommended ? <Badge className="rounded-full">Recommended</Badge> : null}
+                    </div>
+                    <div className={`mt-4 rounded-2xl border px-3 py-2 text-sm ${style.badge}`}>
+                      Onboarding KES {Number(option.onboarding_fee).toLocaleString()} · Annual KES {Number(option.annual_fee).toLocaleString()}
+                    </div>
+                    <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                      <div className={`rounded-xl bg-gradient-to-br p-3 ${style.accent}`}>
+                        <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Students</p>
+                        <p className="mt-1 text-lg font-semibold text-foreground">{option.max_students.toLocaleString()}</p>
+                      </div>
+                      <div className={`rounded-xl bg-gradient-to-br p-3 ${style.accent}`}>
+                        <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Users</p>
+                        <p className="mt-1 text-lg font-semibold text-foreground">{option.max_users.toLocaleString()}</p>
+                      </div>
+                    </div>
+                    <p className="mt-4 text-xs text-muted-foreground">Includes: {option.modules.slice(0, 4).join(" • ")}{option.modules.length > 4 ? " ..." : ""}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
+
+        {step === 2 ? (
+          <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="erp-form-section space-y-4">
+              <FormSectionHeader icon={<Shield className="h-4 w-4" />} title="Admin Access" description="Prepare the school admin account now, or skip and send only onboarding information." />
+              <label className="flex items-center gap-3 rounded-xl border border-border/70 bg-muted/30 px-4 py-3 text-sm font-medium text-foreground">
+                <input type="checkbox" checked={createAdmin} onChange={(e) => setCreateAdmin(e.target.checked)} className="rounded" />
+                Create school admin account during onboarding
+              </label>
+
+              {createAdmin ? (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <FieldLabel label="Admin Email" required />
+                    <Input placeholder="admin@school.com" type="email" value={form.admin_email} onChange={(e) => setForm((prev) => ({ ...prev, admin_email: e.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <FieldLabel label="Temporary Password" required />
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Input placeholder="Temporary password" type="text" value={form.admin_password} onChange={(e) => setForm((prev) => ({ ...prev, admin_password: e.target.value }))} className="font-mono text-sm" />
+                      <Button type="button" variant="outline" onClick={generatePassword} className="shrink-0">Generate</Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 p-4 text-sm text-muted-foreground">
+                  Admin creation will be skipped for now. The school can still be onboarded and a notification email will be sent.
+                </div>
+              )}
+            </div>
+
+            <div className="erp-form-section space-y-4">
+              <FormSectionHeader icon={<Sparkles className="h-4 w-4" />} title="Review" description="Quick summary before you create the school." />
+              <div className="space-y-3 text-sm">
+                <div className="flex items-center justify-between gap-3 rounded-xl bg-muted/30 px-4 py-3">
+                  <span className="text-muted-foreground">School</span>
+                  <span className="font-medium text-foreground">{form.name || "Not set"}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 rounded-xl bg-muted/30 px-4 py-3">
+                  <span className="text-muted-foreground">Email</span>
+                  <span className="font-medium text-foreground">{form.email || "Not set"}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 rounded-xl bg-muted/30 px-4 py-3">
+                  <span className="text-muted-foreground">Plan</span>
+                  <span className="font-medium capitalize text-foreground">{form.plan}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 rounded-xl bg-muted/30 px-4 py-3">
+                  <span className="text-muted-foreground">Admin setup</span>
+                  <span className="font-medium text-foreground">{createAdmin ? "Create now" : "Skip for now"}</span>
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : null}
+      </div>
+
+      <div className="mt-auto flex flex-col-reverse gap-2 border-t border-border/80 bg-background/95 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <Button type="button" variant="outline" onClick={step === 0 ? onCancel : () => setStep((current) => Math.max(current - 1, 0))} className="gap-2">
+          {step === 0 ? <X className="h-4 w-4" /> : <ArrowLeft className="h-4 w-4" />}
+          {step === 0 ? "Cancel" : "Back"}
+        </Button>
+        <div className="flex flex-col-reverse gap-2 sm:flex-row">
+          {step < onboardingSteps.length - 1 ? (
+            <Button type="button" onClick={handleNextStep} disabled={!canAdvance} className="gap-2">
+              Continue
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          ) : (
+            <Button type="submit" disabled={submitting} className="gap-2">
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+              {submitting ? "Creating..." : "Onboard School"}
+            </Button>
+          )}
         </div>
       </div>
-
-      <div>
-        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Subscription</Label>
-        <Select value={form.plan} onValueChange={(v) => setForm({ ...form, plan: v })}>
-          <SelectTrigger className="mt-2"><SelectValue placeholder="Plan" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="starter">Starter</SelectItem>
-            <SelectItem value="standard">Standard</SelectItem>
-            <SelectItem value="enterprise">Enterprise</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <Separator />
-
-      <div>
-        <label className="flex items-center gap-2 text-sm cursor-pointer">
-          <input type="checkbox" checked={createAdmin} onChange={(e) => setCreateAdmin(e.target.checked)} className="rounded" />
-          <span className="font-medium text-foreground">Create school admin account</span>
-        </label>
-      </div>
-
-      {createAdmin && (
-        <div className="space-y-3 pl-3 border-l-2 border-primary/20">
-          <Input placeholder="Admin Email *" type="email" value={form.admin_email} onChange={(e) => setForm({ ...form, admin_email: e.target.value })} />
-          <div className="flex gap-2">
-            <Input placeholder="Password *" type="text" value={form.admin_password} onChange={(e) => setForm({ ...form, admin_password: e.target.value })} className="font-mono text-sm" />
-            <Button type="button" variant="outline" size="sm" onClick={generatePassword} className="shrink-0 text-xs">Generate</Button>
-          </div>
-        </div>
-      )}
-
-      <Button type="submit" className="w-full" disabled={submitting}>
-        {submitting ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Creating...</> : "Onboard School"}
-      </Button>
     </form>
   );
 };

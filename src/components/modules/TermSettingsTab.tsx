@@ -8,11 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { settingsService } from '@/services/settingsService';
 import { TermSetting } from '@/types/settings';
-import { Plus, Edit, Trash2, Loader2, Calendar } from 'lucide-react';
+import { Plus, Edit, Trash2, Loader2, Calendar, CalendarDays } from 'lucide-react';
 import { format } from 'date-fns';
 
 const termSettingSchema = z.object({
@@ -143,9 +143,12 @@ export function TermSettingsTab() {
   };
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Academic Terms Configuration</CardTitle>
+    <Card className="border-border/80 shadow-sm">
+      <CardHeader className="flex flex-col gap-4 border-b border-border/70 bg-background/70 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <CardTitle>Academic Terms Configuration</CardTitle>
+          <p className="mt-2 text-sm text-muted-foreground">Manage term windows used across attendance, fees, exams, and student operations.</p>
+        </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={handleAddTerm}>
@@ -153,15 +156,20 @@ export function TermSettingsTab() {
               Add Term
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
               <DialogTitle>
                 {editingTerm ? 'Edit Term Setting' : 'Add New Term Setting'}
               </DialogTitle>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="flex h-full flex-col overflow-hidden">
+                <div className="erp-modal-body space-y-6">
+                <section className="erp-form-section">
+                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <CalendarDays className="h-4 w-4 text-primary" /> Term Window
+                </div>
+                <div className="erp-form-grid">
                   <FormField
                     control={form.control}
                     name="year"
@@ -204,7 +212,7 @@ export function TermSettingsTab() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="erp-form-grid">
                   <FormField
                     control={form.control}
                     name="start_date"
@@ -234,7 +242,12 @@ export function TermSettingsTab() {
                   />
                 </div>
 
-                <div className="flex justify-end space-x-2">
+                <div className="rounded-xl border border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+                  Use real term dates so dashboards, attendance, fees, and exam scheduling reflect the active academic period accurately.
+                </div>
+                </section>
+                </div>
+                <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                     Cancel
                   </Button>
@@ -242,18 +255,39 @@ export function TermSettingsTab() {
                     {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                     {editingTerm ? 'Update' : 'Create'}
                   </Button>
-                </div>
+                </DialogFooter>
               </form>
             </Form>
           </DialogContent>
         </Dialog>
       </CardHeader>
       <CardContent>
+        <div className="mb-6 grid gap-3 md:grid-cols-3">
+          <div className="rounded-2xl border border-border/70 bg-muted/20 p-4 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Configured Terms</p>
+            <p className="mt-2 text-2xl font-bold text-foreground">{terms.length}</p>
+          </div>
+          <div className="rounded-2xl border border-border/70 bg-muted/20 p-4 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Latest Year</p>
+            <p className="mt-2 text-2xl font-bold text-foreground">{terms[0]?.year || 'None'}</p>
+          </div>
+          <div className="rounded-2xl border border-border/70 bg-muted/20 p-4 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Next Action</p>
+            <p className="mt-2 text-lg font-bold text-foreground">{terms.length ? 'Review dates' : 'Add first term'}</p>
+          </div>
+        </div>
         {loading && terms.length === 0 ? (
           <div className="flex items-center justify-center p-8">
             <Loader2 className="h-6 w-6 animate-spin" />
           </div>
+        ) : terms.length === 0 ? (
+          <div className="erp-muted-panel flex flex-col items-center justify-center px-6 py-12 text-center">
+            <CalendarDays className="h-8 w-8 text-primary" />
+            <p className="mt-4 text-base font-semibold text-foreground">No academic terms configured</p>
+            <p className="mt-2 max-w-md text-sm text-muted-foreground">Add the current term dates first so operational modules can align with the active school calendar.</p>
+          </div>
         ) : (
+          <div className="overflow-hidden rounded-2xl border border-border/70">
           <Table>
             <TableHeader>
               <TableRow>
@@ -307,6 +341,7 @@ export function TermSettingsTab() {
               ))}
             </TableBody>
           </Table>
+          </div>
         )}
       </CardContent>
     </Card>

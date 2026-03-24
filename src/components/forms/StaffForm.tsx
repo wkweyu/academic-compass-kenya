@@ -1,4 +1,5 @@
 import React from 'react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -9,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Staff, EMPLOYMENT_TYPES, STAFF_STATUS_OPTIONS, STAFF_CATEGORIES, DEPARTMENTS, JOB_TITLES, SALARY_SCALES } from '@/types/teacher';
+import { Badge } from '@/components/ui/badge';
+import { Briefcase, CreditCard, Shield, Wallet } from 'lucide-react';
 
 const staffFormSchema = z.object({
   first_name: z.string().min(1, 'First name is required'),
@@ -55,6 +58,7 @@ interface StaffFormProps {
 }
 
 export function StaffForm({ onSubmit, onCancel, initialData, isLoading = false }: StaffFormProps) {
+  const [activeTab, setActiveTab] = useState('personal');
   const form = useForm<StaffFormValues>({
     resolver: zodResolver(staffFormSchema),
     defaultValues: {
@@ -108,34 +112,43 @@ export function StaffForm({ onSubmit, onCancel, initialData, isLoading = false }
     const salaryErrors = ['basic_salary', 'house_allowance', 'transport_allowance', 'responsibility_allowance', 'other_allowances', 'salary_scale', 'status'];
     
     const errorFields = Object.keys(errors);
-    let errorTab = 'Unknown';
+    let errorTab = 'personal';
     
     if (errorFields.some(field => personalErrors.includes(field))) {
-      errorTab = 'Personal';
+      errorTab = 'personal';
     } else if (errorFields.some(field => employmentErrors.includes(field))) {
-      errorTab = 'Employment';
+      errorTab = 'employment';
     } else if (errorFields.some(field => financialErrors.includes(field))) {
-      errorTab = 'Financial';
+      errorTab = 'financial';
     } else if (errorFields.some(field => salaryErrors.includes(field))) {
-      errorTab = 'Salary';
+      errorTab = 'salary';
     }
-    
-    alert(`Please fill in all required fields in the ${errorTab} tab. Missing: ${errorFields.join(', ')}`);
+
+    setActiveTab(errorTab);
   };
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit, handleInvalidSubmit)} className="space-y-6">
-        <Tabs defaultValue="personal" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+      <form onSubmit={form.handleSubmit(handleSubmit, handleInvalidSubmit)} className="flex h-full min-h-0 flex-col overflow-hidden">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-0 flex-1 flex-col">
+          <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
+            <Badge variant="outline">Required fields marked in each section</Badge>
+            <Badge variant="secondary">Personal, employment, finance, and salary</Badge>
+          </div>
+          <TabsList className="grid w-full grid-cols-4 rounded-2xl border border-border/70 bg-muted/40 p-1">
             <TabsTrigger value="personal">Personal</TabsTrigger>
             <TabsTrigger value="employment">Employment</TabsTrigger>
             <TabsTrigger value="financial">Financial</TabsTrigger>
             <TabsTrigger value="salary">Salary</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="personal" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="erp-modal-body mt-4">
+          <TabsContent value="personal" className="mt-0 space-y-4">
+            <section className="erp-form-section">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <Shield className="h-4 w-4 text-primary" /> Personal Details
+              </div>
+            <div className="erp-form-grid">
               <FormField
                 control={form.control}
                 name="first_name"
@@ -270,6 +283,7 @@ export function StaffForm({ onSubmit, onCancel, initialData, isLoading = false }
                 )}
               />
             </div>
+            </section>
 
             <FormField
               control={form.control}
@@ -285,7 +299,11 @@ export function StaffForm({ onSubmit, onCancel, initialData, isLoading = false }
               )}
             />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <section className="erp-form-section">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <Briefcase className="h-4 w-4 text-primary" /> Emergency Contact
+              </div>
+            <div className="erp-form-grid">
               <FormField
                 control={form.control}
                 name="emergency_contact_name"
@@ -314,10 +332,15 @@ export function StaffForm({ onSubmit, onCancel, initialData, isLoading = false }
                 )}
               />
             </div>
+            </section>
           </TabsContent>
 
-          <TabsContent value="employment" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <TabsContent value="employment" className="mt-0 space-y-4">
+            <section className="erp-form-section">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <Briefcase className="h-4 w-4 text-primary" /> Employment Information
+              </div>
+            <div className="erp-form-grid">
               <FormField
                 control={form.control}
                 name="staff_category"
@@ -485,10 +508,15 @@ export function StaffForm({ onSubmit, onCancel, initialData, isLoading = false }
                 )}
               />
             </div>
+            </section>
           </TabsContent>
 
-          <TabsContent value="financial" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <TabsContent value="financial" className="mt-0 space-y-4">
+            <section className="erp-form-section">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <CreditCard className="h-4 w-4 text-primary" /> Statutory and Banking Details
+              </div>
+            <div className="erp-form-grid">
               <FormField
                 control={form.control}
                 name="kra_pin"
@@ -573,10 +601,15 @@ export function StaffForm({ onSubmit, onCancel, initialData, isLoading = false }
                 )}
               />
             </div>
+            </section>
           </TabsContent>
 
-          <TabsContent value="salary" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <TabsContent value="salary" className="mt-0 space-y-4">
+            <section className="erp-form-section">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <Wallet className="h-4 w-4 text-primary" /> Salary Configuration
+              </div>
+            <div className="erp-form-grid">
               <FormField
                 control={form.control}
                 name="basic_salary"
@@ -697,15 +730,17 @@ export function StaffForm({ onSubmit, onCancel, initialData, isLoading = false }
                 )}
               />
             </div>
+            </section>
           </TabsContent>
+          </div>
         </Tabs>
 
-        <div className="flex justify-end space-x-2">
+        <div className="mt-auto flex flex-col-reverse gap-2 border-t border-border/70 bg-background/95 px-1 pt-4 sm:flex-row sm:justify-end">
           <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>
             Cancel
           </Button>
           <Button type="submit" disabled={isLoading}>
-            {isLoading ? 'Adding...' : 'Add Staff Member'}
+            {isLoading ? 'Saving...' : initialData ? 'Save Staff Member' : 'Add Staff Member'}
           </Button>
         </div>
       </form>

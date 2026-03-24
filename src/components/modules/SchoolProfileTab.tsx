@@ -8,10 +8,12 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { settingsService } from '@/services/settingsService';
 import { SchoolProfile } from '@/types/settings';
-import { Loader2, Save, Upload } from 'lucide-react';
+import { Loader2, Save, Upload, School, Globe, Phone, Mail, MapPin, Sparkles } from 'lucide-react';
 import {
   getLegacySchoolTypeFromManagedClassGroups,
   getManagedClassGroupSummary,
@@ -33,6 +35,16 @@ const schoolProfileSchema = z.object({
 });
 
 type SchoolProfileFormData = z.infer<typeof schoolProfileSchema>;
+
+const getInitials = (value?: string | null) => {
+  if (!value) return 'SC';
+  return value
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((token) => token[0]?.toUpperCase() || '')
+    .join('') || 'SC';
+};
 
 export function SchoolProfileTab() {
   const [loading, setLoading] = useState(false);
@@ -212,65 +224,90 @@ export function SchoolProfileTab() {
   return (
     <div className="space-y-6">
       {!isCreating && profile && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Current School Profile</CardTitle>
+        <Card className="overflow-hidden border-border/80 bg-gradient-to-br from-card via-card to-primary/5 shadow-sm">
+          <CardHeader className="border-b border-border/70 bg-background/70">
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <School className="h-5 w-5 text-primary" /> Current School Profile
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="font-semibold">School Name:</span> {profile.name}
-              </div>
-              <div>
-                <span className="font-semibold">School Code:</span> {profile.code}
-              </div>
-              <div>
-                <span className="font-semibold">Email:</span> {profile.email}
-              </div>
-              <div>
-                <span className="font-semibold">Phone:</span> {profile.phone}
-              </div>
-              {hasManagedClassGroupConfiguration(profile) && (
-                <div>
-                  <span className="font-semibold">Managed Class Groups:</span> {getManagedClassGroupSummary(profile)}
-                </div>
-              )}
-              {profile.type && (
-                <div>
-                  <span className="font-semibold">Legacy Type:</span> {profile.type}
-                </div>
-              )}
-              {profile.logo && (
-                <div className="md:col-span-2">
-                  <span className="font-semibold">Logo:</span>
-                  <div className="mt-2">
-                    <img src={profile.logo} alt="School logo" className="h-20 w-20 rounded-md border object-contain p-1" />
+            <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+              <div className="rounded-2xl border border-border/70 bg-background/80 p-5 shadow-sm">
+                <div className="flex items-start gap-4">
+                  <Avatar className="h-20 w-20 rounded-2xl border border-border/70 shadow-sm">
+                    <AvatarImage src={profile.logo} alt={profile.name ? `${profile.name} logo` : 'School logo'} className="object-cover" />
+                    <AvatarFallback className="rounded-2xl bg-primary/10 text-xl font-semibold text-primary">
+                      {getInitials(profile.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline">{profile.code}</Badge>
+                      {profile.type ? <Badge variant="secondary">{profile.type}</Badge> : null}
+                    </div>
+                    <h3 className="text-2xl font-bold tracking-tight text-foreground">{profile.name}</h3>
+                    {profile.motto ? <p className="text-sm italic text-muted-foreground">{profile.motto}</p> : null}
                   </div>
                 </div>
-              )}
-              {profile.website && (
-                <div>
-                  <span className="font-semibold">Website:</span>{' '}
-                  <a href={profile.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                    {profile.website}
-                  </a>
-                </div>
-              )}
-              <div className="md:col-span-2">
-                <span className="font-semibold">Address:</span> {profile.address}
               </div>
-              {profile.motto && (
-                <div className="md:col-span-2">
-                  <span className="font-semibold">Motto:</span> <em>{profile.motto}</em>
+
+              <div className="erp-form-section">
+                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <Sparkles className="h-4 w-4 text-primary" /> Profile Snapshot
                 </div>
-              )}
+                <div className="space-y-3 text-sm">
+                  <div className="flex items-start gap-3 rounded-xl bg-muted/30 px-4 py-3">
+                    <Mail className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="font-medium text-foreground">Email</p>
+                      <p className="text-muted-foreground">{profile.email}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 rounded-xl bg-muted/30 px-4 py-3">
+                    <Phone className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="font-medium text-foreground">Phone</p>
+                      <p className="text-muted-foreground">{profile.phone}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 rounded-xl bg-muted/30 px-4 py-3">
+                    <MapPin className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="font-medium text-foreground">Address</p>
+                      <p className="text-muted-foreground">{profile.address}</p>
+                    </div>
+                  </div>
+                  {profile.website ? (
+                    <div className="flex items-start gap-3 rounded-xl bg-muted/30 px-4 py-3">
+                      <Globe className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium text-foreground">Website</p>
+                        <a href={profile.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                          {profile.website}
+                        </a>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="erp-form-section lg:col-span-2">
+                <p className="text-sm font-semibold text-foreground">School setup scope</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {hasManagedClassGroupConfiguration(profile) ? (
+                    <Badge variant="secondary">{getManagedClassGroupSummary(profile)}</Badge>
+                  ) : (
+                    <Badge variant="outline">Managed class groups not configured</Badge>
+                  )}
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
       )}
       
-      <Card>
-        <CardHeader>
+      <Card className="border-border/80 shadow-sm">
+        <CardHeader className="border-b border-border/70 bg-background/70">
           <CardTitle>
             {isCreating ? 'Create School Profile' : 'Edit School Profile'}
           </CardTitle>
@@ -288,7 +325,11 @@ export function SchoolProfileTab() {
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <section className="erp-form-section">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <School className="h-4 w-4 text-primary" /> Identity & Contact
+              </div>
+              <div className="erp-form-grid">
               <FormField
                 control={form.control}
                 name="name"
@@ -304,11 +345,11 @@ export function SchoolProfileTab() {
               />
 
               {!isCreating && (
-                <div className="flex items-center space-x-2">
-                  <FormLabel>School Code:</FormLabel>
-                  <span className="font-medium text-muted-foreground">
+                <div className="space-y-2">
+                  <FormLabel>School Code</FormLabel>
+                  <div className="rounded-xl border border-border/70 bg-muted/30 px-4 py-2 text-sm font-medium text-muted-foreground">
                     {profile?.code || 'N/A'}
-                  </span>
+                  </div>
                 </div>
               )}
             </div>
@@ -332,7 +373,7 @@ export function SchoolProfileTab() {
               )}
             />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="erp-form-grid">
               <FormField
                 control={form.control}
                 name="phone"
@@ -361,8 +402,13 @@ export function SchoolProfileTab() {
                 )}
               />
             </div>
+            </section>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <section className="erp-form-section">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <Sparkles className="h-4 w-4 text-primary" /> Academic Scope & Brand
+              </div>
+            <div className="erp-form-grid">
               <FormField
                 control={form.control}
                 name="managed_class_groups"
@@ -427,31 +473,37 @@ export function SchoolProfileTab() {
                 )}
               />
             </div>
+            </section>
 
-            <FormField
-              control={form.control}
-              name="motto"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>School Motto</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Enter school motto" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <section className="erp-form-section">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <Globe className="h-4 w-4 text-primary" /> Messaging & Branding
+              </div>
+              <div className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="motto"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>School Motto</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter school motto" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <FormField
-              control={form.control}
-              name="logo"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>School Logo</FormLabel>
-                  <FormControl>
-                    <div className="space-y-3">
+                <FormField
+                  control={form.control}
+                  name="logo"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>School Logo</FormLabel>
+                      <FormControl>
+                        <div className="space-y-3">
                       {field.value ? (
-                        <div className="flex items-center gap-4 rounded-md border p-3">
+                        <div className="flex items-center gap-4 rounded-xl border border-border/70 bg-muted/20 p-4">
                           <img src={field.value} alt="Selected school logo" className="h-16 w-16 rounded-md border object-contain p-1" />
                           <div className="space-y-2">
                             <p className="text-sm text-muted-foreground">Upload a clear square logo for best results.</p>
@@ -466,23 +518,25 @@ export function SchoolProfileTab() {
                           </div>
                         </div>
                       ) : (
-                        <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed px-4 py-6 text-sm text-muted-foreground hover:bg-muted/50">
+                        <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-border/70 px-4 py-6 text-sm text-muted-foreground hover:bg-muted/50">
                           {uploadingLogo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                           <span>{uploadingLogo ? 'Preparing logo...' : 'Choose logo image'}</span>
                           <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} disabled={uploadingLogo} />
                         </label>
                       )}
-                    </div>
-                  </FormControl>
-                  <p className="text-sm text-muted-foreground">Upload PNG, JPG, or SVG up to 2 MB.</p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                        </div>
+                      </FormControl>
+                      <p className="text-sm text-muted-foreground">Upload PNG, JPG, or SVG up to 2 MB.</p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </section>
 
-            <div className="flex justify-between">
-              <div />
-              <div className="flex space-x-4">
+            <div className="flex flex-col gap-3 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground">Theme color selection is not persisted yet in the current backend model, so this screen only exposes supported profile fields.</p>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 {!isCreating && (
                   <Button
                     type="button"

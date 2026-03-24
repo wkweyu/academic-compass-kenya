@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   BookOpen,
   ClipboardList,
@@ -32,9 +33,20 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { dashboardService } from "@/services/dashboardService";
+import { settingsService } from "@/services/settingsService";
 import { TermManager } from "@/utils/termManager";
 import { cn } from "@/lib/utils";
 import { SchoolCommunicationWidget } from "@/components/communication/SchoolCommunicationWidget";
+
+const getInitials = (value?: string | null) => {
+  if (!value) return "SC";
+  return value
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((token) => token[0]?.toUpperCase() || "")
+    .join("") || "SC";
+};
 
 function StatCard({
   title,
@@ -150,6 +162,11 @@ export function DashboardModule() {
   const currentYear = TermManager.getCurrentYear();
   const termProgress = TermManager.getTermProgress(currentTerm, currentYear);
 
+  const { data: schoolProfile } = useQuery({
+    queryKey: ["schoolProfile"],
+    queryFn: settingsService.getSchoolProfile,
+  });
+
   const {
     data: dashboardData,
     isLoading,
@@ -186,27 +203,50 @@ export function DashboardModule() {
 
   return (
     <div className="space-y-8">
-      {/* Header with greeting */}
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl lg:text-3xl font-bold font-display tracking-tight">
-            Dashboard
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Term {currentTerm}, {currentYear} — School Management Overview
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="gap-1.5 py-1 px-3">
-            <Clock className="h-3 w-3" />
-            Term {currentTerm}
-          </Badge>
-          <Badge variant="secondary" className="gap-1.5 py-1 px-3">
-            <CalendarCheck className="h-3 w-3" />
-            {Math.round(termProgress)}% Complete
-          </Badge>
-        </div>
-      </div>
+      <Card className="overflow-hidden border-border/80 bg-gradient-to-br from-card via-card to-primary/5 shadow-sm">
+        <CardContent className="p-6">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-4">
+              <Avatar className="h-16 w-16 rounded-2xl border border-border/80 shadow-sm">
+                <AvatarImage src={schoolProfile?.logo} alt={schoolProfile?.name ? `${schoolProfile.name} logo` : "School logo"} className="object-cover" />
+                <AvatarFallback className="rounded-2xl bg-primary/10 text-lg font-semibold text-primary">
+                  {getInitials(schoolProfile?.name)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/5 text-primary">School Dashboard</Badge>
+                  <Badge variant="secondary" className="rounded-full">Term {currentTerm}, {currentYear}</Badge>
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold tracking-tight text-foreground lg:text-3xl">
+                    {schoolProfile?.name || "School Dashboard"}
+                  </h1>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {schoolProfile?.motto || "School management overview for operations, academics, and daily execution."}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                  {schoolProfile?.code ? <Badge variant="outline">{schoolProfile.code}</Badge> : null}
+                  {schoolProfile?.email ? <Badge variant="outline">{schoolProfile.email}</Badge> : null}
+                  {schoolProfile?.phone ? <Badge variant="outline">{schoolProfile.phone}</Badge> : null}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="rounded-2xl border border-border/70 bg-background/80 px-4 py-3 shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Academic Progress</p>
+                <p className="mt-1 text-lg font-semibold text-foreground">{Math.round(termProgress)}% through term</p>
+              </div>
+              <Button onClick={() => navigate('/settings')} className="rounded-2xl px-5">
+                Open School Settings
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Term progress bar */}
       <Card className="border-primary/20 bg-gradient-to-r from-primary/5 via-card to-accent/5">

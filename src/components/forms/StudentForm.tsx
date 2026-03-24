@@ -17,7 +17,8 @@ import { getTransportRoutes, TransportRoute } from '@/services/transportService'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import AdmissionFormPrint from '@/components/AdmissionFormPrint';
 import { useState, useEffect } from 'react';
-import { Printer, Users, CheckCircle, X } from 'lucide-react';
+import { Printer, Users, CheckCircle, School, Shield, BusFront } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Guardian } from '@/types/guardian';
 import { toast } from 'sonner';
 import { toSentenceCase } from '@/utils/nameFormatter';
@@ -279,8 +280,18 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
             .join(', ');
           toast.error(`Please fix the following errors: ${errorMessages}`);
         }
-      )} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      )} className="flex h-full min-h-0 flex-col overflow-hidden">
+        <div className="erp-modal-body space-y-6">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <Badge variant="outline">Student admission and guardian capture</Badge>
+          <Badge variant="secondary">Class, stream, and transport placement</Badge>
+        </div>
+
+        <section className="erp-form-section">
+          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <School className="h-4 w-4 text-primary" /> Student Details
+          </div>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <FormField
             control={form.control}
             name="full_name"
@@ -361,6 +372,14 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
               </FormItem>
             )}
           />
+        </div>
+        </section>
+
+        <section className="erp-form-section">
+          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <Shield className="h-4 w-4 text-primary" /> Guardian & Admission
+          </div>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <FormField
             control={form.control}
             name="guardian_name"
@@ -501,6 +520,14 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
               </FormItem>
             )}
           />
+        </div>
+        </section>
+
+        <section className="erp-form-section">
+          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <School className="h-4 w-4 text-primary" /> Class Placement
+          </div>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <FormField
             control={form.control}
             name="current_class_name"
@@ -584,6 +611,14 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
               </FormItem>
             )}
           />
+        </div>
+        </section>
+          
+        <section className="erp-form-section">
+          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <BusFront className="h-4 w-4 text-primary" /> Transport
+          </div>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           
           {/* Transport Information */}
           <FormField
@@ -670,7 +705,9 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
           )}
           {/* Term is auto-populated from Term Settings - no manual input needed */}
         </div>
-        <div className="flex gap-4">
+        </section>
+        </div>
+        <div className="mt-auto flex flex-col-reverse gap-2 border-t border-border/70 bg-background/95 px-1 pt-4 sm:flex-row sm:justify-end">
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? 'Saving...' : 'Save Changes'}
           </Button>
