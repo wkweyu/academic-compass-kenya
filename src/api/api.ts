@@ -63,13 +63,13 @@ function getCSRFToken() {
 // Request interceptor to attach authentication
 axiosInstance.interceptors.request.use(
   async (config) => {
-    const token = localStorage.getItem("authToken");
-    if (token) {
-      config.headers.Authorization = `Token ${token}`;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      config.headers.Authorization = `Bearer ${session.access_token}`;
     } else {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.access_token) {
-        config.headers.Authorization = `Bearer ${session.access_token}`;
+      const token = localStorage.getItem("authToken");
+      if (token) {
+        config.headers.Authorization = `Token ${token}`;
       }
     }
 
