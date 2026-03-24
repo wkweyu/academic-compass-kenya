@@ -253,12 +253,21 @@ export const saasService = {
   }) {
     try {
       await this.repairPlatformLinks();
-      const response = await api.post<TransactionalOnboardSchoolResponse>("/api/schools/onboard/", {
-        ...params,
+      const payload = {
+        name: params.name,
+        email: params.email,
+        phone: params.phone || "",
+        address: params.address || "",
+        city: params.city || "",
         country: params.country || "Kenya",
         plan: params.plan || "starter",
+        contact_person: params.contact_person || "",
+        contact_phone: params.contact_phone || "",
         source: "saas_dashboard",
         priority: "MEDIUM",
+      };
+      const response = await api.post<TransactionalOnboardSchoolResponse>("/api/schools/onboard/", {
+        ...payload,
       });
       return response.data;
     } catch (error: any) {

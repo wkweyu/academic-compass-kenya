@@ -17,6 +17,13 @@ def csv_config(name, default=""):
         return []
     return [item.strip() for item in raw_value.split(',') if item.strip()]
 
+
+def append_unique(items, values):
+    for value in values:
+        if value and value not in items:
+            items.append(value)
+    return items
+
 # Security settings
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-this-in-production')
 DEBUG = config('DEBUG', default=True, cast=bool)
@@ -235,20 +242,23 @@ SECURE_HSTS_PRELOAD = config('SECURE_HSTS_PRELOAD', default=not DEBUG, cast=bool
 SECURE_CONTENT_TYPE_NOSNIFF = True
 
 # CORS
-CORS_ALLOWED_ORIGINS = csv_config(
-    'CORS_ALLOWED_ORIGINS',
-    default='http://localhost:5173,http://127.0.0.1:5173,http://localhost:8080,http://127.0.0.1:8080',
-)
-if FRONTEND_URL and FRONTEND_URL not in CORS_ALLOWED_ORIGINS:
-    CORS_ALLOWED_ORIGINS.append(FRONTEND_URL)
+LOCAL_DEV_ORIGINS = [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://localhost:8080',
+    'http://127.0.0.1:8080',
+]
+
+CORS_ALLOWED_ORIGINS = csv_config('CORS_ALLOWED_ORIGINS')
+append_unique(CORS_ALLOWED_ORIGINS, LOCAL_DEV_ORIGINS)
+append_unique(CORS_ALLOWED_ORIGINS, [FRONTEND_URL])
 
 CSRF_TRUSTED_ORIGINS = csv_config('CSRF_TRUSTED_ORIGINS')
-if FRONTEND_URL and FRONTEND_URL not in CSRF_TRUSTED_ORIGINS:
-    CSRF_TRUSTED_ORIGINS.append(FRONTEND_URL)
+append_unique(CSRF_TRUSTED_ORIGINS, LOCAL_DEV_ORIGINS)
+append_unique(CSRF_TRUSTED_ORIGINS, [FRONTEND_URL])
 if RENDER_EXTERNAL_HOSTNAME:
     render_origin = f'https://{RENDER_EXTERNAL_HOSTNAME}'
-    if render_origin not in CSRF_TRUSTED_ORIGINS:
-        CSRF_TRUSTED_ORIGINS.append(render_origin)
+    append_unique(CSRF_TRUSTED_ORIGINS, [render_origin])
 
 CORS_ALLOW_CREDENTIALS = True
 
