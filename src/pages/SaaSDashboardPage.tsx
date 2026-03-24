@@ -47,9 +47,11 @@ const ROLE_LABELS: Record<string, string> = {
   support: "Support User",
   account_manager: "Account Manager",
   marketer: "Marketer (Account Manager)",
+  manager: "Manager",
+  staff: "Platform Staff",
 };
 
-const PORTFOLIO_ASSIGNABLE_ROLES = ["platform_admin", "support", "account_manager", "marketer"];
+const PORTFOLIO_ASSIGNABLE_ROLES = ["platform_admin", "support", "account_manager", "marketer", "manager", "staff"];
 
 const formatSchoolName = (name: string) => {
   if (!name) return "";

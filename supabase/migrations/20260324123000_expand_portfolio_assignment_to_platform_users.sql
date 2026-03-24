@@ -20,8 +20,14 @@ BEGIN
     RETURN;
   END IF;
 
-  IF NOT public.user_has_any_role(p_owner_user_id, ARRAY['platform_admin', 'support', 'account_manager', 'marketer']::public.app_role[]) THEN
-    RAISE EXCEPTION 'Selected user must have a platform management role';
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.users pu
+    WHERE pu.auth_user_id = p_owner_user_id
+      AND pu.school_id IS NULL
+      AND LOWER(COALESCE(pu.role, '')) IN ('platform_admin', 'support', 'account_manager', 'marketer', 'manager', 'staff')
+  ) THEN
+    RAISE EXCEPTION 'Selected user must be a linked platform user';
   END IF;
 
   INSERT INTO public.school_portfolio_assignments (school_id, owner_user_id, assigned_by, notes, updated_at)
@@ -61,50 +67,40 @@ BEGIN
     RAISE EXCEPTION 'Unauthorized';
   END IF;
 
-  INSERT INTO public.user_roles (user_id, role)
-  SELECT DISTINCT
-    pu.auth_user_id,
-    pu.role::public.app_role
-  FROM public.users pu
-  WHERE pu.auth_user_id IS NOT NULL
-    AND pu.school_id IS NULL
-    AND pu.role IN ('platform_admin', 'support', 'account_manager', 'marketer')
-    AND NOT EXISTS (
-      SELECT 1
-      FROM public.user_roles ur
-      WHERE ur.user_id = pu.auth_user_id
-        AND ur.role = pu.role::public.app_role
-    );
-
   RETURN QUERY
   SELECT
-    au.id,
-    COALESCE(au.email, '')::TEXT,
+    pu.auth_user_id,
+    COALESCE(au.email, pu.email, '')::TEXT,
     COALESCE(NULLIF(TRIM(COALESCE(pu.first_name, '') || ' ' || COALESCE(pu.last_name, '')), ''), au.email, 'Unnamed user')::TEXT,
     CASE
-      WHEN public.has_role(au.id, 'platform_admin') THEN 'platform_admin'
-      WHEN public.has_role(au.id, 'support') THEN 'support'
-      WHEN public.has_role(au.id, 'account_manager') THEN 'account_manager'
-      WHEN public.has_role(au.id, 'marketer') THEN 'marketer'
+      WHEN LOWER(COALESCE(pu.role, '')) = 'platform_admin' THEN 'platform_admin'
+      WHEN LOWER(COALESCE(pu.role, '')) = 'support' THEN 'support'
+      WHEN LOWER(COALESCE(pu.role, '')) = 'account_manager' THEN 'account_manager'
+      WHEN LOWER(COALESCE(pu.role, '')) = 'marketer' THEN 'marketer'
+      WHEN LOWER(COALESCE(pu.role, '')) = 'manager' THEN 'manager'
+      WHEN LOWER(COALESCE(pu.role, '')) = 'staff' THEN 'staff'
       ELSE ''
     END::TEXT,
     COALESCE(
       (
-        SELECT array_agg(ur.role::TEXT ORDER BY ur.role::TEXT)
-        FROM public.user_roles ur
-        WHERE ur.user_id = au.id
-          AND ur.role IN ('platform_admin', 'support', 'account_manager', 'marketer')
+        SELECT array_agg(DISTINCT role_name ORDER BY role_name)
+        FROM (
+          SELECT ur.role::TEXT AS role_name
+          FROM public.user_roles ur
+          WHERE ur.user_id = pu.auth_user_id
+            AND ur.role IN ('platform_admin', 'support', 'account_manager', 'marketer', 'manager')
+          UNION ALL
+          SELECT LOWER(COALESCE(pu.role, ''))
+        ) AS merged_roles
+        WHERE role_name IN ('platform_admin', 'support', 'account_manager', 'marketer', 'manager', 'staff')
       ),
       ARRAY[]::TEXT[]
     )
-  FROM auth.users au
-  LEFT JOIN public.users pu ON pu.auth_user_id = au.id
-  WHERE EXISTS (
-    SELECT 1
-    FROM public.user_roles ur
-    WHERE ur.user_id = au.id
-      AND ur.role IN ('platform_admin', 'support', 'account_manager', 'marketer')
-  )
+  FROM public.users pu
+  LEFT JOIN auth.users au ON au.id = pu.auth_user_id
+  WHERE pu.auth_user_id IS NOT NULL
+    AND pu.school_id IS NULL
+    AND LOWER(COALESCE(pu.role, '')) IN ('platform_admin', 'support', 'account_manager', 'marketer', 'manager', 'staff')
   ORDER BY 3, 2;
 END;
 $$;
@@ -149,6 +145,8 @@ BEGIN
       WHEN public.has_role(spa.owner_user_id, 'support') THEN 'support'
       WHEN public.has_role(spa.owner_user_id, 'account_manager') THEN 'account_manager'
       WHEN public.has_role(spa.owner_user_id, 'marketer') THEN 'marketer'
+      WHEN LOWER(COALESCE(pu.role, '')) = 'manager' THEN 'manager'
+      WHEN LOWER(COALESCE(pu.role, '')) = 'staff' THEN 'staff'
       ELSE ''
     END::TEXT
   FROM public.schools_school s
