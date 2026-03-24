@@ -49,6 +49,8 @@ const ROLE_LABELS: Record<string, string> = {
   marketer: "Marketer (Account Manager)",
 };
 
+const PORTFOLIO_ASSIGNABLE_ROLES = ["platform_admin", "support", "account_manager", "marketer"];
+
 const formatSchoolName = (name: string) => {
   if (!name) return "";
   return name
@@ -1275,7 +1277,7 @@ const SchoolDetailDialog = ({
                       <div className="erp-form-section">
                         <div>
                           <p className="text-sm font-medium text-foreground">Portfolio ownership</p>
-                          <p className="text-xs text-muted-foreground">Assign this school to an account manager or marketer.</p>
+                          <p className="text-xs text-muted-foreground">Assign this school to a platform user, or clear the assignment.</p>
                         </div>
                         <Select value={portfolioOwnerId} onValueChange={setPortfolioOwnerId}>
                           <SelectTrigger>
@@ -1284,7 +1286,7 @@ const SchoolDetailDialog = ({
                           <SelectContent>
                             <SelectItem value="unassigned">Unassigned</SelectItem>
                             {portfolioStaff
-                              .filter((staff) => ["account_manager", "marketer"].includes(staff.primary_role))
+                              .filter((staff) => PORTFOLIO_ASSIGNABLE_ROLES.includes(staff.primary_role))
                               .map((staff) => (
                                 <SelectItem key={staff.user_id} value={staff.user_id}>
                                   {staff.full_name} · {getRoleLabel(staff.primary_role)}
