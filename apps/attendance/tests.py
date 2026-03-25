@@ -1,15 +1,15 @@
+from datetime import datetime
+
 from django.urls import reverse
-from rest_framework import status
-from rest_framework.test import APITransactionTestCase
-from rest_framework.test import APIClient
-from django.urls import reverse
-from rest_framework import status
+from django.utils import timezone
 from apps.students.models import Student
 from apps.users.models import User
 from apps.schools.models import School
-from datetime import datetime
-import logging
 from apps.core.middleware import _request_local
+from rest_framework import status
+from rest_framework.test import APIClient, APITransactionTestCase
+
+from .models import Attendance, AttendanceStatus
 
 class BiometricAttendanceAPITest(APITransactionTestCase):
     reset_sequences = True
@@ -29,53 +29,61 @@ class BiometricAttendanceAPITest(APITransactionTestCase):
             level='PP1',
             school=self.school
         )
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info(f"Created student with id: {self.student.id}")
         self.url = reverse('biometric_attendance')
+
+    def _timestamp(self, hour, minute):
+        return timezone.make_aware(datetime(2026, 3, 25, hour, minute)).isoformat()
 
     def tearDown(self):
         # Clean up the thread-local school variable
         del _request_local.school
 
     def test_check_in(self):
-        """
-        Ensure we can create a new attendance record (check-in).
-        """
-        timestamp = datetime.now().isoformat()
+        timestamp = self._timestamp(7, 30)
         data = {'student_id': self.student.id, 'timestamp': timestamp}
         response = self.client.post(self.url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data['message'], 'Attendance recorded successfully')
+        self.assertEqual(response.data['message'], 'Check-in processed')
+        self.assertEqual(response.data['event_type'], 'check_in')
+
+        attendance = Attendance.objects.get(student=self.student, date='2026-03-25')
+        self.assertEqual(attendance.status, AttendanceStatus.PRESENT)
+        self.assertIsNotNone(attendance.time_in)
 
     def test_check_out(self):
-        """
-        Ensure we can update an existing attendance record (check-out).
-        """
-        # First, check in the student
-        timestamp_in = datetime.now().isoformat()
+        timestamp_in = self._timestamp(7, 30)
         data_in = {'student_id': self.student.id, 'timestamp': timestamp_in}
         self.client.post(self.url, data_in, format='json')
 
-        # Then, check out the student
-        timestamp_out = datetime.now().isoformat()
+        timestamp_out = self._timestamp(16, 0)
         data_out = {'student_id': self.student.id, 'timestamp': timestamp_out}
         response = self.client.post(self.url, data_out, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['message'], 'Check-out processed')
+        self.assertEqual(response.data['event_type'], 'check_out')
+
+        attendance = Attendance.objects.get(student=self.student, date='2026-03-25')
+        self.assertIsNotNone(attendance.time_out)
+
+    def test_duplicate_scan_is_ignored(self):
+        timestamp = self._timestamp(7, 30)
+        duplicate_timestamp = self._timestamp(7, 31)
+
+        self.client.post(self.url, {'student_id': self.student.id, 'timestamp': timestamp}, format='json')
+        response = self.client.post(self.url, {'student_id': self.student.id, 'timestamp': duplicate_timestamp}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['duplicate'])
+        self.assertEqual(response.data['event_type'], 'duplicate')
 
     def test_missing_student_id(self):
-        """
-        Test error response when student_id is missing.
-        """
-        timestamp = datetime.now().isoformat()
+        timestamp = self._timestamp(7, 30)
         data = {'timestamp': timestamp}
         response = self.client.post(self.url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['error'], 'student_id, admission_number, or identifier is required')
 
     def test_invalid_timestamp(self):
-        """
-        Test error response when timestamp is invalid.
-        """
         data = {'student_id': self.student.id, 'timestamp': 'invalid-timestamp'}
         response = self.client.post(self.url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
