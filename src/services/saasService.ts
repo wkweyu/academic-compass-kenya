@@ -28,13 +28,65 @@ export interface SaasInvoice {
   invoice_number: string;
   amount: number;
   status: string;
+  invoice_type?: string;
   due_date: string;
   paid_at: string | null;
   billing_period_start: string | null;
   billing_period_end: string | null;
+  balance_due?: number | null;
+  collection_stage?: string | null;
   items: any[];
   created_at: string;
   updated_at: string;
+}
+
+export interface BillingAccountSnapshot {
+  billing_account_id: number;
+  school_id: number;
+  school_name: string;
+  account_status: string;
+  collection_status: string;
+  billing_email: string | null;
+  currency: string;
+  country: string;
+  billing_subscription_id: number | null;
+  current_plan: string | null;
+  subscription_status: string | null;
+  billing_cycle: string | null;
+  term_start: string | null;
+  term_end: string | null;
+  trial_starts_at: string | null;
+  trial_ends_at: string | null;
+  grace_ends_at: string | null;
+  open_invoice_count: number;
+  overdue_invoice_count: number;
+  outstanding_balance: number;
+  last_invoice_id: number | null;
+  last_invoice_status: string | null;
+  next_follow_up_at: string | null;
+}
+
+export interface BillingPaymentResult {
+  payment_id: number;
+  invoice_status: string;
+  balance_due: number;
+  subscription_status: string;
+  account_status: string;
+  term_end: string | null;
+}
+
+export interface BillingEvent {
+  id: number;
+  billing_account_id: number | null;
+  billing_subscription_id: number | null;
+  school_id: number | null;
+  invoice_id: number | null;
+  payment_id: number | null;
+  event_type: string;
+  event_payload: any;
+  occurred_at: string;
+  created_by: string | null;
+  created_at: string;
 }
 
 export interface SaasTierFeature {
@@ -317,40 +369,33 @@ export const saasService = {
   },
 
   async getTierFeatures(): Promise<SaasTierFeature[]> {
-    const { data, error } = await supabase.from("saas_tier_features").select("*");
-    
-    // Fallback to hardcoded tiers if table is missing/empty (common in local dev without DB push)
-    if (error || !data || data.length === 0) {
-      console.warn("SaaS Tiers table not found or empty, using local defaults", error);
-      return [
-        {
-          tier_name: 'starter',
-          onboarding_fee: 50000,
-          annual_fee: 30000,
-          max_students: 250,
-          max_users: 10,
-          modules: ["core", "attendance", "exams", "grading", "subjects", "students"]
-        },
-        {
-          tier_name: 'standard',
-          onboarding_fee: 75000,
-          annual_fee: 50000,
-          max_students: 750,
-          max_users: 30,
-          modules: ["core", "attendance", "exams", "grading", "subjects", "students", "fees", "accounting"]
-        },
-        {
-          tier_name: 'enterprise',
-          onboarding_fee: 100000,
-          annual_fee: 100000,
-          max_students: 1000000,
-          max_users: 1000000,
-          modules: ["core", "attendance", "exams", "grading", "subjects", "students", "fees", "accounting", "transport", "staff_management"]
-        }
-      ] as SaasTierFeature[];
-    }
-    
-    return data as SaasTierFeature[];
+    const { data, error } = await supabase
+      .from("subscription_plans")
+      .select("name, yearly_price, max_students, max_users, features")
+      .eq("is_active", true)
+      .order("id", { ascending: true });
+
+    if (error) throw error;
+
+    return (data || []).map((plan: any) => ({
+      tier_name: plan.name,
+      onboarding_fee: 0,
+      annual_fee: Number(plan.yearly_price || 0),
+      max_students: Number(plan.max_students || 0),
+      max_users: Number(plan.max_users || 0),
+      modules: Array.isArray(plan.features) ? plan.features : [],
+    }));
+  },
+
+  async getBillingEvents(schoolId: number, limit = 12): Promise<BillingEvent[]> {
+    const { data, error } = await supabase
+      .from("billing_events")
+      .select("*")
+      .eq("school_id", schoolId)
+      .order("occurred_at", { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    return (data || []) as BillingEvent[];
   },
 
   async getDueSubscriptions(daysAhead = 14) {
@@ -371,8 +416,89 @@ export const saasService = {
     }>;
   },
 
-  async extendSubscriptionPeriod(params: { schoolId: number; newEndDate: string; newStatus?: string; reason?: string }) {
-    const { error } = await supabase.rpc("extend_subscription_period", {
+  async getBillingAccountSnapshot(schoolId: number): Promise<BillingAccountSnapshot | null> {
+    const { data, error } = await supabase.rpc("get_billing_account_snapshot", {
+      p_school_id: schoolId,
+    });
+    if (error) throw error;
+    return (data?.[0] as BillingAccountSnapshot) || null;
+  },
+
+  async initializeSchoolBilling(params: {
+    schoolId: number;
+    planName?: string;
+    trialDays?: number;
+    invoiceStrategy?: "trial_only" | "onboarding_only" | "term_only" | "onboarding_and_term";
+    onboardingFee?: number;
+    termFee?: number;
+    reason?: string;
+  }) {
+    const { data, error } = await supabase.rpc("initialize_school_billing", {
+      p_school_id: params.schoolId,
+      p_plan_name: params.planName || null,
+      p_trial_days: params.trialDays || null,
+      p_invoice_strategy: params.invoiceStrategy || "trial_only",
+      p_onboarding_fee: params.onboardingFee || null,
+      p_term_fee: params.termFee || null,
+      p_reason: params.reason || null,
+    });
+    if (error) throw error;
+    return data?.[0] || null;
+  },
+
+  async issueBillingInvoice(params: {
+    schoolId: number;
+    invoiceType?: "onboarding" | "subscription" | "subscription_renewal" | "adjustment" | "manual";
+    amount?: number;
+    dueDate?: string;
+    description?: string;
+    periodStart?: string;
+    periodEnd?: string;
+    metadata?: any;
+  }) {
+    const { data, error } = await supabase.rpc("issue_billing_invoice", {
+      p_school_id: params.schoolId,
+      p_invoice_type: params.invoiceType || "manual",
+      p_amount: params.amount ?? null,
+      p_due_date: params.dueDate || null,
+      p_description: params.description || null,
+      p_period_start: params.periodStart || null,
+      p_period_end: params.periodEnd || null,
+      p_metadata: params.metadata || {},
+    });
+    if (error) throw error;
+    return data as number;
+  },
+
+  async postBillingPayment(params: {
+    invoiceId: number;
+    amount?: number;
+    method?: string;
+    reference?: string;
+    notes?: string;
+  }): Promise<BillingPaymentResult | null> {
+    const { data, error } = await supabase.rpc("post_billing_payment", {
+      p_invoice_id: params.invoiceId,
+      p_amount: params.amount ?? null,
+      p_payment_method: params.method || "Manual",
+      p_reference: params.reference || null,
+      p_notes: params.notes || null,
+    });
+    if (error) throw error;
+    return (data?.[0] as BillingPaymentResult) || null;
+  },
+
+  async extendBillingTrial(params: { schoolId: number; newEndDate: string; reason?: string }) {
+    const { error } = await supabase.rpc("extend_billing_trial", {
+      p_school_id: params.schoolId,
+      p_new_end_date: params.newEndDate,
+      p_reason: params.reason || null,
+    });
+    if (error) throw error;
+  },
+
+  async adjustBillingSubscriptionTerm(params: { schoolId: number; newEndDate: string; newStatus?: string; reason?: string }) {
+    const { error } = await supabase.rpc("adjust_billing_subscription_term", {
       p_school_id: params.schoolId,
       p_new_end_date: params.newEndDate,
       p_new_status: params.newStatus || null,
@@ -381,13 +507,12 @@ export const saasService = {
     if (error) throw error;
   },
 
+  async extendSubscriptionPeriod(params: { schoolId: number; newEndDate: string; newStatus?: string; reason?: string }) {
+    await this.adjustBillingSubscriptionTerm(params);
+  },
+
   async extendTrial(params: { schoolId: number; newEndDate: string; reason?: string }) {
-    const { error } = await supabase.rpc("extend_trial", {
-      p_school_id: params.schoolId,
-      p_new_end_date: params.newEndDate,
-      p_reason: params.reason || null,
-    });
-    if (error) throw error;
+    await this.extendBillingTrial(params);
   },
 
   async generateInvoice(params: {
@@ -398,15 +523,16 @@ export const saasService = {
     periodStart?: string;
     periodEnd?: string;
   }) {
-    const { data, error } = await supabase.rpc("generate_saas_invoice", {
-      p_school_id: params.schoolId,
-      p_amount: params.amount,
-      p_due_date: params.dueDate,
-      p_items: params.items,
-      p_period_start: params.periodStart,
-      p_period_end: params.periodEnd,
+    const data = await this.issueBillingInvoice({
+      schoolId: params.schoolId,
+      invoiceType: "manual",
+      amount: params.amount,
+      dueDate: params.dueDate,
+      description: params.items?.[0]?.description || "Manual invoice",
+      periodStart: params.periodStart,
+      periodEnd: params.periodEnd,
+      metadata: { items: params.items || [] },
     });
-    if (error) throw error;
     return data as number;
   },
 
@@ -472,12 +598,11 @@ export const saasService = {
   },
 
   async recordInvoicePayment(params: { invoiceId: number; method?: string; reference?: string }): Promise<void> {
-    const { error } = await supabase.rpc("record_invoice_payment_v2", {
-      p_invoice_id: params.invoiceId,
-      p_payment_method: params.method || "Manual",
-      p_reference: params.reference,
+    await this.postBillingPayment({
+      invoiceId: params.invoiceId,
+      method: params.method,
+      reference: params.reference,
     });
-    if (error) throw error;
   },
 
   async deleteSchool(schoolId: number): Promise<void> {

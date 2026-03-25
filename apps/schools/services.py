@@ -391,7 +391,98 @@ def _table_has_column(table_name, column_name):
     return any(column.name == column_name for column in description)
 
 
-def _create_saas_subscription_records(*, school, plan, contact_person='', contact_phone=''):
+def _function_exists(function_name):
+    if connection.vendor != 'postgresql':
+        return False
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM pg_proc p
+                JOIN pg_namespace n ON n.oid = p.pronamespace
+                WHERE n.nspname = 'public'
+                  AND p.proname = %s
+            )
+            """,
+            [function_name],
+        )
+        row = cursor.fetchone()
+    return bool(row and row[0])
+
+
+def _set_supabase_auth_context(*, user):
+    auth_user_id = getattr(user, 'auth_user_id', None)
+    if connection.vendor != 'postgresql' or not auth_user_id:
+        return
+
+    claims = {
+        'sub': str(auth_user_id),
+        'role': 'authenticated',
+        'email': getattr(user, 'email', ''),
+    }
+
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT set_config('request.jwt.claims', %s, true)", [json.dumps(claims)])
+        cursor.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", [str(auth_user_id)])
+
+
+def _ensure_school_settings_row(*, school):
+    if not _table_exists('school_settings'):
+        return
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            INSERT INTO school_settings (school_id)
+            VALUES (%s)
+            ON CONFLICT (school_id) DO NOTHING
+            """,
+            [school.id],
+        )
+
+
+def _insert_onboarding_log_row(*, school):
+    if not _table_exists('onboarding_logs'):
+        return
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            INSERT INTO onboarding_logs (school_id, step, status, details)
+            VALUES (%s, 'school_created', 'completed', %s)
+            """,
+            [school.id, json.dumps({'name': school.name, 'code': school.code})],
+        )
+
+
+def _initialize_school_billing_records(*, school, plan, actor=None, contact_person='', contact_phone=''):
+    normalized_plan = normalize_role(plan) or 'starter'
+    if normalized_plan not in {'starter', 'standard', 'enterprise'}:
+        raise ValidationError({'plan': 'Unsupported subscription plan.'})
+
+    _ensure_school_settings_row(school=school)
+    _insert_onboarding_log_row(school=school)
+
+    if not _function_exists('initialize_school_billing'):
+        return None
+
+    if actor is not None:
+        _set_supabase_auth_context(user=actor)
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT * FROM public.initialize_school_billing(%s, %s, %s, %s, %s, %s, %s)",
+            [school.id, normalized_plan, 30, 'trial_only', None, None, 'django_onboarding'],
+        )
+        row = cursor.fetchone()
+        columns = [column.name for column in cursor.description] if cursor.description else []
+
+    if row is None:
+        return None
+
+    return dict(zip(columns, row))
+
+
+def _create_saas_subscription_records_legacy(*, school, plan, contact_person='', contact_phone=''):
     normalized_plan = normalize_role(plan) or 'starter'
     if normalized_plan not in {'starter', 'standard', 'enterprise'}:
         raise ValidationError({'plan': 'Unsupported subscription plan.'})
@@ -421,16 +512,6 @@ def _create_saas_subscription_records(*, school, plan, contact_person='', contac
                 [*school_column_values, school.id],
             )
 
-        if _table_exists('school_settings'):
-            cursor.execute(
-                """
-                INSERT INTO school_settings (school_id)
-                VALUES (%s)
-                ON CONFLICT (school_id) DO NOTHING
-                """,
-                [school.id],
-            )
-
         if _table_exists('subscriptions'):
             cursor.execute(
                 """
@@ -440,16 +521,25 @@ def _create_saas_subscription_records(*, school, plan, contact_person='', contac
                 [school.id, normalized_plan, current_time, trial_end],
             )
 
-        if _table_exists('onboarding_logs'):
-            cursor.execute(
-                """
-                INSERT INTO onboarding_logs (school_id, step, status, details)
-                VALUES (%s, 'school_created', 'completed', %s)
-                """,
-                [school.id, json.dumps({'name': school.name, 'code': school.code})],
-            )
-
     return normalized_plan
+
+
+def _create_saas_subscription_records(*, school, plan, actor=None, contact_person='', contact_phone=''):
+    billing_result = _initialize_school_billing_records(
+        school=school,
+        plan=plan,
+        actor=actor,
+        contact_person=contact_person,
+        contact_phone=contact_phone,
+    )
+    if billing_result is not None:
+        return normalize_role(plan) or 'starter'
+    return _create_saas_subscription_records_legacy(
+        school=school,
+        plan=plan,
+        contact_person=contact_person,
+        contact_phone=contact_phone,
+    )
 
 
 def _auto_assign_portfolio_owner(*, school, staff):
@@ -2571,6 +2661,7 @@ def onboard_school_with_workflow(
     normalized_plan = _create_saas_subscription_records(
         school=school,
         plan=plan,
+        actor=staff,
         contact_person=contact_person,
         contact_phone=contact_phone,
     )

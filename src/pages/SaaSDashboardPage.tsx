@@ -103,6 +103,67 @@ const summarizeCommunicationContent = (content?: string | null) => {
   return compact.length > 120 ? `${compact.slice(0, 117)}...` : compact;
 };
 
+const formatBillingStatusLabel = (value?: string | null) => {
+  if (!value) return "Unknown";
+  return value
+    .split("_")
+    .map((token) => token.charAt(0).toUpperCase() + token.slice(1))
+    .join(" ");
+};
+
+const billingStatusBadgeVariant = (status?: string | null): "default" | "destructive" | "secondary" | "outline" => {
+  switch ((status || "").toLowerCase()) {
+    case "active":
+    case "trial_active":
+    case "recovery":
+      return "default";
+    case "trial_expiring":
+    case "renewal_due":
+    case "payment_pending":
+    case "grace_period":
+      return "secondary";
+    case "past_due":
+    case "suspended":
+    case "cancelled":
+    case "churned":
+      return "destructive";
+    default:
+      return "outline";
+  }
+};
+
+const formatDateLabel = (value?: string | null) => {
+  if (!value) return "—";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? "—" : parsed.toLocaleDateString();
+};
+
+const formatDateTimeLabel = (value?: string | null) => {
+  if (!value) return "—";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? "—" : parsed.toLocaleString();
+};
+
+const formatBillingEventLabel = (eventType?: string | null) => {
+  if (!eventType) return "Billing event";
+  return eventType
+    .replace(/[._]/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((token) => token.charAt(0).toUpperCase() + token.slice(1))
+    .join(" ");
+};
+
+const summarizeBillingEvent = (eventType?: string | null, payload?: any) => {
+  if (payload && typeof payload === "object") {
+    if (typeof payload.reason === "string" && payload.reason.trim()) return payload.reason;
+    if (typeof payload.amount !== "undefined") return `Amount ${payload.amount}`;
+    if (typeof payload.invoice_type === "string") return `Type ${formatBillingStatusLabel(payload.invoice_type)}`;
+    if (typeof payload.action === "string") return `Action ${formatBillingStatusLabel(payload.action)}`;
+  }
+  return formatBillingEventLabel(eventType);
+};
+
 const ACCESS_RULES: Record<string, { allowed: string[]; blocked: string[] }> = {
   platform_admin: {
     allowed: [
@@ -513,7 +574,20 @@ const CommunicationDetailDialog = ({
 
 /* ─────────── Subscription Management Tab ─────────── */
 const SchoolSubscriptionView = ({ school, tiers = [] }: { school: SaaSSchool, tiers?: SaasTierFeature[] }) => {
-  const currentTier = tiers.find(t => t.tier_name === school.subscription_plan);
+  const { data: snapshot, isLoading: snapshotLoading } = useQuery({
+    queryKey: ["saas-billing-snapshot", school.id],
+    queryFn: () => saasService.getBillingAccountSnapshot(school.id),
+  });
+
+  const { data: billingEvents, isLoading: billingEventsLoading } = useQuery({
+    queryKey: ["saas-billing-events", school.id],
+    queryFn: () => saasService.getBillingEvents(school.id, 10),
+  });
+
+  const currentPlanName = snapshot?.current_plan || school.subscription_plan;
+  const currentTier = tiers.find(t => t.tier_name === currentPlanName);
+  const currency = snapshot?.currency || "KES";
+  const isTrial = (snapshot?.subscription_status || school.subscription_status || "").includes("trial");
   
   const { data: history, isLoading: historyLoading } = useQuery({
     queryKey: ["saas-subscription-history", school.id],
@@ -540,6 +614,8 @@ const SchoolSubscriptionView = ({ school, tiers = [] }: { school: SaaSSchool, ti
       await saasService.sendInvoiceNotification(invoiceId);
       toast.success("Notification sent successfully");
       queryClient.invalidateQueries({ queryKey: ["saas-invoices", school.id] });
+      queryClient.invalidateQueries({ queryKey: ["saas-billing-snapshot", school.id] });
+      queryClient.invalidateQueries({ queryKey: ["saas-billing-events", school.id] });
     } catch (err: any) {
       toast.error(err.message || "Failed to send notification");
     } finally {
@@ -550,9 +626,16 @@ const SchoolSubscriptionView = ({ school, tiers = [] }: { school: SaaSSchool, ti
   const handleRecordPayment = async (invoiceId: number) => {
     setRecordingPayment(invoiceId);
     try {
-      await saasService.recordInvoicePayment({ invoiceId });
-      toast.success("Payment recorded and subscription extended!");
+      const result = await saasService.postBillingPayment({ invoiceId });
+      toast.success(
+        result?.term_end
+          ? `Payment recorded. Access now runs through ${new Date(result.term_end).toLocaleDateString()}`
+          : "Payment recorded successfully"
+      );
       queryClient.invalidateQueries({ queryKey: ["saas-invoices", school.id] });
+      queryClient.invalidateQueries({ queryKey: ["saas-subscription-history", school.id] });
+      queryClient.invalidateQueries({ queryKey: ["saas-billing-snapshot", school.id] });
+      queryClient.invalidateQueries({ queryKey: ["saas-billing-events", school.id] });
       queryClient.invalidateQueries({ queryKey: ["saas-schools"] });
       queryClient.invalidateQueries({ queryKey: ["saas-analytics"] });
     } catch (err: any) {
@@ -566,14 +649,18 @@ const SchoolSubscriptionView = ({ school, tiers = [] }: { school: SaaSSchool, ti
     if (!invoiceAmount || !invoiceDesc) return;
     setGeneratingInv(true);
     try {
-      await saasService.generateInvoice({
+      await saasService.issueBillingInvoice({
         schoolId: school.id,
+        invoiceType: "manual",
         amount: parseFloat(invoiceAmount),
         dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        items: [{ description: invoiceDesc, amount: parseFloat(invoiceAmount) }]
+        description: invoiceDesc,
+        metadata: { items: [{ description: invoiceDesc, amount: parseFloat(invoiceAmount) }] },
       });
       toast.success("Invoice generated successfully");
       queryClient.invalidateQueries({ queryKey: ["saas-invoices", school.id] });
+      queryClient.invalidateQueries({ queryKey: ["saas-billing-snapshot", school.id] });
+      queryClient.invalidateQueries({ queryKey: ["saas-billing-events", school.id] });
       setInvoiceAmount("");
       setInvoiceDesc("");
     } catch (err: any) {
@@ -584,7 +671,8 @@ const SchoolSubscriptionView = ({ school, tiers = [] }: { school: SaaSSchool, ti
   };
 
   const calcNewDate = (days: number) => {
-    const base = school.subscription_end ? new Date(school.subscription_end) : new Date();
+    const baseDate = snapshot?.trial_ends_at || snapshot?.term_end || school.subscription_end;
+    const base = baseDate ? new Date(baseDate) : new Date();
     const next = new Date(base.getTime() + days * 24 * 60 * 60 * 1000);
     return next.toISOString().split("T")[0];
   };
@@ -592,8 +680,11 @@ const SchoolSubscriptionView = ({ school, tiers = [] }: { school: SaaSSchool, ti
   const handleExtendTrial = async (days: number) => {
     setExtendingTrial(true);
     try {
-      await saasService.extendTrial({ schoolId: school.id, newEndDate: calcNewDate(days), reason: `Trial extended by ${days} days` });
+      await saasService.extendBillingTrial({ schoolId: school.id, newEndDate: calcNewDate(days), reason: `Trial extended by ${days} days` });
       toast.success(`Trial extended by ${days} days`);
+      queryClient.invalidateQueries({ queryKey: ["saas-billing-snapshot", school.id] });
+      queryClient.invalidateQueries({ queryKey: ["saas-subscription-history", school.id] });
+      queryClient.invalidateQueries({ queryKey: ["saas-billing-events", school.id] });
       queryClient.invalidateQueries({ queryKey: ["saas-schools"] });
       queryClient.invalidateQueries({ queryKey: ["saas-analytics"] });
     } catch (err: any) {
@@ -606,13 +697,16 @@ const SchoolSubscriptionView = ({ school, tiers = [] }: { school: SaaSSchool, ti
   const handleExtendPlan = async (days: number) => {
     setExtendingPlan(true);
     try {
-      await saasService.extendSubscriptionPeriod({
+      await saasService.adjustBillingSubscriptionTerm({
         schoolId: school.id,
         newEndDate: calcNewDate(days),
-        newStatus: school.subscription_status,
+        newStatus: snapshot?.subscription_status || school.subscription_status,
         reason: `Subscription extended by ${days} days`,
       });
       toast.success(`Subscription extended by ${days} days`);
+      queryClient.invalidateQueries({ queryKey: ["saas-billing-snapshot", school.id] });
+      queryClient.invalidateQueries({ queryKey: ["saas-subscription-history", school.id] });
+      queryClient.invalidateQueries({ queryKey: ["saas-billing-events", school.id] });
       queryClient.invalidateQueries({ queryKey: ["saas-schools"] });
       queryClient.invalidateQueries({ queryKey: ["saas-analytics"] });
     } catch (err: any) {
@@ -624,6 +718,170 @@ const SchoolSubscriptionView = ({ school, tiers = [] }: { school: SaaSSchool, ti
 
   return (
     <div className="space-y-6">
+      <Card className="border-primary/15 bg-gradient-to-br from-primary/5 via-background to-background">
+        <CardHeader className="pb-3">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Activity className="w-4 h-4 text-primary" /> Billing Snapshot
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Canonical account, contract, and collections state sourced from the new billing workflow.
+              </CardDescription>
+            </div>
+            {snapshot && (
+              <div className="flex flex-wrap gap-2">
+                <Badge variant={billingStatusBadgeVariant(snapshot.account_status)}>
+                  {formatBillingStatusLabel(snapshot.account_status)}
+                </Badge>
+                <Badge variant={billingStatusBadgeVariant(snapshot.collection_status)}>
+                  {formatBillingStatusLabel(snapshot.collection_status)}
+                </Badge>
+              </div>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {snapshotLoading ? (
+            <div className="py-8 flex justify-center"><Loader2 className="w-5 h-5 animate-spin" /></div>
+          ) : !snapshot ? (
+            <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+              No canonical billing snapshot is available for this school yet.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-xl border bg-background/80 p-4">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Account State</p>
+                  <p className="mt-2 text-lg font-semibold text-foreground">{formatBillingStatusLabel(snapshot.account_status)}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Contract status: {formatBillingStatusLabel(snapshot.subscription_status)}</p>
+                </div>
+                <div className="rounded-xl border bg-background/80 p-4">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Current Contract</p>
+                  <p className="mt-2 text-lg font-semibold capitalize text-foreground">{snapshot.current_plan || currentPlanName}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{formatBillingStatusLabel(snapshot.billing_cycle)} billing</p>
+                </div>
+                <div className="rounded-xl border bg-background/80 p-4">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Outstanding</p>
+                  <p className="mt-2 text-lg font-semibold text-foreground">{currency} {Number(snapshot.outstanding_balance || 0).toLocaleString()}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{snapshot.open_invoice_count} open invoices, {snapshot.overdue_invoice_count} overdue</p>
+                </div>
+                <div className="rounded-xl border bg-background/80 p-4">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Next Milestone</p>
+                  <p className="mt-2 text-lg font-semibold text-foreground">{formatDateLabel(snapshot.next_follow_up_at || snapshot.trial_ends_at || snapshot.term_end)}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Follow-up or renewal checkpoint</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">Billing contact</p>
+                  <p className="mt-1 font-medium text-foreground break-all">{snapshot.billing_email || school.email || "—"}</p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">Term window</p>
+                  <p className="mt-1 font-medium text-foreground">{formatDateLabel(snapshot.term_start)} - {formatDateLabel(snapshot.term_end)}</p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">Trial / Grace</p>
+                  <p className="mt-1 font-medium text-foreground">Trial ends {formatDateLabel(snapshot.trial_ends_at)} | Grace ends {formatDateLabel(snapshot.grace_ends_at)}</p>
+                </div>
+              </div>
+
+              {snapshot.overdue_invoice_count > 0 && (
+                <div className="rounded-lg border border-destructive/25 bg-destructive/5 p-3 text-sm text-destructive flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 mt-0.5" />
+                  <span>This account has overdue invoices. Collections state is {formatBillingStatusLabel(snapshot.collection_status)}.</span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                      <Bell className="w-4 h-4" /> Collections Panel
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Current collections posture derived from billing account state and invoice aging.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center justify-between rounded-lg border p-3">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Collection stage</p>
+                        <p className="font-medium text-foreground">{formatBillingStatusLabel(snapshot.collection_status)}</p>
+                      </div>
+                      <Badge variant={billingStatusBadgeVariant(snapshot.collection_status)}>
+                        {snapshot.overdue_invoice_count > 0 ? `${snapshot.overdue_invoice_count} overdue` : "Current"}
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="rounded-lg border p-3">
+                        <p className="text-xs text-muted-foreground">Next follow-up</p>
+                        <p className="mt-1 font-medium text-foreground">{formatDateTimeLabel(snapshot.next_follow_up_at)}</p>
+                      </div>
+                      <div className="rounded-lg border p-3">
+                        <p className="text-xs text-muted-foreground">Last invoice status</p>
+                        <p className="mt-1 font-medium text-foreground">{formatBillingStatusLabel(snapshot.last_invoice_status)}</p>
+                      </div>
+                    </div>
+                    <div className="rounded-lg border p-3">
+                      <p className="text-xs text-muted-foreground">Recommended operator focus</p>
+                      <p className="mt-1 text-sm text-foreground">
+                        {snapshot.overdue_invoice_count > 0
+                          ? "Prioritize collections follow-up and restore only after payment posts."
+                          : snapshot.open_invoice_count > 0
+                            ? "Keep reminder cadence active until invoices are settled."
+                            : "Account is current. Monitor renewal and trial milestones."}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                      <Clock className="w-4 h-4" /> Billing Timeline
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Recent billing lifecycle events from the canonical billing event log.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {billingEventsLoading ? (
+                      <div className="py-8 flex justify-center"><Loader2 className="w-5 h-5 animate-spin" /></div>
+                    ) : !billingEvents || billingEvents.length === 0 ? (
+                      <p className="text-xs text-center text-muted-foreground py-4">No billing events recorded yet</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {billingEvents.map((event) => (
+                          <div key={event.id} className="flex gap-3 rounded-lg border p-3">
+                            <div className="mt-0.5 h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                              <Clock className="w-3.5 h-3.5 text-primary" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-sm font-medium text-foreground">{formatBillingEventLabel(event.event_type)}</p>
+                                <Badge variant="outline" className="text-[10px]">
+                                  {formatDateTimeLabel(event.occurred_at)}
+                                </Badge>
+                              </div>
+                              <p className="mt-1 text-xs text-muted-foreground break-words">
+                                {summarizeBillingEvent(event.event_type, event.event_payload)}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {currentTier && (
         <Card className="bg-primary/5 border-primary/20">
           <CardContent className="pt-4 flex items-center justify-between">
@@ -641,14 +899,14 @@ const SchoolSubscriptionView = ({ school, tiers = [] }: { school: SaaSSchool, ti
             </div>
             <div className="text-right">
               <p className="text-xs text-muted-foreground uppercase tracking-tighter">Annual Fee</p>
-              <p className="font-mono font-bold">KES {currentTier.annual_fee.toLocaleString()}</p>
+              <p className="font-mono font-bold">{currency} {currentTier.annual_fee.toLocaleString()}</p>
             </div>
           </CardContent>
         </Card>
       )}
 
       <div className="flex flex-wrap gap-2">
-        {school.subscription_status?.includes("trial") && (
+        {isTrial && (
           <Button variant="outline" size="sm" onClick={() => handleExtendTrial(14)} disabled={extendingTrial}>
             {extendingTrial ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
             Extend Trial +14d
@@ -707,12 +965,17 @@ const SchoolSubscriptionView = ({ school, tiers = [] }: { school: SaaSSchool, ti
                     <div key={inv.id} className="flex items-center justify-between text-xs border-b pb-2 last:border-0 group/inv">
                       <div>
                         <p className="font-medium">{inv.invoice_number}</p>
-                        <p className="text-muted-foreground font-mono">KES {inv.amount.toLocaleString()}</p>
+                          <p className="text-muted-foreground font-mono">{currency} {Number(inv.balance_due ?? inv.amount).toLocaleString()}</p>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <Badge variant={inv.status === 'paid' ? 'default' : inv.status === 'overdue' ? 'destructive' : 'secondary'} className="scale-90">
                           {inv.status}
                         </Badge>
+                          {inv.collection_stage ? (
+                            <Badge variant="outline" className="scale-90 hidden sm:inline-flex">
+                              {formatBillingStatusLabel(inv.collection_stage)}
+                            </Badge>
+                          ) : null}
                         {inv.status !== 'paid' && (
                           <div className="flex gap-1">
                             {inv.status === 'draft' && (
