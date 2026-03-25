@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, CheckCircle2, Clock3, Download, Fingerprint, Plus, RefreshCcw, Router, Settings, Trash2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clock3, Download, Fingerprint, Info, Plus, RefreshCcw, Router, Settings, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -53,6 +53,17 @@ const formatDateTime = (value?: string | null) => {
   return Number.isNaN(parsed.getTime()) ? "Never" : parsed.toLocaleString();
 };
 
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (typeof error === "object" && error && "response" in error) {
+    const responseData = (error as { response?: { data?: any } }).response?.data;
+    if (typeof responseData?.error === "string") return responseData.error;
+    if (typeof responseData?.message === "string") return responseData.message;
+    if (Array.isArray(responseData)) return responseData.join(", ");
+  }
+  if (error instanceof Error) return error.message;
+  return fallback;
+};
+
 export function BiometricIntegration() {
   const queryClient = useQueryClient();
   const [settings, setSettings] = useState<BiometricSettings>(defaultSettings);
@@ -87,6 +98,56 @@ export function BiometricIntegration() {
 
   const logs = logsData?.logs || [];
   const smsLogs = logsData?.sms_logs || [];
+  const backendWarnings = settings.onboarding_warnings || [];
+
+  const onboardingSteps = useMemo(() => {
+    if (settings.attendance_mode === "boarding") {
+      return [
+        "Create at least one arrival device at the main gate or reporting desk. Use a general device if the same terminal will handle permission exits.",
+        "Set the check-in cutoff to the daily morning reporting time for boarders who leave campus during the term.",
+        "Use check-out or general devices for exeats and mid-term permissions. End-of-term departures can be captured as checkout events on the departure date.",
+        "If you need full dorm-residency tracking from beginning to end of term, keep this biometric module for gate attendance and maintain separate boarding movement controls until residency tracking is added.",
+      ];
+    }
+    if (settings.attendance_mode === "hybrid") {
+      return [
+        "Register separate gate devices for day scholars and for boarding exits where possible.",
+        "Use the same attendance rules for morning reporting, then rely on checkout devices for exeats and afternoon day-scholar departures.",
+        "Keep absence auto-marking enabled only after confirming both day and boarding reporting windows are correct.",
+        "Pilot with one class or stream before enabling school-wide biometric processing.",
+      ];
+    }
+    return [
+      "Register at least one check-in device at the school entry point and one check-out device at the exit point if students leave through a controlled gate.",
+      "Set the morning cutoff and absence mark times to match official reporting policy.",
+      "Test each device from this page before enabling biometric integration for live attendance.",
+      "Once devices are online, save settings, then run one supervised scan per gate to confirm logs and parent messaging.",
+    ];
+  }, [settings.attendance_mode]);
+
+  const smsGuidance = useMemo(() => {
+    if (settings.sms_provider_scope === "school") {
+      return "This school is using its own SMS credentials. Messages are billed and controlled by the school account.";
+    }
+    if (settings.sms_provider_scope === "system") {
+      return "This school is using the platform default SMS account. This is useful for plug-and-play rollout in a multi-tenant setup.";
+    }
+    return "No SMS provider is configured yet. The system will still log SMS events as skipped until either school-specific credentials or a platform default provider is available.";
+  }, [settings.sms_provider_scope]);
+
+  const validationNotes = useMemo(() => {
+    const notes: string[] = [];
+    if (devices.length === 0) {
+      notes.push("No devices have been registered yet.");
+    }
+    if (settings.sms_enabled && !settings.sms_ready) {
+      notes.push("SMS is enabled but there is no active school or platform SMS provider configured.");
+    }
+    if (settings.attendance_mode === "boarding") {
+      notes.push("Boarding mode currently uses biometric gate events for reporting and exeat control, not full dorm residency tracking.");
+    }
+    return notes;
+  }, [devices.length, settings.attendance_mode, settings.sms_enabled, settings.sms_ready]);
 
   const saveSettingsMutation = useMutation({
     mutationFn: (payload: BiometricSettings) => attendanceService.updateBiometricSettings(payload),
@@ -95,7 +156,7 @@ export function BiometricIntegration() {
       queryClient.invalidateQueries({ queryKey: ["biometric-settings"] });
       toast.success("Biometric attendance settings saved");
     },
-    onError: (error: any) => toast.error(error.message || "Failed to save biometric settings"),
+    onError: (error: unknown) => toast.error(getErrorMessage(error, "Failed to save biometric settings")),
   });
 
   const createDeviceMutation = useMutation({
@@ -105,7 +166,7 @@ export function BiometricIntegration() {
       queryClient.invalidateQueries({ queryKey: ["biometric-devices"] });
       toast.success("Biometric device added");
     },
-    onError: (error: any) => toast.error(error.message || "Failed to add biometric device"),
+    onError: (error: unknown) => toast.error(getErrorMessage(error, "Failed to add biometric device")),
   });
 
   const deleteDeviceMutation = useMutation({
@@ -114,7 +175,7 @@ export function BiometricIntegration() {
       queryClient.invalidateQueries({ queryKey: ["biometric-devices"] });
       toast.success("Device removed");
     },
-    onError: (error: any) => toast.error(error.message || "Failed to delete device"),
+    onError: (error: unknown) => toast.error(getErrorMessage(error, "Failed to delete device")),
   });
 
   const markAbsentMutation = useMutation({
@@ -124,7 +185,7 @@ export function BiometricIntegration() {
       queryClient.invalidateQueries({ queryKey: ["biometric-logs"] });
       toast.success(`Marked ${data.created_count} students absent`);
     },
-    onError: (error: any) => toast.error(error.message || "Failed to auto-mark absences"),
+    onError: (error: unknown) => toast.error(getErrorMessage(error, "Failed to auto-mark absences")),
   });
 
   const summaryCards = useMemo(() => {
@@ -138,6 +199,10 @@ export function BiometricIntegration() {
   }, [report]);
 
   const handleSaveSettings = () => {
+    if (settings.sms_enabled && !settings.sms_ready && !settings.sms_api_url.trim()) {
+      toast.error("SMS is enabled but no school SMS provider is configured and no platform default provider is available.");
+      return;
+    }
     saveSettingsMutation.mutate({
       ...settings,
       check_in_cutoff_time: toApiTime(toTimeInput(settings.check_in_cutoff_time)),
@@ -148,6 +213,10 @@ export function BiometricIntegration() {
 
   const handleTestConnection = async (device?: BiometricDevice) => {
     try {
+      if (!device && !deviceForm.device_ip.trim()) {
+        toast.error("Enter a device IP address before testing the draft connection.");
+        return;
+      }
       setTestingDeviceId(device?.id || 0);
       const result = await attendanceService.testBiometricDevice(
         device
@@ -156,8 +225,8 @@ export function BiometricIntegration() {
       );
       queryClient.invalidateQueries({ queryKey: ["biometric-devices"] });
       toast.success(result.message);
-    } catch (error: any) {
-      toast.error(error.message || "Connection test failed");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Connection test failed"));
     } finally {
       setTestingDeviceId(null);
     }
@@ -175,9 +244,17 @@ export function BiometricIntegration() {
       link.remove();
       window.URL.revokeObjectURL(downloadUrl);
       toast.success("Attendance CSV downloaded");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to export attendance CSV");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to export attendance CSV"));
     }
+  };
+
+  const handleAddDevice = () => {
+    if (!deviceForm.device_name.trim() || !deviceForm.device_ip.trim() || !deviceForm.location.trim()) {
+      toast.error("Device name, IP address, and location are required before you can register a device.");
+      return;
+    }
+    createDeviceMutation.mutate();
   };
 
   return (
@@ -193,6 +270,26 @@ export function BiometricIntegration() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <div className="rounded-xl border border-dashed bg-background/70 p-4">
+            <div className="flex items-start gap-3">
+              <Info className="mt-0.5 h-5 w-5 text-primary" />
+              <div className="space-y-3">
+                <div>
+                  <h4 className="font-medium">Setup Checklist</h4>
+                  <p className="text-sm text-muted-foreground">Use this order during onboarding so device rollout stays plug-and-play.</p>
+                </div>
+                <ol className="space-y-2 text-sm text-muted-foreground">
+                  {onboardingSteps.map((step, index) => (
+                    <li key={step} className="flex gap-2">
+                      <span className="min-w-5 font-medium text-foreground">{index + 1}.</span>
+                      <span>{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </div>
+          </div>
+
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {summaryCards.map((card) => {
               const Icon = card.icon;
@@ -227,6 +324,11 @@ export function BiometricIntegration() {
               <div>
                 <h4 className="font-medium">Attendance Rules</h4>
                 <p className="text-sm text-muted-foreground">Define how scans become check-ins, check-outs, late arrivals, and absences.</p>
+              </div>
+              <div className="rounded-lg border bg-muted/40 p-3 text-xs text-muted-foreground">
+                {settings.attendance_mode === "day" && "Day scholar mode expects daily check-in and optional same-day checkout events."}
+                {settings.attendance_mode === "boarding" && "Boarding mode uses daily gate reporting and exeat tracking. Beginning-of-term reporting and end-of-term departure should be captured as scan events on the relevant days."}
+                {settings.attendance_mode === "hybrid" && "Hybrid mode combines day scholar morning attendance with boarding exit controls for boarders leaving campus during term."}
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -280,6 +382,12 @@ export function BiometricIntegration() {
               <div>
                 <h4 className="font-medium">SMS Rules</h4>
                 <p className="text-sm text-muted-foreground">Control parent notifications for check-in, check-out, and absence.</p>
+              </div>
+              <div className="rounded-lg border bg-muted/40 p-3 text-xs text-muted-foreground">
+                <p>{smsGuidance}</p>
+                <p className="mt-2">
+                  Multi-tenant recommendation: allow each school to bring its own SMS account for billing independence, but keep a platform default provider for fast onboarding or schools that do not want separate contracts.
+                </p>
               </div>
               <div className="flex items-center justify-between rounded-lg border p-3">
                 <div>
@@ -336,6 +444,31 @@ export function BiometricIntegration() {
               </div>
             </div>
           </div>
+
+          {backendWarnings.length > 0 ? (
+            <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950">
+              <h4 className="font-medium">System Warnings</h4>
+              <ul className="mt-2 space-y-2 text-blue-900">
+                {backendWarnings.map((warning) => (
+                  <li key={warning.code} className="flex gap-2">
+                    <span className="font-medium uppercase text-[11px] tracking-[0.16em] text-blue-700">{warning.level}</span>
+                    <span>{warning.message}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {validationNotes.length > 0 ? (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+              <h4 className="font-medium">Setup Notes</h4>
+              <ul className="mt-2 space-y-1 text-amber-800">
+                {validationNotes.map((note) => (
+                  <li key={note}>- {note}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
 
           <div className="flex gap-2">
             <Button onClick={() => handleTestConnection()} disabled={testingDeviceId === 0 || !deviceForm.device_ip}>
@@ -416,7 +549,7 @@ export function BiometricIntegration() {
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button onClick={() => createDeviceMutation.mutate()} disabled={createDeviceMutation.isPending || !deviceForm.device_name || !deviceForm.device_ip || !deviceForm.location}>
+                <Button onClick={handleAddDevice} disabled={createDeviceMutation.isPending || !deviceForm.device_name || !deviceForm.device_ip || !deviceForm.location}>
                   <Plus className="mr-2 h-4 w-4" />
                   Add Device
                 </Button>
@@ -431,7 +564,9 @@ export function BiometricIntegration() {
               {devicesLoading ? (
                 <div className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">Loading devices...</div>
               ) : devices.length === 0 ? (
-                <div className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">No devices registered yet.</div>
+                <div className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">
+                  No devices registered yet. Start with the main reporting point first, test the connection, then add exit or exeat devices.
+                </div>
               ) : (
                 devices.map((device) => (
                   <div key={device.id} className="rounded-xl border p-4">

@@ -41,6 +41,13 @@ export interface BiometricSettings {
   sms_api_url: string;
   sms_api_key: string;
   sms_sender_id: string;
+  sms_provider_scope?: 'school' | 'system' | 'unconfigured';
+  sms_ready?: boolean;
+  onboarding_warnings?: Array<{
+    code: 'missing_device' | 'sms_fallback_active' | 'sms_not_configured' | 'boarding_mode_gate_only';
+    level: 'info' | 'warning';
+    message: string;
+  }>;
   check_in_template: string;
   check_out_template: string;
   absence_template: string;

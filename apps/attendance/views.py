@@ -20,6 +20,7 @@ from .models import (
 from .services import (
     build_attendance_report,
     get_or_create_attendance_configuration,
+    get_sms_provider_details,
     mark_absent_students,
     process_biometric_scan,
     test_device_connection,
@@ -33,7 +34,46 @@ def _request_school(request):
     return getattr(request, 'current_school', None) or getattr(request.user, 'school', None)
 
 
+def _build_onboarding_warnings(school, configuration):
+    provider = get_sms_provider_details(configuration)
+    warnings = []
+    if school is None:
+        return warnings
+
+    has_devices = BiometricDevice._base_manager.filter(school=school, is_active=True).exists()
+    if not has_devices:
+        warnings.append({
+            'code': 'missing_device',
+            'level': 'warning',
+            'message': 'No biometric devices are registered yet. Add at least one active reporting device before enabling live biometric attendance.',
+        })
+
+    if configuration.sms_enabled and provider['scope'] == 'system':
+        warnings.append({
+            'code': 'sms_fallback_active',
+            'level': 'info',
+            'message': 'SMS fallback active. This school is currently using the platform default SMS provider until school-specific credentials are configured.',
+        })
+    elif configuration.sms_enabled and not provider['ready']:
+        warnings.append({
+            'code': 'sms_not_configured',
+            'level': 'warning',
+            'message': 'SMS notifications are enabled, but no school-specific or platform SMS provider is configured. Messages will be logged as skipped.',
+        })
+
+    if configuration.attendance_mode == 'boarding':
+        warnings.append({
+            'code': 'boarding_mode_gate_only',
+            'level': 'warning',
+            'message': 'Boarding mode is currently limited to gate attendance, reporting, and permission exits. It does not yet provide full dorm residency tracking.',
+        })
+
+    return warnings
+
+
 def _serialize_configuration(configuration):
+    provider = get_sms_provider_details(configuration)
+    warnings = _build_onboarding_warnings(configuration.school, configuration)
     return {
         'biometric_enabled': configuration.biometric_enabled,
         'attendance_mode': configuration.attendance_mode,
@@ -51,6 +91,9 @@ def _serialize_configuration(configuration):
         'sms_api_url': configuration.sms_api_url,
         'sms_api_key': configuration.sms_api_key,
         'sms_sender_id': configuration.sms_sender_id,
+        'sms_provider_scope': provider['scope'],
+        'sms_ready': provider['ready'],
+        'onboarding_warnings': warnings,
         'check_in_template': configuration.check_in_template,
         'check_out_template': configuration.check_out_template,
         'absence_template': configuration.absence_template,

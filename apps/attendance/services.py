@@ -4,6 +4,7 @@ from datetime import date, datetime, time, timedelta
 from typing import Any
 
 import requests
+from django.conf import settings
 from django.db import transaction
 from django.db.models import Count, Q
 from django.utils import timezone
@@ -36,6 +37,43 @@ class ScanProcessingResult:
     event_type: str
     attendance: Attendance | None
     raw_log: BiometricAttendanceLog | None
+
+
+def get_sms_provider_details(configuration):
+    school_provider_configured = bool(configuration.sms_api_url and configuration.sms_api_key)
+    system_provider_configured = bool(
+        getattr(settings, 'ATTENDANCE_SMS_DEFAULT_API_URL', '')
+        and getattr(settings, 'ATTENDANCE_SMS_DEFAULT_API_KEY', '')
+    )
+
+    if school_provider_configured:
+        return {
+            'scope': 'school',
+            'provider_name': configuration.sms_provider_name or 'School SMS Provider',
+            'api_url': configuration.sms_api_url,
+            'api_key': configuration.sms_api_key,
+            'sender_id': configuration.sms_sender_id,
+            'ready': True,
+        }
+
+    if system_provider_configured:
+        return {
+            'scope': 'system',
+            'provider_name': getattr(settings, 'ATTENDANCE_SMS_DEFAULT_PROVIDER_NAME', '') or 'Platform SMS Provider',
+            'api_url': getattr(settings, 'ATTENDANCE_SMS_DEFAULT_API_URL', ''),
+            'api_key': getattr(settings, 'ATTENDANCE_SMS_DEFAULT_API_KEY', ''),
+            'sender_id': getattr(settings, 'ATTENDANCE_SMS_DEFAULT_SENDER_ID', ''),
+            'ready': True,
+        }
+
+    return {
+        'scope': 'unconfigured',
+        'provider_name': configuration.sms_provider_name or '',
+        'api_url': configuration.sms_api_url,
+        'api_key': configuration.sms_api_key,
+        'sender_id': configuration.sms_sender_id,
+        'ready': False,
+    }
 
 
 def get_or_create_attendance_configuration(school):
@@ -73,6 +111,7 @@ def _render_sms_template(template: str, *, student: Student, attendance_date: da
 def send_attendance_sms(*, configuration, student, event_type, attendance_record=None, biometric_log=None, timestamp=None):
     timestamp = timestamp or timezone.now()
     recipient_phone = student.guardian_phone or ''
+    provider = get_sms_provider_details(configuration)
     template_map = {
         AttendanceEventType.CHECK_IN: configuration.check_in_template,
         AttendanceEventType.LATE: configuration.check_in_template,
@@ -90,7 +129,7 @@ def send_attendance_sms(*, configuration, student, event_type, attendance_record
             recipient_phone=recipient_phone,
             message='',
             delivery_status=SMSDeliveryStatus.SKIPPED,
-            provider_response={'reason': 'missing_template_or_phone'},
+            provider_response={'reason': 'missing_template_or_phone', 'provider_scope': provider['scope']},
         )
 
     message = _render_sms_template(template, student=student, attendance_date=timestamp.date(), timestamp=timestamp)
@@ -108,37 +147,46 @@ def send_attendance_sms(*, configuration, student, event_type, attendance_record
 
     if not configuration.sms_enabled:
         sms_log.delivery_status = SMSDeliveryStatus.SKIPPED
-        sms_log.provider_response = {'reason': 'sms_disabled'}
+        sms_log.provider_response = {'reason': 'sms_disabled', 'provider_scope': provider['scope']}
         sms_log.save(update_fields=['delivery_status', 'provider_response', 'updated_at'])
         return sms_log
 
-    if not configuration.sms_api_url or not configuration.sms_api_key:
+    if not provider['ready']:
         sms_log.delivery_status = SMSDeliveryStatus.SKIPPED
-        sms_log.provider_response = {'reason': 'sms_provider_not_configured'}
+        sms_log.provider_response = {'reason': 'sms_provider_not_configured', 'provider_scope': provider['scope']}
         sms_log.save(update_fields=['delivery_status', 'provider_response', 'updated_at'])
         return sms_log
 
     try:
         response = requests.post(
-            configuration.sms_api_url,
+            provider['api_url'],
             json={
                 'to': recipient_phone,
                 'message': message,
-                'sender_id': configuration.sms_sender_id,
+                'sender_id': provider['sender_id'],
             },
             headers={
-                'Authorization': f'Bearer {configuration.sms_api_key}',
+                'Authorization': f"Bearer {provider['api_key']}",
                 'Content-Type': 'application/json',
             },
             timeout=10,
         )
         response.raise_for_status()
         sms_log.delivery_status = SMSDeliveryStatus.SENT
-        sms_log.provider_response = {'status_code': response.status_code, 'body': response.text[:1000]}
+        sms_log.provider_response = {
+            'status_code': response.status_code,
+            'body': response.text[:1000],
+            'provider_scope': provider['scope'],
+            'provider_name': provider['provider_name'],
+        }
         sms_log.sent_at = timezone.now()
     except Exception as exc:
         sms_log.delivery_status = SMSDeliveryStatus.FAILED
-        sms_log.provider_response = {'error': str(exc)}
+        sms_log.provider_response = {
+            'error': str(exc),
+            'provider_scope': provider['scope'],
+            'provider_name': provider['provider_name'],
+        }
 
     sms_log.save(update_fields=['delivery_status', 'provider_response', 'sent_at', 'updated_at'])
     return sms_log
