@@ -578,7 +578,6 @@ export function BiometricIntegration() {
                           <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{device.connection_status}</span>
                         </div>
                         <p className="mt-1 text-sm text-muted-foreground">{device.location} • {device.device_ip}:{device.device_port}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">API Key: {device.api_key}</p>
                         <p className="mt-1 text-xs text-muted-foreground">Last seen: {formatDateTime(device.last_seen_at)}</p>
                       </div>
                       <div className="flex gap-2">

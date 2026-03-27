@@ -28,8 +28,10 @@ import {
   X,
   Bell,
   FileText,
+  LifeBuoy,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { SupportNotificationPanel } from '@/components/communication/SupportNotificationPanel';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -295,6 +297,8 @@ export function TopNavBar() {
             >
               <Bell className="h-4.5 w-4.5" />
             </Button>
+
+            <SupportNotificationPanel />
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

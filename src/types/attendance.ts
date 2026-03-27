@@ -61,7 +61,6 @@ export interface BiometricDevice {
   location: string;
   device_type: 'check_in' | 'check_out' | 'general';
   external_device_id: string;
-  api_key: string;
   is_active: boolean;
   connection_status: 'unknown' | 'online' | 'offline' | 'error';
   last_seen_at: string | null;

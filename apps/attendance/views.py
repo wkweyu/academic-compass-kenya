@@ -109,7 +109,6 @@ def _serialize_device(device):
         'location': device.location,
         'device_type': device.device_type,
         'external_device_id': device.external_device_id,
-        'api_key': device.api_key,
         'is_active': device.is_active,
         'connection_status': device.connection_status,
         'last_seen_at': device.last_seen_at,

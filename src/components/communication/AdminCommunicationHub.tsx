@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Eye, Loader2, Mail, MessageSquare, Plus, Send } from "lucide-react";
+import { AlertTriangle, Eye, Loader2, LogIn, Mail, MessageSquare, Plus, Send, ShieldAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -18,6 +19,58 @@ import { toast } from "sonner";
 
 const getErrorMessage = (error: unknown, fallback: string) =>
   error instanceof Error ? error.message : fallback;
+
+const TicketDiagnosticsDrawer = ({
+  ticket,
+  open,
+  onOpenChange,
+}: {
+  ticket: SupportTicket | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) => {
+  const { data: diagnostics, isLoading, refetch } = useQuery({
+    queryKey: ["support-diagnostics", ticket?.id],
+    queryFn: () => communicationHubService.runSupportDiagnostics(ticket!.id),
+    enabled: open && !!ticket,
+  });
+
+  if (!ticket) return null;
+
+  return (
+    <Drawer open={open} onOpenChange={onOpenChange}>
+      <DrawerContent>
+        <div className="mx-auto w-full max-w-4xl p-6">
+          <DrawerHeader>
+            <DrawerTitle className="flex items-center gap-2">
+              <ShieldAlert className="h-5 w-5 text-primary" /> System Diagnostics: {ticket.subject}
+            </DrawerTitle>
+            <DrawerDescription>
+              Backend state analysis for {ticket.school?.name || `School #${ticket.school_id}`} at the time of the request.
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="mt-4 space-y-4">
+            {isLoading ? (
+              <div className="flex h-60 items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <ScrollArea className="h-96 rounded-md border bg-muted/30 p-4">
+                <pre className="text-xs text-foreground">
+                  {JSON.stringify(diagnostics, null, 2)}
+                </pre>
+              </ScrollArea>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => refetch()}>Refresh Diagnostics</Button>
+              <Button onClick={() => onOpenChange(false)}>Close</Button>
+            </div>
+          </div>
+        </div>
+      </DrawerContent>
+    </Drawer>
+  );
+};
 
 const formatAnnouncementStatus = (status: string) =>
   status
@@ -144,8 +197,7 @@ const TicketThreadDialog = ({
 }) => {
   const queryClient = useQueryClient();
   const [reply, setReply] = useState("");
-  const [internalOnly, setInternalOnly] = useState(false);
-  const [status, setStatus] = useState(ticket?.status || "open");
+  const [internalOnly, setInternalOnly] = useState(false);  const [showDiagnostics, setShowDiagnostics] = useState(false);  const [status, setStatus] = useState(ticket?.status || "open");
   const [assignee, setAssignee] = useState(ticket?.assigned_to || "unassigned");
   const [resolutionNotes, setResolutionNotes] = useState(ticket?.resolution_notes || "");
 
@@ -208,19 +260,64 @@ const TicketThreadDialog = ({
     onError: (error: unknown) => toast.error(getErrorMessage(error, "Failed to add reply")),
   });
 
+  const impersonateMutation = useMutation({
+    mutationFn: () => communicationHubService.startSupportImpersonation(ticket!.school_id, ticket!.id),
+    onSuccess: (data) => {
+      toast.success(`Impersonation session started for ${ticket?.school?.name || 'school'}`);
+      // In a real app, this might redirect to a specialized route or reload with a session token
+      console.log("Session details:", data);
+    },
+    onError: (error: unknown) => toast.error(getErrorMessage(error, "Failed to start impersonation")),
+  });
+
   if (!ticket) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>{ticket.subject}</DialogTitle>
-          <DialogDescription>
-            {ticket.school?.name || `School #${ticket.school_id}`} · {ticket.category} · {ticket.priority}
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <TicketDiagnosticsDrawer
+        ticket={ticket}
+        open={showDiagnostics}
+        onOpenChange={setShowDiagnostics}
+      />
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle>{ticket.subject}</DialogTitle>
+                <DialogDescription>
+                  {ticket.school?.name || `School #${ticket.school_id}`} · {ticket.category} · {ticket.priority}
+                </DialogDescription>
+              </div>
+              <div className="flex gap-2 mr-6">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1"
+                  onClick={() => setShowDiagnostics(true)}
+                >
+                  <ShieldAlert className="h-3.5 w-3.5" />
+                  Diagnostics
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="h-8 gap-1"
+                  onClick={() => impersonateMutation.mutate()}
+                  disabled={impersonateMutation.isPending}
+                >
+                  {impersonateMutation.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <LogIn className="h-3.5 w-3.5" />
+                  )}
+                  Enter School
+                </Button>
+              </div>
+            </div>
+          </DialogHeader>
 
-        <div className="grid gap-4 lg:grid-cols-[1.8fr,1fr]">
+          <div className="grid gap-4 lg:grid-cols-[1.8fr,1fr]">
           <div className="space-y-4">
             <ScrollArea className="h-[360px] rounded-lg border p-3">
               {isLoading ? (
@@ -336,6 +433,7 @@ const TicketThreadDialog = ({
         </div>
       </DialogContent>
     </Dialog>
+    </>
   );
 };
 

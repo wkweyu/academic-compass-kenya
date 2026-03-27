@@ -228,7 +228,30 @@ Deno.serve(async (req) => {
     if (roleError) {
       throw new Error(`Failed to assign platform role: ${roleError.message}`);
     }
+    const subject = "Welcome to SkoolTrack Pro Platform Access";
+    const origin = req.headers.get("origin") || req.headers.get("referer") || "https://academic-compass-kenya.lovable.app";
+    const loginUrl = `${origin.replace(/\/$/, "")}/auth`;
+    const content = `Welcome to the SkoolTrack Pro platform! You have been granted ${role} access.
+    
+Email: ${email}
+Temporary Password: ${password}
 
+Login here: ${loginUrl}`;
+
+    const { error: welcomeEmailError } = await serviceClient
+      .from("saas_communications")
+      .insert({
+        recipient_email: email,
+        subject,
+        content,
+        category: "update",
+        type: "email",
+        status: "pending",
+      } as never);
+
+    if (welcomeEmailError) {
+      console.error("Failed to queue platform welcome email:", welcomeEmailError.message);
+    }
     const createdUser = await serviceClient
       .from("users")
       .select("id")
