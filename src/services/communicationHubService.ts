@@ -26,7 +26,36 @@ export interface PlatformAnnouncement {
 
 export type SupportTicketCategory = "support" | "billing" | "training" | "bug" | "feature_request" | "other";
 export type SupportTicketPriority = "low" | "medium" | "high" | "urgent";
-export type SupportTicketStatus = "open" | "in_progress" | "waiting_on_school" | "resolved" | "closed";
+export type SupportTicketStatus = "open" | "assigned" | "in_progress" | "waiting_on_school" | "resolved" | "closed";
+
+export interface SupportStaffMember {
+  user_id: string;
+  email: string;
+  full_name: string;
+  primary_role: string;
+  roles: string[];
+}
+
+export interface SupportNotification {
+  id: number;
+  recipient_user_id: string;
+  school_id: number | null;
+  ticket_id: number | null;
+  notification_type: string;
+  message: string;
+  metadata: Record<string, unknown>;
+  read_at: string | null;
+  created_at: string;
+}
+
+export interface SupportImpersonationSession {
+  id: number;
+  support_user_id: string;
+  school_id: number;
+  ticket_id: number | null;
+  reason: string | null;
+  started_at: string;
+}
 
 export interface SupportTicket {
   id: number;
@@ -39,6 +68,9 @@ export interface SupportTicket {
   description: string;
   assigned_to: string | null;
   resolution_notes: string | null;
+  resolved_by?: string | null;
+  resolved_at?: string | null;
+  last_message_at?: string;
   created_at: string;
   updated_at: string;
   school?: {
@@ -51,7 +83,7 @@ export interface SupportTicketMessage {
   id: number;
   ticket_id: number;
   sender_user_id: string | null;
-  sender_role: "school_admin" | "platform_staff" | "system";
+  sender_role: "school_user" | "school_admin" | "platform_staff" | "system";
   message: string;
   is_internal: boolean;
   created_at: string;
@@ -181,13 +213,56 @@ export const communicationHubService = {
     ticketId: number,
     updates: Partial<Pick<SupportTicket, "status" | "assigned_to" | "resolution_notes">>,
   ): Promise<void> {
-    const { error } = await supabase
-      .from("support_tickets")
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", ticketId);
+    if (updates.assigned_to) {
+      await this.assignSupportTicket(ticketId, updates.assigned_to);
+      return;
+    }
+
+    if (updates.status === "resolved" || updates.status === "closed") {
+      await this.resolveSupportTicket(ticketId, updates.resolution_notes || "Resolved by support", updates.status === "closed");
+      return;
+    }
+
+    if (updates.status) {
+      await this.updateSupportTicketStatus(ticketId, updates.status, updates.resolution_notes);
+      return;
+    }
+
+    throw new Error("No supported ticket updates were provided");
+  },
+
+  async listSupportStaff(): Promise<SupportStaffMember[]> {
+    const { data, error } = await supabase.rpc("list_support_staff");
+    if (error) throw error;
+    return (data || []) as SupportStaffMember[];
+  },
+
+  async assignSupportTicket(ticketId: number, assignedTo: string, note?: string): Promise<void> {
+    const { error } = await supabase.rpc("assign_support_ticket", {
+      p_ticket_id: ticketId,
+      p_assigned_to: assignedTo,
+      p_note: note || null,
+    });
+
+    if (error) throw error;
+  },
+
+  async updateSupportTicketStatus(ticketId: number, status: SupportTicketStatus, resolutionNotes?: string): Promise<void> {
+    const { error } = await supabase.rpc("update_support_ticket_status", {
+      p_ticket_id: ticketId,
+      p_status: status,
+      p_resolution_notes: resolutionNotes || null,
+    });
+
+    if (error) throw error;
+  },
+
+  async resolveSupportTicket(ticketId: number, resolutionNotes: string, closeTicket = false): Promise<void> {
+    const { error } = await supabase.rpc("resolve_support_ticket", {
+      p_ticket_id: ticketId,
+      p_resolution_notes: resolutionNotes,
+      p_close_ticket: closeTicket,
+    });
 
     if (error) throw error;
   },
@@ -212,5 +287,50 @@ export const communicationHubService = {
 
     if (error) throw error;
     return Number(data);
+  },
+
+  async getSupportNotifications(): Promise<SupportNotification[]> {
+    const { data, error } = await supabase
+      .from("support_notifications")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return (data || []) as SupportNotification[];
+  },
+
+  async startSupportImpersonation(schoolId: number, ticketId?: number | null, reason?: string): Promise<number> {
+    const { data, error } = await supabase.rpc("start_support_impersonation", {
+      p_school_id: schoolId,
+      p_ticket_id: ticketId || null,
+      p_reason: reason || null,
+    });
+
+    if (error) throw error;
+    return Number(data);
+  },
+
+  async endSupportImpersonation(sessionId?: number | null): Promise<number> {
+    const { data, error } = await supabase.rpc("end_support_impersonation", {
+      p_session_id: sessionId || null,
+    });
+
+    if (error) throw error;
+    return Number(data);
+  },
+
+  async getCurrentSupportImpersonation(): Promise<SupportImpersonationSession | null> {
+    const { data, error } = await supabase.rpc("get_current_support_impersonation");
+    if (error) throw error;
+    return (data?.[0] as SupportImpersonationSession) || null;
+  },
+
+  async runSupportDiagnostics(schoolId?: number | null): Promise<Record<string, unknown>> {
+    const { data, error } = await supabase.rpc("run_support_school_diagnostics", {
+      p_school_id: schoolId || null,
+    });
+
+    if (error) throw error;
+    return (data || {}) as Record<string, unknown>;
   },
 };

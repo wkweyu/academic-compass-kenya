@@ -6083,6 +6083,159 @@ export type Database = {
           },
         ]
       }
+      support_action_audit_logs: {
+        Row: {
+          action: string
+          affected_model: string
+          affected_record_id: string | null
+          after_data: Json | null
+          before_data: Json | null
+          created_at: string
+          id: number
+          metadata: Json
+          school_id: number | null
+          support_user_id: string
+          ticket_id: number | null
+        }
+        Insert: {
+          action: string
+          affected_model: string
+          affected_record_id?: string | null
+          after_data?: Json | null
+          before_data?: Json | null
+          created_at?: string
+          id?: number
+          metadata?: Json
+          school_id?: number | null
+          support_user_id: string
+          ticket_id?: number | null
+        }
+        Update: {
+          action?: string
+          affected_model?: string
+          affected_record_id?: string | null
+          after_data?: Json | null
+          before_data?: Json | null
+          created_at?: string
+          id?: number
+          metadata?: Json
+          school_id?: number | null
+          support_user_id?: string
+          ticket_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_action_audit_logs_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_action_audit_logs_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_impersonation_sessions: {
+        Row: {
+          ended_at: string | null
+          id: number
+          reason: string | null
+          school_id: number
+          started_at: string
+          support_user_id: string
+          ticket_id: number | null
+        }
+        Insert: {
+          ended_at?: string | null
+          id?: number
+          reason?: string | null
+          school_id: number
+          started_at?: string
+          support_user_id: string
+          ticket_id?: number | null
+        }
+        Update: {
+          ended_at?: string | null
+          id?: number
+          reason?: string | null
+          school_id?: number
+          started_at?: string
+          support_user_id?: string
+          ticket_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_impersonation_sessions_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_impersonation_sessions_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_notifications: {
+        Row: {
+          created_at: string
+          id: number
+          message: string
+          metadata: Json
+          notification_type: string
+          read_at: string | null
+          recipient_user_id: string
+          school_id: number | null
+          ticket_id: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          message: string
+          metadata?: Json
+          notification_type: string
+          read_at?: string | null
+          recipient_user_id: string
+          school_id?: number | null
+          ticket_id?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          message?: string
+          metadata?: Json
+          notification_type?: string
+          read_at?: string | null
+          recipient_user_id?: string
+          school_id?: number | null
+          ticket_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_notifications_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools_school"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_notifications_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       attendance_summary: {
@@ -6510,6 +6663,16 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      list_support_staff: {
+        Args: never
+        Returns: {
+          email: string
+          full_name: string
+          primary_role: string
+          roles: string[]
+          user_id: string
+        }[]
+      }
       list_platform_staff: {
         Args: never
         Returns: {
@@ -6562,7 +6725,55 @@ export type Database = {
         Args: { p_identifier: string; p_success: boolean }
         Returns: undefined
       }
+      assign_support_ticket: {
+        Args: { p_assigned_to: string; p_note?: string | null; p_ticket_id: number }
+        Returns: number
+      }
+      create_support_ticket: {
+        Args: {
+          p_category?: string
+          p_description: string
+          p_priority?: string
+          p_subject: string
+        }
+        Returns: number
+      }
+      add_support_ticket_message: {
+        Args: { p_is_internal?: boolean; p_message: string; p_ticket_id: number }
+        Returns: number
+      }
+      end_support_impersonation: {
+        Args: { p_session_id?: number | null }
+        Returns: number
+      }
+      get_current_support_impersonation: {
+        Args: never
+        Returns: {
+          id: number
+          reason: string | null
+          school_id: number
+          started_at: string
+          support_user_id: string
+          ticket_id: number | null
+        }[]
+      }
+      resolve_support_ticket: {
+        Args: { p_close_ticket?: boolean; p_resolution_notes: string; p_ticket_id: number }
+        Returns: number
+      }
+      run_support_school_diagnostics: {
+        Args: { p_school_id?: number | null }
+        Returns: Json
+      }
+      start_support_impersonation: {
+        Args: { p_reason?: string | null; p_school_id: number; p_ticket_id?: number | null }
+        Returns: number
+      }
       reverse_journal_entry: { Args: { p_entry_id: number }; Returns: number }
+      update_support_ticket_status: {
+        Args: { p_resolution_notes?: string | null; p_status: string; p_ticket_id: number }
+        Returns: number
+      }
       update_saas_school_details: {
         Args: {
           p_city?: string

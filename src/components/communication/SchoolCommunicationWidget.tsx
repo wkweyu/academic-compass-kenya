@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ExternalLink, LifeBuoy, Loader2, MessageSquarePlus } from "lucide-react";
+import { AlertTriangle, ExternalLink, LifeBuoy, Loader2, MessageSquare, MessageSquarePlus, Send } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +23,97 @@ type SupportTicketForm = {
   priority: SupportTicketPriority;
 };
 
+const SchoolTicketThreadDialog = ({
+  ticket,
+  open,
+  onOpenChange,
+}: {
+  ticket: SupportTicket | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) => {
+  const queryClient = useQueryClient();
+  const [reply, setReply] = useState("");
+
+  const { data: messages = [], isLoading } = useQuery({
+    queryKey: ["support-ticket-messages", ticket?.id],
+    queryFn: () => communicationHubService.getSupportTicketMessages(ticket!.id),
+    enabled: open && !!ticket,
+  });
+
+  const replyMutation = useMutation({
+    mutationFn: () => communicationHubService.addSupportTicketMessage(ticket!.id, reply),
+    onSuccess: () => {
+      setReply("");
+      queryClient.invalidateQueries({ queryKey: ["support-ticket-messages", ticket?.id] });
+      queryClient.invalidateQueries({ queryKey: ["support-tickets", "school"] });
+      toast.success("Reply sent");
+    },
+    onError: (error: unknown) => toast.error(getErrorMessage(error, "Failed to send reply")),
+  });
+
+  if (!ticket) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{ticket.subject}</DialogTitle>
+          <DialogDescription>
+            {ticket.category} · {ticket.priority} · {ticket.status.replace(/_/g, " ")}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="rounded-lg border p-3">
+            <p className="text-xs text-muted-foreground">Original request</p>
+            <p className="mt-2 whitespace-pre-wrap text-sm text-foreground">{ticket.description}</p>
+            {ticket.resolution_notes ? (
+              <div className="mt-3 rounded-md border bg-muted/30 p-3">
+                <p className="text-xs text-muted-foreground">Resolution notes</p>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">{ticket.resolution_notes}</p>
+              </div>
+            ) : null}
+          </div>
+
+          <ScrollArea className="h-[280px] rounded-lg border p-3">
+            {isLoading ? (
+              <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+            ) : (
+              <div className="space-y-3">
+                {messages.map((message) => (
+                  <div key={message.id} className="rounded-lg border bg-card/60 p-3 shadow-sm">
+                    <div className="mb-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">{message.sender_role.replace(/_/g, " ")}</Badge>
+                      </div>
+                      <span>{new Date(message.created_at).toLocaleString()}</span>
+                    </div>
+                    <p className="whitespace-pre-wrap text-sm text-foreground">{message.message}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+
+          <div className="space-y-3 rounded-lg border p-3">
+            <Textarea
+              rows={4}
+              value={reply}
+              onChange={(e) => setReply(e.target.value)}
+              placeholder="Reply with more detail or confirm the fix..."
+            />
+            <Button onClick={() => replyMutation.mutate()} disabled={!reply.trim() || replyMutation.isPending}>
+              {replyMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+              Send Reply
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 const severityVariant = (severity: PlatformAnnouncement["severity"]): "default" | "destructive" | "secondary" | "outline" => {
   switch (severity) {
     case "critical":
@@ -39,6 +130,7 @@ const severityVariant = (severity: PlatformAnnouncement["severity"]): "default" 
 export const SchoolCommunicationWidget = () => {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
   const [form, setForm] = useState<SupportTicketForm>({
     subject: "",
     description: "",
@@ -152,6 +244,9 @@ export const SchoolCommunicationWidget = () => {
                       </div>
                     </div>
                     <p className="mt-3 line-clamp-3 text-sm text-muted-foreground">{ticket.description}</p>
+                    <Button variant="ghost" size="sm" className="mt-3 px-0" onClick={() => setSelectedTicket(ticket)}>
+                      <MessageSquare className="mr-2 h-4 w-4" /> View conversation
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -211,6 +306,14 @@ export const SchoolCommunicationWidget = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <SchoolTicketThreadDialog
+        ticket={selectedTicket}
+        open={!!selectedTicket}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setSelectedTicket(null);
+        }}
+      />
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Eye, Loader2, Mail, MessageSquare, Plus, Send } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { communicationHubService, PlatformAnnouncement, SupportTicket, SupportTicketMessage } from "@/services/communicationHubService";
+import { communicationHubService, PlatformAnnouncement, SupportStaffMember, SupportTicket, SupportTicketMessage } from "@/services/communicationHubService";
 import { SaasCommunication, SaaSSchool, saasService } from "@/services/saasService";
 import { toast } from "sonner";
 
@@ -146,6 +146,14 @@ const TicketThreadDialog = ({
   const [reply, setReply] = useState("");
   const [internalOnly, setInternalOnly] = useState(false);
   const [status, setStatus] = useState(ticket?.status || "open");
+  const [assignee, setAssignee] = useState(ticket?.assigned_to || "unassigned");
+  const [resolutionNotes, setResolutionNotes] = useState(ticket?.resolution_notes || "");
+
+  useEffect(() => {
+    setStatus(ticket?.status || "open");
+    setAssignee(ticket?.assigned_to || "unassigned");
+    setResolutionNotes(ticket?.resolution_notes || "");
+  }, [ticket]);
 
   const { data: messages = [], isLoading } = useQuery({
     queryKey: ["support-ticket-messages", ticket?.id],
@@ -153,13 +161,39 @@ const TicketThreadDialog = ({
     enabled: open && !!ticket,
   });
 
+  const { data: supportStaff = [] } = useQuery({
+    queryKey: ["support-staff"],
+    queryFn: communicationHubService.listSupportStaff,
+    enabled: open,
+  });
+
   const updateTicketMutation = useMutation({
-    mutationFn: (nextStatus: string) => communicationHubService.updateSupportTicket(ticket!.id, { status: nextStatus as SupportTicket["status"] }),
+    mutationFn: (nextStatus: string) => communicationHubService.updateSupportTicketStatus(ticket!.id, nextStatus as SupportTicket["status"]),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["support-tickets", "platform"] });
       toast.success("Ticket status updated");
     },
     onError: (error: unknown) => toast.error(getErrorMessage(error, "Failed to update ticket")),
+  });
+
+  const assignTicketMutation = useMutation({
+    mutationFn: () => communicationHubService.assignSupportTicket(ticket!.id, assignee, resolutionNotes || undefined),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["support-tickets", "platform"] });
+      queryClient.invalidateQueries({ queryKey: ["support-ticket-messages", ticket?.id] });
+      toast.success("Ticket assigned");
+    },
+    onError: (error: unknown) => toast.error(getErrorMessage(error, "Failed to assign ticket")),
+  });
+
+  const resolveTicketMutation = useMutation({
+    mutationFn: (closeTicket: boolean) => communicationHubService.resolveSupportTicket(ticket!.id, resolutionNotes, closeTicket),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["support-tickets", "platform"] });
+      queryClient.invalidateQueries({ queryKey: ["support-ticket-messages", ticket?.id] });
+      toast.success("Ticket resolution saved");
+    },
+    onError: (error: unknown) => toast.error(getErrorMessage(error, "Failed to resolve ticket")),
   });
 
   const replyMutation = useMutation({
@@ -234,6 +268,7 @@ const TicketThreadDialog = ({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="open">Open</SelectItem>
+                  <SelectItem value="assigned">Assigned</SelectItem>
                   <SelectItem value="in_progress">In Progress</SelectItem>
                   <SelectItem value="waiting_on_school">Waiting on School</SelectItem>
                   <SelectItem value="resolved">Resolved</SelectItem>
@@ -244,6 +279,58 @@ const TicketThreadDialog = ({
                 {updateTicketMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 Update Status
               </Button>
+            </div>
+
+            <div className="rounded-lg border p-3 space-y-2">
+              <Label className="text-xs text-muted-foreground">Assign to</Label>
+              <Select value={assignee} onValueChange={setAssignee}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select support staff" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                  {supportStaff.map((member: SupportStaffMember) => (
+                    <SelectItem key={member.user_id} value={member.user_id}>
+                      {member.full_name} · {member.primary_role || member.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                onClick={() => assignTicketMutation.mutate()}
+                disabled={assignTicketMutation.isPending || assignee === "unassigned"}
+              >
+                {assignTicketMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Assign Ticket
+              </Button>
+            </div>
+
+            <div className="rounded-lg border p-3 space-y-2">
+              <Label className="text-xs text-muted-foreground">Resolution notes</Label>
+              <Textarea
+                rows={4}
+                value={resolutionNotes}
+                onChange={(e) => setResolutionNotes(e.target.value)}
+                placeholder="Document the fix, next steps, or any customer-facing resolution note..."
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => resolveTicketMutation.mutate(false)}
+                  disabled={resolveTicketMutation.isPending || !resolutionNotes.trim()}
+                >
+                  {resolveTicketMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Resolve Ticket
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => resolveTicketMutation.mutate(true)}
+                  disabled={resolveTicketMutation.isPending || !resolutionNotes.trim()}
+                >
+                  Close Ticket
+                </Button>
+              </div>
             </div>
           </div>
         </div>
