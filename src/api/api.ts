@@ -41,6 +41,7 @@ const axiosInstance = axios.create({
   baseURL: API_ROOT,
   headers: { "Content-Type": "application/json" },
   withCredentials: true,
+  timeout: 90_000, // 90s — generous for Render free-tier cold starts
 });
 
 // Function to get CSRF token from cookies
@@ -101,6 +102,15 @@ axiosInstance.interceptors.response.use(
       }
     }
     
+    // Surface a friendlier message for raw network / timeout errors
+    if (!error.response) {
+      const msg =
+        error.code === 'ECONNABORTED'
+          ? 'Request timed out — the server may be waking up. Please try again.'
+          : 'Network error — please check your connection and try again.';
+      error.message = msg;
+    }
+
     return Promise.reject(error);
   }
 );

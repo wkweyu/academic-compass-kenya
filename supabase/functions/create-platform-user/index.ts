@@ -119,6 +119,7 @@ Deno.serve(async (req) => {
     };
 
     let authUserId: string;
+    let existingUserUpdated = false;
     const { data: createdAuthUser, error: createError } = await serviceClient.auth.admin.createUser({
       email,
       password,
@@ -135,6 +136,7 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: `Failed to create user: ${createError.message}` }, 400);
       }
 
+      existingUserUpdated = true;
       authUserId = existingUser.id;
       const { error: updateAuthError } = await serviceClient.auth.admin.updateUserById(authUserId, {
         password,
@@ -271,6 +273,7 @@ Login here: ${loginUrl}`;
 
     return jsonResponse({
       success: true,
+      existing_user_updated: existingUserUpdated,
       user: {
         id: createdUser.data.id,
         username,

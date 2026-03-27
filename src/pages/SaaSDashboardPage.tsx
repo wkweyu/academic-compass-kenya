@@ -1987,6 +1987,13 @@ const SaaSDashboardPage = () => {
       toast.success("User created successfully");
     },
     onError: (err: any) => {
+      if (err?.isWarning) {
+        // Existing user was updated — refresh the list and show a warning
+        queryClient.invalidateQueries({ queryKey: ["saas-managed-users"] });
+        queryClient.invalidateQueries({ queryKey: ["saas-portfolio-staff"] });
+        toast.warning(err.message);
+        return;
+      }
       toast.error(err?.response?.data?.email?.[0] || err.message || "Failed to create user");
     },
   });

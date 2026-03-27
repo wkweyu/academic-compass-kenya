@@ -308,7 +308,8 @@ export const saasService = {
     contact_phone?: string;
   }) {
     try {
-      await this.repairPlatformLinks();
+      // Fire-and-forget — must never block the onboarding request
+      this.repairPlatformLinks().catch(() => {});
       const payload = {
         name: params.name,
         email: params.email,
@@ -660,7 +661,20 @@ export const saasService = {
       body: payload,
     });
     if (error) {
-      throw new Error(data?.error || error.message || "Failed to create user");
+      // data is null on non-2xx; parse the response body from error.context
+      let detail: string | undefined;
+      try {
+        const body = await (error as any).context?.json?.();
+        detail = body?.error;
+      } catch { /* response may not be JSON */ }
+      throw new Error(detail || error.message || "Failed to create user");
+    }
+    if (data?.existing_user_updated) {
+      const user = data.user as PlatformManagedUser;
+      const err = new Error(`User ${user.email} already existed — their role and password have been updated.`);
+      (err as any).isWarning = true;
+      (err as any).user = user;
+      throw err;
     }
     return data?.user as PlatformManagedUser;
   },
@@ -670,7 +684,12 @@ export const saasService = {
       body: { user_id: userId },
     });
     if (error) {
-      throw new Error(data?.error || error.message || "Failed to delete user");
+      let detail: string | undefined;
+      try {
+        const body = await (error as any).context?.json?.();
+        detail = body?.error;
+      } catch { /* response may not be JSON */ }
+      throw new Error(detail || error.message || "Failed to delete user");
     }
   },
 
