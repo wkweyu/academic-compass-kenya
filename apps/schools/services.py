@@ -379,21 +379,35 @@ def _get_active_user(user_id):
         raise ValidationError({'staff_id': 'Staff member was not found or is inactive.'}) from exc
 
 
+# ---------- schema introspection cache (per-process) ----------
+_schema_cache: dict = {'tables': None, 'columns': {}, 'functions': {}}
+
+
+def _get_all_tables():
+    if _schema_cache['tables'] is None:
+        _schema_cache['tables'] = set(connection.introspection.table_names())
+    return _schema_cache['tables']
+
+
 def _table_exists(table_name):
-    return table_name in connection.introspection.table_names()
+    return table_name in _get_all_tables()
 
 
 def _table_has_column(table_name, column_name):
     if not _table_exists(table_name):
         return False
-    with connection.cursor() as cursor:
-        description = connection.introspection.get_table_description(cursor, table_name)
-    return any(column.name == column_name for column in description)
+    if table_name not in _schema_cache['columns']:
+        with connection.cursor() as cursor:
+            description = connection.introspection.get_table_description(cursor, table_name)
+        _schema_cache['columns'][table_name] = {col.name for col in description}
+    return column_name in _schema_cache['columns'][table_name]
 
 
 def _function_exists(function_name):
     if connection.vendor != 'postgresql':
         return False
+    if function_name in _schema_cache['functions']:
+        return _schema_cache['functions'][function_name]
     with connection.cursor() as cursor:
         cursor.execute(
             """
@@ -408,7 +422,9 @@ def _function_exists(function_name):
             [function_name],
         )
         row = cursor.fetchone()
-    return bool(row and row[0])
+    result = bool(row and row[0])
+    _schema_cache['functions'][function_name] = result
+    return result
 
 
 def _set_supabase_auth_context(*, user):

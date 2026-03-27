@@ -101,7 +101,23 @@ axiosInstance.interceptors.response.use(
         window.location.href = "/auth";
       }
     }
-    
+
+    // Automatic retry for network errors / 502-503-504 (Render cold start)
+    const config = error.config;
+    if (config && !config.__retryCount) {
+      config.__retryCount = 0;
+    }
+    const isRetryable =
+      config &&
+      config.__retryCount < 2 &&
+      (!error.response || [502, 503, 504].includes(error.response.status));
+    if (isRetryable) {
+      config.__retryCount += 1;
+      const delay = config.__retryCount * 3000; // 3s, 6s
+      await new Promise((r) => setTimeout(r, delay));
+      return axiosInstance(config);
+    }
+
     // Surface a friendlier message for raw network / timeout errors
     if (!error.response) {
       const msg =

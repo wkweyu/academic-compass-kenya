@@ -780,8 +780,12 @@ export const saasService = {
       },
     });
     if (error) {
-      console.error("onboarding-notification invoke error:", error);
-      throw error;
+      let detail: string | undefined;
+      try {
+        const body = await (error as any).context?.json?.();
+        detail = body?.error;
+      } catch { /* response may not be JSON */ }
+      throw new Error(detail || error.message || "Failed to send onboarding notification");
     }
     if (data && !data.email_sent) {
       console.error("onboarding-notification failed:", data.email_error);
@@ -795,9 +799,12 @@ export const saasService = {
       body: { school_id: schoolId, admin_email: adminEmail, admin_password: adminPassword },
     });
     if (error) {
-      // Extract the actual error message from the response body if available
-      const msg = data?.error || error.message || "Unknown error";
-      throw new Error(msg);
+      let detail: string | undefined;
+      try {
+        const body = await (error as any).context?.json?.();
+        detail = body?.error;
+      } catch { /* response may not be JSON */ }
+      throw new Error(detail || error.message || "Failed to create school admin");
     }
     return data;
   },
