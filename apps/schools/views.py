@@ -180,18 +180,16 @@ class SchoolOnboardView(generics.GenericAPIView):
 
     @transaction.atomic
     def post(self, request, *args, **kwargs):
+        logger = logging.getLogger(__name__)
         _ensure_platform_staff(request)
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         payload = serializer.validated_data
 
-        logger.info(
-            "Transactional school onboarding request received | actor_id=%s school_name=%s",
-            getattr(request.user, 'id', None),
-            payload.get('name'),
-        )
+        logger.info("Onboarding API called | actor_id=%s school_name=%s", getattr(request.user, 'id', None), payload.get('name'))
 
         try:
+            logger.info("Step 1: Begin onboarding transaction | actor_id=%s", getattr(request.user, 'id', None))
             result = onboard_school_with_workflow(
                 staff_id=request.user.id,
                 name=payload['name'],
@@ -207,6 +205,7 @@ class SchoolOnboardView(generics.GenericAPIView):
                 priority=payload.get('priority') or 'MEDIUM',
             )
 
+            logger.info("Step 6: Onboarding workflow completed | school_id=%s", result['school'].id)
             response_payload = {
                 'success': True,
                 'school_id': result['school'].id,
@@ -221,20 +220,12 @@ class SchoolOnboardView(generics.GenericAPIView):
             }
         except DjangoValidationError as exc:
             transaction.set_rollback(True)
-            logger.exception(
-                "Transactional school onboarding failed | actor_id=%s school_name=%s",
-                getattr(request.user, 'id', None),
-                payload.get('name'),
-            )
+            logger.error(f"Onboarding failed (validation error): {str(exc)}", exc_info=True)
             error = _service_error(exc)
             return Response({'success': False, 'error': getattr(error, 'detail', str(exc))}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as exc:
             transaction.set_rollback(True)
-            logger.exception(
-                "Transactional school onboarding crashed | actor_id=%s school_name=%s",
-                getattr(request.user, 'id', None),
-                payload.get('name'),
-            )
+            logger.error(f"Onboarding failed (exception): {str(exc)}", exc_info=True)
             return Response(
                 {'success': False, 'error': str(exc) or 'Failed to onboard school.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,

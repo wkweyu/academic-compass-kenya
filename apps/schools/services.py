@@ -2641,58 +2641,71 @@ def onboard_school_with_workflow(
     source='saas_dashboard',
     priority=LeadPriority.MEDIUM,
 ):
-    staff = _get_active_user(staff_id)
-    current_time = timezone.now()
+    import logging
+    logger = logging.getLogger(__name__)
+    try:
+        logger.info("Step 1: Creating school record | staff_id=%s name=%s", staff_id, name)
+        staff = _get_active_user(staff_id)
+        current_time = timezone.now()
 
-    school = School(
-        name=name,
-        email=email,
-        phone=phone,
-        address=address,
-        active=True,
-        status=SchoolStatus.ACTIVE,
-    )
-    _save_with_validation(school)
+        school = School(
+            name=name,
+            email=email,
+            phone=phone,
+            address=address,
+            active=True,
+            status=SchoolStatus.ACTIVE,
+        )
+        _save_with_validation(school)
 
-    school_column_updates = []
-    school_column_values = []
-    for column_name, value in (
-        ('city', city or ''),
-        ('country', country or 'Kenya'),
-        ('contact_person', contact_person or ''),
-        ('contact_phone', contact_phone or ''),
-        ('updated_at', current_time),
-    ):
-        if _table_has_column('schools_school', column_name):
-            school_column_updates.append(f'{column_name} = %s')
-            school_column_values.append(value)
+        school_column_updates = []
+        school_column_values = []
+        for column_name, value in (
+            ('city', city or ''),
+            ('country', country or 'Kenya'),
+            ('contact_person', contact_person or ''),
+            ('contact_phone', contact_phone or ''),
+            ('updated_at', current_time),
+        ):
+            if _table_has_column('schools_school', column_name):
+                school_column_updates.append(f'{column_name} = %s')
+                school_column_values.append(value)
 
-    if school_column_updates:
-        with connection.cursor() as cursor:
-            cursor.execute(
-                f"UPDATE schools_school SET {', '.join(school_column_updates)} WHERE id = %s",
-                [*school_column_values, school.id],
-            )
+        if school_column_updates:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"UPDATE schools_school SET {', '.join(school_column_updates)} WHERE id = %s",
+                    [*school_column_values, school.id],
+                )
 
-    normalized_plan = _create_saas_subscription_records(
-        school=school,
-        plan=plan,
-        actor=staff,
-        contact_person=contact_person,
-        contact_phone=contact_phone,
-    )
-    portfolio_assigned = _auto_assign_portfolio_owner(school=school, staff=staff)
+        logger.info("Step 2: Creating SaaS subscription records | school_id=%s", school.id)
+        normalized_plan = _create_saas_subscription_records(
+            school=school,
+            plan=plan,
+            actor=staff,
+            contact_person=contact_person,
+            contact_phone=contact_phone,
+        )
 
-    result = initialize_school_onboarding(
-        school_id=school.id,
-        staff_id=staff.id,
-        source=source,
-        priority=priority,
-    )
-    result['subscription_created'] = True
-    result['portfolio_assigned'] = portfolio_assigned
-    result['subscription_plan'] = normalized_plan
-    return result
+        logger.info("Step 3: Assigning portfolio owner | school_id=%s", school.id)
+        portfolio_assigned = _auto_assign_portfolio_owner(school=school, staff=staff)
+
+        logger.info("Step 4: Initializing school onboarding | school_id=%s", school.id)
+        result = initialize_school_onboarding(
+            school_id=school.id,
+            staff_id=staff.id,
+            source=source,
+            priority=priority,
+        )
+        result['subscription_created'] = True
+        result['portfolio_assigned'] = portfolio_assigned
+        result['subscription_plan'] = normalized_plan
+
+        logger.info("Step 5: Onboarding completed successfully | school_id=%s", school.id)
+        return result
+    except Exception as e:
+        logger.error(f"Onboarding failed: {str(e)}", exc_info=True)
+        raise
 
 
 @transaction.atomic
