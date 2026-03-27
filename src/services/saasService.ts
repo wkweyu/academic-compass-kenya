@@ -226,7 +226,11 @@ export interface TransactionalOnboardSchoolResponse extends InitializeSchoolOnbo
 
 export const saasService = {
   async repairPlatformLinks(): Promise<void> {
-    await api.post<{ success: boolean }>("/api/users/repair-platform-links/", {});
+    try {
+      await api.post<{ success: boolean }>("/api/users/repair-platform-links/", {});
+    } catch (e) {
+      console.warn("repairPlatformLinks failed (non-blocking):", e);
+    }
   },
 
   async getAccessProfile(): Promise<PlatformAccessProfile | null> {

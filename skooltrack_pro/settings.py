@@ -249,12 +249,19 @@ LOCAL_DEV_ORIGINS = [
     'http://127.0.0.1:8080',
 ]
 
+PLATFORM_ORIGINS = [
+    'https://academic-compass-kenya.lovable.app',
+    'https://academic-compass-web.onrender.com',
+]
+
 CORS_ALLOWED_ORIGINS = csv_config('CORS_ALLOWED_ORIGINS')
 append_unique(CORS_ALLOWED_ORIGINS, LOCAL_DEV_ORIGINS)
+append_unique(CORS_ALLOWED_ORIGINS, PLATFORM_ORIGINS)
 append_unique(CORS_ALLOWED_ORIGINS, [FRONTEND_URL])
 
 CSRF_TRUSTED_ORIGINS = csv_config('CSRF_TRUSTED_ORIGINS')
 append_unique(CSRF_TRUSTED_ORIGINS, LOCAL_DEV_ORIGINS)
+append_unique(CSRF_TRUSTED_ORIGINS, PLATFORM_ORIGINS)
 append_unique(CSRF_TRUSTED_ORIGINS, [FRONTEND_URL])
 if RENDER_EXTERNAL_HOSTNAME:
     render_origin = f'https://{RENDER_EXTERNAL_HOSTNAME}'
