@@ -100,6 +100,7 @@ urlpatterns = [
     # Root and health
     path('', root_view, name='root'),
     path('health/', health_check, name='health-check'),
+    path('api/health/', health_check, name='api-health-check'),
     path('api-test/', api_test, name='api-test'),
 
     # Admin
