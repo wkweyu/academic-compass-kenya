@@ -52,6 +52,7 @@ Deno.serve(async (req) => {
 
     const { data: accessProfile, error: accessError } = await supabase.rpc("get_platform_access_profile");
     if (accessError) {
+      console.error("create-school-admin: profile RPC error", accessError);
       return new Response(JSON.stringify({ error: accessError.message }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -60,21 +61,50 @@ Deno.serve(async (req) => {
 
     const profile = accessProfile?.[0];
     if (!profile?.can_resend_admin_access) {
+      console.warn("create-school-admin: forbidden - no resend permission", claimsData.user.id);
       return new Response(JSON.stringify({ error: "Forbidden: no permission to manage school admin access" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const { data: canAccessSchool, error: schoolAccessError } = await supabase.rpc("can_access_platform_school", {
-      _user_id: claimsData.user.id,
-      p_school_id: school_id,
-    });
-    if (schoolAccessError || !canAccessSchool) {
-      return new Response(JSON.stringify({ error: "Forbidden: you cannot manage this school" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (school_id) {
+      // Platform admins and support have global access
+      const hasGlobalAccess = profile.primary_role === 'platform_admin' || profile.primary_role === 'support';
+
+      if (!hasGlobalAccess) {
+        // Retry logic to account for race condition between Django transaction commit and Supabase view visibility
+        let canAccessSchool = false;
+        let lastError = null;
+
+        for (let i = 0; i < 3; i++) {
+          const { data, error } = await supabase.rpc("can_access_platform_school", {
+            _user_id: claimsData.user.id,
+            p_school_id: school_id,
+          });
+
+          if (!error && data) {
+            canAccessSchool = true;
+            break;
+          }
+
+          lastError = error;
+          console.log(`create-school-admin: access check attempt ${i + 1} failed, retrying...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+
+        if (!canAccessSchool) {
+          console.warn("create-school-admin: forbidden - no school access after retries", {
+            user_id: claimsData.user.id,
+            school_id,
+            error: lastError
+          });
+          return new Response(JSON.stringify({ error: "Forbidden: you cannot manage this school or portfolio assignment is still propagating" }), {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
     }
 
     // Use service role to create user
