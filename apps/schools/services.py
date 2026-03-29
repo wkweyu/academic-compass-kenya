@@ -493,6 +493,12 @@ def _initialize_school_billing_records(*, school, plan, actor=None, contact_pers
         row = cursor.fetchone()
         columns = [column.name for column in cursor.description] if cursor.description else []
 
+        # CRITICAL FIX: The Postgres RPC 'initialize_school_billing' resets 'app.skip_school_billing_sync' to '0'.
+        # We must re-enable the skip flag if we are in a Postgres environment to prevent subsequent
+        # operations (like task creation) from triggering heavy, redundant syncs.
+        if connection.vendor == 'postgresql':
+            cursor.execute("SET LOCAL app.skip_school_billing_sync = '1'")
+
     if row is None:
         return None
 
@@ -973,7 +979,10 @@ def send_notification(
     follow_up=None,
     opportunity=None,
     metadata=None,
+    suppress_notifications=False,
 ):
+    if suppress_notifications:
+        return []
     _validate_school_scope(
         school=school,
         lead=lead,
@@ -2393,7 +2402,7 @@ def create_lead(*, staff_id, school_name, school_email='', school_phone='', scho
 
 
 @transaction.atomic
-def create_school_task(*, school, created_by, title, description='', assigned_to=None, due_at=None, step='', onboarding_progress=None, lead=None, is_required=True, metadata=None, skip_sync=False):
+def create_school_task(*, school, created_by, title, description='', assigned_to=None, due_at=None, step='', onboarding_progress=None, lead=None, is_required=True, metadata=None, skip_sync=False, skip_log=False):
     _validate_school_scope(school=school, onboarding_progress=onboarding_progress, lead=lead)
     task = SchoolTask(
         school=school,
@@ -2409,16 +2418,17 @@ def create_school_task(*, school, created_by, title, description='', assigned_to
         metadata=metadata or {},
     )
     _save_with_validation(task)
-    log_activity(
-        school=school,
-        actor=created_by,
-        action='task_created',
-        description=f'Task "{title}" created.',
-        metadata={'step': step, 'assigned_to_id': assigned_to.id if assigned_to else None},
-        lead=lead,
-        onboarding_progress=onboarding_progress,
-        task=task,
-    )
+    if not skip_log:
+        log_activity(
+            school=school,
+            actor=created_by,
+            action='task_created',
+            description=f'Task "{title}" created.',
+            metadata={'step': step, 'assigned_to_id': assigned_to.id if assigned_to else None},
+            lead=lead,
+            onboarding_progress=onboarding_progress,
+            task=task,
+        )
     if assigned_to:
         send_notification(
             school=school,
@@ -2432,6 +2442,7 @@ def create_school_task(*, school, created_by, title, description='', assigned_to
                 'schoolName': school.name,
             },
             metadata={'auto_generated': True},
+            suppress_notifications=metadata.get('suppress_notifications', False) if metadata else False,
         )
     if onboarding_progress and not skip_sync:
         _sync_progress_completion(onboarding_progress)
@@ -2479,8 +2490,9 @@ def start_onboarding_for_school(*, school, staff):
             due_at=now + timedelta(days=blueprint['due_in_days']),
             step=blueprint['step'],
             onboarding_progress=progress,
-            metadata={'default_task': True},
+            metadata={'default_task': True, 'suppress_notifications': True},
             skip_sync=True,  # Optimization: Don't sync progress on every task creation
+            skip_log=True,   # Summary log is created in start_onboarding_for_school
         )
         created_tasks.append(task)
         existing_keys.add(task_key)
@@ -2702,6 +2714,11 @@ def onboard_school_with_workflow(
         logger.info("Onboarding [Step 3]: Portfolio assignment checked | assigned=%s duration=%.2fs", portfolio_assigned, time.time() - step_start)
 
         step_start = time.time()
+        # Re-verify skip flag before initialization sub-workflow
+        if connection.vendor == 'postgresql':
+            with connection.cursor() as cursor:
+                cursor.execute("SET LOCAL app.skip_school_billing_sync = '1'")
+
         result = initialize_school_onboarding(
             school_id=school.id,
             staff_id=staff.id,
