@@ -1,5 +1,6 @@
 from copy import deepcopy
 import json
+import time
 from datetime import datetime, timedelta
 from decimal import Decimal
 import logging
@@ -2392,14 +2393,7 @@ def create_lead(*, staff_id, school_name, school_email='', school_phone='', scho
 
 
 @transaction.atomic
-def create_school_task(*, school, created_by, title, description='', assigned_to=None, due_at=None, step='', onboarding_progress=None, lead=None, is_required=True, metadata=None):
-    logger.info(
-        "Step 3: Creating school task | school_id=%s title=%s step=%s assigned_to=%s",
-        getattr(school, 'id', None),
-        title,
-        step,
-        getattr(assigned_to, 'id', None),
-    )
+def create_school_task(*, school, created_by, title, description='', assigned_to=None, due_at=None, step='', onboarding_progress=None, lead=None, is_required=True, metadata=None, skip_sync=False):
     _validate_school_scope(school=school, onboarding_progress=onboarding_progress, lead=lead)
     task = SchoolTask(
         school=school,
@@ -2439,15 +2433,16 @@ def create_school_task(*, school, created_by, title, description='', assigned_to
             },
             metadata={'auto_generated': True},
         )
-    if onboarding_progress:
+    if onboarding_progress and not skip_sync:
         _sync_progress_completion(onboarding_progress)
     return task
 
 
 @transaction.atomic
 def start_onboarding_for_school(*, school, staff):
+    start_ts = time.time()
     logger.info(
-        "Step 2: Starting onboarding progress | school_id=%s staff_id=%s",
+        "Onboarding [Sub-workflow]: Initializing progress record | school_id=%s staff_id=%s",
         getattr(school, 'id', None),
         getattr(staff, 'id', None),
     )
@@ -2485,16 +2480,21 @@ def start_onboarding_for_school(*, school, staff):
             step=blueprint['step'],
             onboarding_progress=progress,
             metadata={'default_task': True},
+            skip_sync=True,  # Optimization: Don't sync progress on every task creation
         )
         created_tasks.append(task)
         existing_keys.add(task_key)
 
+    # Sync once after all tasks are created
+    _sync_progress_completion(progress)
+
     logger.info(
-        "Step 4: Onboarding progress synchronized | school_id=%s progress_id=%s created=%s task_count=%s",
+        "Onboarding [Sub-workflow]: Progress synchronized | school_id=%s progress_id=%s created=%s task_count=%s duration=%.2fs",
         school.id,
         progress.id,
         created,
         len(created_tasks),
+        time.time() - start_ts
     )
 
     log_activity(
@@ -2641,10 +2641,17 @@ def onboard_school_with_workflow(
     source='saas_dashboard',
     priority=LeadPriority.MEDIUM,
 ):
-    import logging
-    logger = logging.getLogger(__name__)
+    overall_start = time.time()
+    logger.info("Onboarding [Main]: Starting workflow | staff_id=%s name=%s", staff_id, name)
+
+    # Critical Optimization: Skip automatic trigger-based billing sync during onboarding
+    # as we are explicitly creating all required records in this transaction.
+    if connection.vendor == 'postgresql':
+        with connection.cursor() as cursor:
+            cursor.execute("SET LOCAL app.skip_school_billing_sync = '1'")
+
     try:
-        logger.info("Step 1: Creating school record | staff_id=%s name=%s", staff_id, name)
+        step_start = time.time()
         staff = _get_active_user(staff_id)
         current_time = timezone.now()
 
@@ -2678,7 +2685,9 @@ def onboard_school_with_workflow(
                     [*school_column_values, school.id],
                 )
 
-        logger.info("Step 2: Creating SaaS subscription records | school_id=%s", school.id)
+        logger.info("Onboarding [Step 1]: School record created | id=%s duration=%.2fs", school.id, time.time() - step_start)
+
+        step_start = time.time()
         normalized_plan = _create_saas_subscription_records(
             school=school,
             plan=plan,
@@ -2686,11 +2695,13 @@ def onboard_school_with_workflow(
             contact_person=contact_person,
             contact_phone=contact_phone,
         )
+        logger.info("Onboarding [Step 2]: SaaS subscription created | plan=%s duration=%.2fs", normalized_plan, time.time() - step_start)
 
-        logger.info("Step 3: Assigning portfolio owner | school_id=%s", school.id)
+        step_start = time.time()
         portfolio_assigned = _auto_assign_portfolio_owner(school=school, staff=staff)
+        logger.info("Onboarding [Step 3]: Portfolio assignment checked | assigned=%s duration=%.2fs", portfolio_assigned, time.time() - step_start)
 
-        logger.info("Step 4: Initializing school onboarding | school_id=%s", school.id)
+        step_start = time.time()
         result = initialize_school_onboarding(
             school_id=school.id,
             staff_id=staff.id,
@@ -2700,11 +2711,12 @@ def onboard_school_with_workflow(
         result['subscription_created'] = True
         result['portfolio_assigned'] = portfolio_assigned
         result['subscription_plan'] = normalized_plan
+        logger.info("Onboarding [Step 4]: Initialization sub-workflow completed | duration=%.2fs", time.time() - step_start)
 
-        logger.info("Step 5: Onboarding completed successfully | school_id=%s", school.id)
+        logger.info("Onboarding [Main]: Success | school_id=%s total_duration=%.2fs", school.id, time.time() - overall_start)
         return result
     except Exception as e:
-        logger.error(f"Onboarding failed: {str(e)}", exc_info=True)
+        logger.error("Onboarding [Main]: Critical failure | staff_id=%s name=%s error=%s duration=%.2fs", staff_id, name, str(e), time.time() - overall_start, exc_info=True)
         raise
 
 

@@ -307,6 +307,27 @@ export const saasService = {
     contact_person?: string;
     contact_phone?: string;
   }) {
+    const onboardingWithTimeout = async (data: any, timeout = 45000) => {
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error(`Onboarding timed out after ${timeout / 1000}s. The server may still be processing the request in the background.`)), timeout)
+      );
+      return Promise.race([this._performOnboarding(data), timeoutPromise]) as Promise<TransactionalOnboardSchoolResponse>;
+    };
+
+    return onboardingWithTimeout(params);
+  },
+
+  async _performOnboarding(params: {
+    name: string;
+    email: string;
+    phone?: string;
+    address?: string;
+    city?: string;
+    country?: string;
+    plan?: string;
+    contact_person?: string;
+    contact_phone?: string;
+  }) {
     try {
       // Fire-and-forget — must never block the onboarding request
       this.repairPlatformLinks().catch(() => {});
