@@ -2650,25 +2650,24 @@ const OnboardForm = ({ onSuccess, onCancel, tiers = [] }: { onSuccess: () => voi
           }
         }
 
-        if (!adminCredentialsReady) {
-          try {
-            if (import.meta.env.DEV) {
-              console.info("Onboarding Step 4: Sending onboarding notification", { schoolId: res.school_id });
-            }
-            await saasService.sendOnboardingNotification(
-              res.school_id,
-              res.school_code,
-              normalizedName,
-              form.email,
-              form.contact_person,
-              undefined,
-              undefined,
-            );
-            setNotificationSent(true);
-            toast.success("Onboarding email sent");
-          } catch {
-            toast.error("School created, but notification email failed");
+        // Always send onboarding notification with admin credentials if available
+        try {
+          if (import.meta.env.DEV) {
+            console.info("Onboarding Step 4: Sending onboarding notification", { schoolId: res.school_id });
           }
+          await saasService.sendOnboardingNotification(
+            res.school_id,
+            res.school_code,
+            normalizedName,
+            form.email,
+            form.contact_person,
+            form.admin_email,
+            form.admin_password,
+          );
+          setNotificationSent(true);
+          toast.success("Onboarding email sent");
+        } catch {
+          toast.error("School created, but notification email failed");
         }
       })();
     } catch (err: unknown) {

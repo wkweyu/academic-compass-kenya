@@ -371,6 +371,7 @@ export const getStudentStats = async (): Promise<StudentStats> => {
         students_by_class: {},
         students_by_status: {},
         enrollment_trend: [],
+        has_students: false,
       };
     }
 
@@ -427,6 +428,7 @@ export const getStudentStats = async (): Promise<StudentStats> => {
       students_by_class,
       students_by_status,
       enrollment_trend: [],
+      has_students: total_students > 0,
     };
   } catch (error) {
     console.error('Error in getStudentStats:', error);
@@ -438,6 +440,7 @@ export const getStudentStats = async (): Promise<StudentStats> => {
       students_by_class: {},
       students_by_status: {},
       enrollment_trend: [],
+      has_students: false,
     };
   }
 };

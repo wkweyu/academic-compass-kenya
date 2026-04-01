@@ -84,7 +84,7 @@ const StudentManagementModule = () => {
   });
 
   // Fetch student stats
-  const { data: stats } = useQuery({
+  const { data: stats, isLoading: statsLoading, isError: statsError } = useQuery({
     queryKey: ['student-stats'],
     queryFn: getStudentStats,
   });
@@ -441,7 +441,17 @@ const StudentManagementModule = () => {
       </div>
 
       {/* Statistics Cards */}
-      {stats && (
+      {statsLoading ? (
+        <div className="text-muted-foreground">Loading student stats...</div>
+      ) : statsError ? (
+        <div className="text-destructive">Error loading student stats.</div>
+      ) : stats &&
+        stats.total_students === 0 &&
+        stats.active_students === 0 &&
+        stats.male_students === 0 &&
+        stats.female_students === 0 ? (
+        <div className="text-muted-foreground">No students yet. Add your first student to see stats.</div>
+      ) : stats ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -480,7 +490,7 @@ const StudentManagementModule = () => {
             </CardContent>
           </Card>
         </div>
-      )}
+      ) : null}
 
       {/* Search and Filters */}
       <Card>
