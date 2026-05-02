@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { CalendarDays, ChevronDown, Printer, Settings } from 'lucide-react';
+import { CalendarDays, ChevronDown, Download, Printer, Settings } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -226,10 +226,33 @@ export const TimetableModule = () => {
   }, [selectedClassId, selectedStreamId, selectedTerm, selectedYear, schoolId, timetable]);
 
   // ============================================================
-  // Print
+  // Print & Export CSV
   // ============================================================
 
   const handlePrint = () => window.print();
+
+  const handleExportCSV = useCallback(() => {
+    if (!slots.length) return;
+    const DAYS = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+    const header = ['Period', 'Day', 'Subject', 'Teacher', 'Special Room', 'Locked'];
+    const rows = slots.map((s) => [
+      s.period?.name ?? s.period_id,
+      DAYS[s.day_of_week],
+      s.subject?.name ?? '',
+      s.teacher ? `${s.teacher.first_name} ${s.teacher.last_name}` : '',
+      s.special_room?.name ?? '',
+      s.is_locked ? 'Yes' : 'No',
+    ]);
+    const csv = [header, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const className = classes.find((c) => c.id === selectedClassId)?.name ?? 'class';
+    a.download = `timetable-${className}-term${selectedTerm}-${selectedYear}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [slots, classes, selectedClassId, selectedTerm, selectedYear]);
 
   // ============================================================
   // Render
@@ -252,6 +275,11 @@ export const TimetableModule = () => {
           <Button variant="outline" size="sm" onClick={handlePrint}>
             <Printer className="h-4 w-4 mr-1" /> Print
           </Button>
+          {slots.length > 0 && (
+            <Button variant="outline" size="sm" onClick={handleExportCSV}>
+              <Download className="h-4 w-4 mr-1" /> Export CSV
+            </Button>
+          )}
         </div>
       </div>
 
@@ -375,6 +403,13 @@ export const TimetableModule = () => {
               conflicts={conflicts}
               classSize={streams.find((s) => s.id === selectedStreamId)?.current_enrollment ?? 40}
               schoolId={schoolId!}
+              printMeta={{
+                className: classes.find((c) => c.id === selectedClassId)?.name ?? '',
+                streamName: streams.find((s) => s.id === selectedStreamId)?.name,
+                term: selectedTerm,
+                year: selectedYear,
+                generatedAt: timetable.generated_at,
+              }}
             />
           )}
 

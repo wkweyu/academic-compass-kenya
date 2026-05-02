@@ -8,6 +8,7 @@ export interface SchoolPeriod {
   end_time: string;
   order_index: number;
   is_break: boolean;
+  is_double: boolean; // marks a double-length period block
   days_of_week: number[]; // 1=Mon … 5=Fri
   created_at: string;
 }

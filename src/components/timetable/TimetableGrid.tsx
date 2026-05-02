@@ -27,9 +27,17 @@ interface Props {
   conflicts: TimetableConflict[];
   classSize: number;
   schoolId: number;
+  printMeta?: {
+    schoolName?: string;
+    className: string;
+    streamName?: string | null;
+    term: number;
+    year: number;
+    generatedAt?: string | null;
+  };
 }
 
-export const TimetableGrid = ({ slots, timetableId, onSlotUpdated, conflicts, classSize, schoolId }: Props) => {
+export const TimetableGrid = ({ slots, timetableId, onSlotUpdated, conflicts, classSize, schoolId, printMeta }: Props) => {
   const { toast } = useToast();
 
   const sensors = useSensors(
@@ -96,6 +104,24 @@ export const TimetableGrid = ({ slots, timetableId, onSlotUpdated, conflicts, cl
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+      {/* Print-only header — hidden on screen */}
+      {printMeta && (
+        <div className="hidden print:block mb-4 text-center space-y-1">
+          {printMeta.schoolName && (
+            <div className="text-lg font-bold">{printMeta.schoolName}</div>
+          )}
+          <div className="text-base font-semibold">
+            {printMeta.className}
+            {printMeta.streamName ? ` · ${printMeta.streamName}` : ''}
+            {' · '}Term {printMeta.term}, {printMeta.year}
+          </div>
+          {printMeta.generatedAt && (
+            <div className="text-xs text-gray-500">
+              Generated: {new Date(printMeta.generatedAt).toLocaleDateString()}
+            </div>
+          )}
+        </div>
+      )}
       <div className="overflow-x-auto print:overflow-visible">
         <table className="min-w-full border-collapse text-sm">
           <thead>

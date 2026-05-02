@@ -2,14 +2,17 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getStudents, getStudentById } from '@/services/studentService';
 import { getSiblings } from '@/services/guardianService';
+import { timetableService } from '@/services/timetableService';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ArrowLeft, Edit, Phone, Mail, MapPin, Calendar, User, GraduationCap, Users, FileText, DollarSign } from 'lucide-react';
+import { ArrowLeft, Edit, Phone, Mail, MapPin, Calendar, User, GraduationCap, Users, FileText, DollarSign, CalendarDays } from 'lucide-react';
 import { StudentExamProgress } from '@/components/exams/StudentExamProgress';
 import { StudentFeesTab } from '@/components/fees/StudentFeesTab';
+import { TimetableGrid } from '@/components/timetable/TimetableGrid';
+import { TermManager } from '@/utils/termManager';
 
 export default function StudentProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -26,6 +29,30 @@ export default function StudentProfilePage() {
     queryKey: ['siblings', student?.id],
     queryFn: () => student ? getSiblings(student.id) : [],
     enabled: !!student,
+  });
+
+  const currentTerm = TermManager.getCurrentTerm() as 1 | 2 | 3;
+  const currentYear = TermManager.getCurrentYear();
+
+  // Fetch student's published timetable (RLS blocks non-published for student role)
+  const { data: studentTimetable } = useQuery({
+    queryKey: ['student-timetable', student?.current_class, student?.current_stream, currentTerm, currentYear],
+    queryFn: async () => {
+      if (!student?.current_class) return null;
+      return timetableService.getTimetable(
+        parseInt(student.current_class),
+        student.current_stream ? parseInt(student.current_stream) : null,
+        currentTerm,
+        currentYear
+      );
+    },
+    enabled: !!student?.current_class,
+  });
+
+  const { data: timetableSlots = [] } = useQuery({
+    queryKey: ['student-timetable-slots', studentTimetable?.id],
+    queryFn: () => timetableService.getTimetableSlots(studentTimetable!.id),
+    enabled: !!studentTimetable?.id,
   });
 
   if (isLoading) {
@@ -113,6 +140,7 @@ export default function StudentProfilePage() {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="fees">Fees</TabsTrigger>
           <TabsTrigger value="exams">Exam Progress</TabsTrigger>
+          <TabsTrigger value="timetable">Timetable</TabsTrigger>
           <TabsTrigger value="academic">Academic History</TabsTrigger>
           <TabsTrigger value="guardian">Guardian Info</TabsTrigger>
           <TabsTrigger value="siblings">Siblings</TabsTrigger>
@@ -337,6 +365,46 @@ export default function StudentProfilePage() {
                   <p>No siblings found</p>
                   <p className="text-sm">Students with the same guardian will appear here</p>
                 </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="timetable" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CalendarDays size={20} />
+                Class Timetable — Term {currentTerm}, {currentYear}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {!student.current_class ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <CalendarDays size={48} className="mx-auto mb-4 opacity-50" />
+                  <p>No class assigned to this student.</p>
+                </div>
+              ) : !studentTimetable ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <CalendarDays size={48} className="mx-auto mb-4 opacity-50" />
+                  <p>No published timetable for this term.</p>
+                </div>
+              ) : (
+                <TimetableGrid
+                  slots={timetableSlots}
+                  timetableId={studentTimetable.id}
+                  onSlotUpdated={() => {/* read-only — no updates */}}
+                  conflicts={[]}
+                  classSize={0}
+                  schoolId={0}
+                  printMeta={{
+                    className: student.current_class_name,
+                    streamName: student.current_stream_name || null,
+                    term: currentTerm,
+                    year: currentYear,
+                    generatedAt: studentTimetable.generated_at,
+                  }}
+                />
               )}
             </CardContent>
           </Card>
