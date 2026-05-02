@@ -29,6 +29,7 @@ import {
   Bell,
   FileText,
   LifeBuoy,
+  CalendarDays,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SupportNotificationPanel } from '@/components/communication/SupportNotificationPanel';
@@ -70,6 +71,18 @@ const navGroups: { label: string; items: NavItem[] }[] = [
         subItems: [
           { id: 'att-mark', title: 'Mark Attendance', url: '/attendance' },
           { id: 'att-reports', title: 'View Reports', url: '/attendance/reports' },
+        ],
+      },
+      {
+        id: 'timetable',
+        title: 'Timetable',
+        icon: CalendarDays,
+        subItems: [
+          { id: 'timetable-class', title: 'Class Timetable', url: '/timetable' },
+          { id: 'timetable-teacher', title: 'Teacher Schedule', url: '/timetable/teacher' },
+          { id: 'timetable-room', title: 'Special Rooms', url: '/timetable/room' },
+          { id: 'timetable-periods', title: 'Periods & Calendar', url: '/timetable/periods' },
+          { id: 'timetable-substitutions', title: 'Substitutions', url: '/timetable/substitutions' },
         ],
       },
     ],
