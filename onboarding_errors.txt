@@ -1,0 +1,9 @@
+          created_at           |  status   |                  details                  
+-------------------------------+-----------+-------------------------------------------
+ 2026-03-24 18:30:19.668448+00 | completed | {"email_sent": true}
+ 2026-03-24 18:29:12.968834+00 | completed | {"code": "SCH0102", "name": "Vc Academy"}
+ 2026-03-22 15:47:32.573747+00 | completed | {"email_sent": true}
+ 2026-03-22 08:26:27.534256+00 | completed | {"email_sent": true}
+ 2026-03-21 15:51:49.569799+00 | completed | {"email_sent": true}
+(5 rows)
+

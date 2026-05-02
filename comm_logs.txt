@@ -1,0 +1,7 @@
+          created_at           |   recipient_email    |        subject        | status  | error_message 
+-------------------------------+----------------------+-----------------------+---------+---------------
+ 2026-03-25 04:54:56.171758+00 |                      | Subscription extended | sent    | 
+ 2026-03-15 15:56:21.766918+00 | 360.hector@gmail.com | Invoice Notification  | pending | 
+ 2026-03-15 15:44:22.896722+00 |                      | Subscription extended | sent    | 
+(3 rows)
+

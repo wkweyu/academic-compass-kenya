@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2 class="text-xl font-bold mb-4">Recent Exam Scores</h2>
+    <table class="table-auto w-full border">
+        <thead>
+            <tr class="bg-gray-100">
+                <th class="px-2 py-1">Adm No</th>
+                <th class="px-2 py-1">Student</th>
+                <th class="px-2 py-1">Exam</th>
+                <th class="px-2 py-1">Subject</th>
+                <th class="px-2 py-1">Marks</th>
+                <th class="px-2 py-1">Grade</th>
+                <th class="px-2 py-1">Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for score in scores %}
+            <tr class="border-b">
+                <td class="px-2 py-1">{{ score.student.adm_no }}</td>
+                <td class="px-2 py-1">{{ score.student.full_name }}</td>
+                <td class="px-2 py-1">{{ score.exam.name }}</td>
+                <td class="px-2 py-1">{{ score.exam.subject.name }}</td>
+                <td class="px-2 py-1">{{ score.marks }}</td>
+                <td class="px-2 py-1">{{ score.grade }}</td>
+                <td class="px-2 py-1">{{ score.created_at|date:"d M Y" }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" class="text-center p-4">No scores recorded yet.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

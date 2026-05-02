@@ -1,0 +1,1 @@
+ql postgresql://postgres.basvqricgupbxgznsfms:GOlZg5rNtbXDmuTW@aws-0-eu-north-1.pooler.supabase.com:5432/postgres -c SELECT\ enumlabel\ FROM\ pg_enum\ JOIN\ pg_type\ ON\ pg_enum.enumtypid\ \=\ pg_type.oid\ WHERE\ pg_type.typname\ \=\ \'app_role\'\;

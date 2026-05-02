@@ -1,0 +1,224 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --space-section: 1.5rem;
+    --space-field: 1rem;
+    --background: 220 20% 97%;
+    --foreground: 220 30% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 30% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 30% 12%;
+
+    --primary: 220 72% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 14% 94%;
+    --secondary-foreground: 220 30% 18%;
+
+    --muted: 220 14% 95%;
+    --muted-foreground: 220 10% 46%;
+
+    --accent: 172 60% 42%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 56%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 16% 90%;
+    --input: 220 16% 90%;
+    --ring: 220 72% 50%;
+
+    --radius: 0.625rem;
+
+    --sidebar-background: 220 25% 14%;
+    --sidebar-foreground: 220 14% 85%;
+    --sidebar-primary: 220 72% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 20% 20%;
+    --sidebar-accent-foreground: 220 14% 90%;
+    --sidebar-border: 220 20% 22%;
+    --sidebar-ring: 220 72% 60%;
+
+    /* ERP-specific tokens */
+    --nav-background: 220 25% 14%;
+    --nav-foreground: 220 14% 85%;
+    --nav-active: 220 72% 56%;
+    --nav-hover: 220 20% 20%;
+    --success: 152 60% 42%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --info: 200 80% 50%;
+    --info-foreground: 0 0% 100%;
+  }
+
+  .dark {
+    --background: 220 25% 8%;
+    --foreground: 220 14% 92%;
+
+    --card: 220 25% 11%;
+    --card-foreground: 220 14% 92%;
+
+    --popover: 220 25% 11%;
+    --popover-foreground: 220 14% 92%;
+
+    --primary: 220 72% 56%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 20% 16%;
+    --secondary-foreground: 220 14% 90%;
+
+    --muted: 220 20% 16%;
+    --muted-foreground: 220 10% 56%;
+
+    --accent: 172 60% 42%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62% 40%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 20% 18%;
+    --input: 220 20% 18%;
+    --ring: 220 72% 56%;
+
+    --sidebar-background: 220 25% 6%;
+    --sidebar-foreground: 220 14% 85%;
+    --sidebar-primary: 220 72% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 20% 14%;
+    --sidebar-accent-foreground: 220 14% 90%;
+    --sidebar-border: 220 20% 14%;
+    --sidebar-ring: 220 72% 60%;
+
+    --nav-background: 220 25% 6%;
+    --nav-foreground: 220 14% 85%;
+    --nav-active: 220 72% 56%;
+    --nav-hover: 220 20% 14%;
+    --success: 152 60% 42%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --info: 200 80% 50%;
+    --info-foreground: 0 0% 100%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', 'DM Sans', system-ui, sans-serif;
+  }
+
+  button,
+  [role="button"],
+  input,
+  select,
+  textarea,
+  a {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'DM Sans', 'Inter', system-ui, sans-serif;
+  }
+}
+
+/* Scrollbar styling */
+@layer utilities {
+  .erp-page-shell {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .erp-form-grid {
+    @apply grid gap-4 md:grid-cols-2;
+  }
+
+  .erp-form-section {
+    @apply space-y-4 rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm;
+  }
+
+  .erp-modal-body {
+    @apply max-h-[72vh] overflow-y-auto px-6 py-5 scrollbar-thin;
+  }
+
+  .erp-muted-panel {
+    @apply rounded-2xl border border-border/70 bg-muted/35;
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 3px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.4);
+  }
+}
+
+/* Print Styles */
+@media print {
+  .print\:hidden {
+    display: none !important;
+  }
+
+  .print\:block {
+    display: block !important;
+  }
+
+  .page-break-inside-avoid {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .page-break-before {
+    page-break-before: always;
+    break-before: always;
+  }
+
+  .page-break-after {
+    page-break-after: always;
+    break-after: always;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  .bg-card, .bg-muted {
+    background: transparent !important;
+  }
+
+  table, th, td {
+    border-color: #000 !important;
+  }
+
+  * {
+    color: black !important;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: bold !important;
+  }
+}

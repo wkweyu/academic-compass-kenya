@@ -1,0 +1,18 @@
+          table_name          
+------------------------------
+ schools_schooltask
+ schools_activitylog
+ vw_school_tier_enforcement
+ schools_onboardingprogress
+ schools_followup
+ school_portfolio_assignments
+ schools_school
+ school_settings
+ schools_lead
+ schools_upsellopportunity
+ schools_schoolhealthsnapshot
+ schools_communicationlog
+ schools_notificationrecord
+ schools_notificationtemplate
+(14 rows)
+

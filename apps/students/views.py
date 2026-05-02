@@ -1,0 +1,377 @@
+
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from django.db.models import Q
+from django.core.paginator import Paginator
+from django.db import transaction
+from .models import Student, Class, Stream, StudentTransfer, StudentPromotion
+from .forms import StudentForm, StudentTransferForm
+
+@login_required
+def student_list(request):
+    """List all students with search and filtering"""
+    students = Student.objects.select_related('current_class', 'current_stream').filter(is_active=True)
+    
+    # Search functionality
+    search_query = request.GET.get('search', '')
+    if search_query:
+        students = students.filter(
+            Q(full_name__icontains=search_query) |
+            Q(admission_number__icontains=search_query) |
+            Q(guardian_name__icontains=search_query)
+        )
+    
+    # Class filter
+    class_filter = request.GET.get('class', '')
+    if class_filter:
+        students = students.filter(current_class_id=class_filter)
+    
+    # Stream filter
+    stream_filter = request.GET.get('stream', '')
+    if stream_filter:
+        students = students.filter(current_stream_id=stream_filter)
+    
+    # Pagination
+    paginator = Paginator(students, 25)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Get filter options, scoped to the user's school
+    current_school = request.user.school
+    if not current_school:
+        # Handle cases where user has no school (e.g., superuser)
+        messages.warning(request, "You are not associated with a school. Student data cannot be displayed.")
+        return render(request, 'students/student_list.html', {'page_obj': []})
+
+    classes = Class.objects.filter(school=current_school).order_by('grade_level', 'name')
+    streams = Stream.objects.filter(school=current_school).order_by('class_assigned', 'name')
+    
+    context = {
+        'page_obj': page_obj,
+        'search_query': search_query,
+        'class_filter': class_filter,
+        'stream_filter': stream_filter,
+        'classes': classes,
+        'streams': streams,
+        'total_students': students.count(),
+    }
+    
+    return render(request, 'students/student_list.html', context)
+
+@login_required
+def student_detail(request, pk):
+    """View student details"""
+    student = get_object_or_404(Student, pk=pk)
+    transfers = student.transfers.all()[:5]  # Last 5 transfers
+    promotions = student.promotions.all()[:5]  # Last 5 promotions
+    recent_scores = student.scores.select_related('exam').all()[:10]  # Last 10 scores
+    
+    context = {
+        'student': student,
+        'transfers': transfers,
+        'promotions': promotions,
+        'recent_scores': recent_scores,
+    }
+    
+    return render(request, 'students/student_detail.html', context)
+
+@login_required
+def student_add(request):
+    if request.method == 'POST':
+        form = StudentForm(request.POST or None, request.FILES or None, user=request.user)
+        if form.is_valid():
+            # The school is automatically assigned by the SchoolScopedModel's save method
+            # using the middleware, so we no longer need to set it manually.
+            student = form.save()
+            messages.success(request, f'Student {student.full_name} has been added successfully.')
+            return redirect('students:student_detail', pk=student.pk)
+    else:
+        form = StudentForm(user=request.user)
+
+    return render(request, 'students/student_form.html', {
+        'form': form,
+        'title': 'Add New Student'
+    })
+
+
+@login_required
+def student_edit(request, pk):
+    """Edit student information"""
+    student = get_object_or_404(Student, pk=pk)
+    
+    if request.method == 'POST':
+        form = StudentForm(request.POST, request.FILES, instance=student,user=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Student {student.full_name} has been updated successfully.')
+            return redirect('students:student_detail', pk=student.pk)
+    else:
+        form = StudentForm(instance=student, user=request.user)
+    
+    return render(request, 'students/student_form.html', {
+        'form': form,
+        'student': student,
+        'title': f'Edit {student.full_name}'
+    })
+
+@login_required
+def student_delete(request, pk):
+    """Delete student (soft delete)"""
+    student = get_object_or_404(Student, pk=pk)
+    
+    if request.method == 'POST':
+        student.is_active = False
+        student.save()
+        messages.success(request, f'Student {student.full_name} has been deactivated.')
+        return redirect('students:student_list')
+    
+    return render(request, 'students/student_confirm_delete.html', {
+        'student': student
+    })
+
+@login_required
+def student_transfer(request):
+    """Transfer student between classes/streams"""
+    if request.method == 'POST':
+        form = StudentTransferForm(request.POST)
+        if form.is_valid():
+            transfer = form.save(commit=False)
+            transfer.created_by = request.user
+            
+            # Update student's current class and stream
+            student = transfer.student
+            transfer.from_class = student.current_class
+            transfer.from_stream = student.current_stream
+            
+            student.current_class = transfer.to_class
+            student.current_stream = transfer.to_stream
+            student.save()
+            
+            transfer.save()
+            
+            messages.success(request, f'Student {student.full_name} has been transferred successfully.')
+            return redirect('students:student_detail', pk=student.pk)
+    else:
+        form = StudentTransferForm()
+    
+    return render(request, 'students/student_transfer.html', {
+        'form': form,
+        'title': 'Transfer Student'
+    })
+
+@login_required
+@transaction.atomic
+def batch_promotion(request):
+    """Batch promote students"""
+    current_school = request.user.school
+    if not current_school:
+        messages.error(request, "You must be associated with a school to perform this action.")
+        return redirect('students:student_list')
+
+    if request.method == 'POST':
+        source_class_id = request.POST.get('source_class')
+        source_stream_id = request.POST.get('source_stream')
+        target_class_id = request.POST.get('target_class')
+        target_stream_id = request.POST.get('target_stream')
+        academic_year = request.POST.get('academic_year')
+        
+        # Ensure all objects are fetched for the correct school
+        source_class = get_object_or_404(Class, pk=source_class_id, school=current_school)
+        target_class = get_object_or_404(Class, pk=target_class_id, school=current_school)
+        
+        source_stream = None
+        target_stream = None
+        
+        if source_stream_id:
+            source_stream = get_object_or_404(Stream, pk=source_stream_id, school=current_school)
+        if target_stream_id:
+            target_stream = get_object_or_404(Stream, pk=target_stream_id, school=current_school)
+        
+        # Get students to promote, ensuring they are from the correct school
+        students_query = Student.objects.filter(
+            school=current_school,
+            current_class=source_class,
+            is_active=True
+        )
+        if source_stream:
+            students_query = students_query.filter(current_stream=source_stream)
+        
+        students = list(students_query)
+        promoted_count = 0
+        
+        for student in students:
+            StudentPromotion.objects.create(
+                student=student,
+                from_class=student.current_class,
+                to_class=target_class,
+                academic_year=academic_year,
+                created_by=request.user,
+                school=current_school  # Explicitly set school on promotion record
+            )
+            
+            student.current_class = target_class
+            student.current_stream = target_stream if target_stream else student.current_stream
+            student.save()
+            
+            promoted_count += 1
+        
+        messages.success(request, f'Successfully promoted {promoted_count} students from {source_class.name} to {target_class.name}.')
+        return redirect('students:student_list')
+    
+    # Filter classes for the dropdown by the user's school
+    classes = Class.objects.filter(school=current_school).order_by('grade_level', 'name')
+    
+    return render(request, 'students/batch_promotion.html', {
+        'classes': classes,
+        'title': 'Batch Promotion'
+    })
+
+def get_streams(request, class_id):
+    """AJAX endpoint to get streams for a class"""
+    streams = Stream.objects.filter(class_assigned_id=class_id).values('id', 'name')
+    return JsonResponse(list(streams), safe=False)
+
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from .forms import ClassSubjectAllocationForm
+from .models import ClassSubjectAllocation
+
+
+def class_subject_allocation_create(request):
+    if request.method == 'POST':
+        form = ClassSubjectAllocationForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Subject allocation saved successfully.")
+            return redirect('class_allocations')
+    else:
+        form = ClassSubjectAllocationForm()
+
+    return render(request, 'students/class_subject_allocation_form.html', {
+        'form': form,
+        'title': 'Allocate Subject to Class'
+    })
+
+
+def class_subject_allocation_list(request):
+    allocations = ClassSubjectAllocation.objects.all().order_by('-academic_year', 'term', 'school_class')
+    return render(request, 'classes/class_subject_allocation_list.html', {
+        'allocations': allocations,
+        'title': 'Class Subject Allocations'
+    })
+
+# --- API Views ---
+from rest_framework import viewsets, permissions, generics
+from .serializers import StudentSerializer, ClassSerializer, StreamSerializer
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import SearchFilter
+
+# In views.py, update your API views:
+
+# In views.py, add these imports
+from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.permissions import IsAuthenticated
+
+class ClassListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = ClassSerializer
+    authentication_classes = [SessionAuthentication, TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        user = self.request.user
+        # Check if user has a school association
+        if user.school:
+            return Class.objects.filter(school=user.school)
+        # Fallback to first school for single-school mode
+        school = School.objects.first()
+        if school:
+            return Class.objects.filter(school=school)
+        return Class.objects.none()
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        # Use user's school if available
+        school = user.school if user.school else School.objects.first()
+        if not school:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("No school profile found. Please create a school profile first.")
+        serializer.save(school=school)
+
+
+class ClassRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = ClassSerializer
+    authentication_classes = [SessionAuthentication, TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_authenticated and getattr(user, 'school', None):
+            return Class.objects.filter(school=user.school)
+        return Class.objects.none()
+
+
+class StreamListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = StreamSerializer
+    authentication_classes = [SessionAuthentication, TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        # Use user's school if available, fallback to first school
+        school = user.school if user.school else School.objects.first()
+        if school:
+            return Stream.objects.filter(school=school)
+        return Stream.objects.none()
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        school = user.school if user.school else School.objects.first()
+        if not school:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("No school profile found. Please create a school profile first.")
+        serializer.save(school=school)
+
+
+class StreamRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = StreamSerializer
+    authentication_classes = [SessionAuthentication, TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_authenticated and getattr(user, 'school', None):
+            return Stream.objects.filter(school=user.school)
+        return Stream.objects.none()
+
+class StudentViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint that allows students to be viewed or edited.
+    """
+    queryset = Student.objects.filter(is_active=True).order_by('-created_at')
+    serializer_class = StudentSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['current_class', 'current_stream', 'status', 'gender']
+    search_fields = ['full_name', 'admission_number', 'guardian_name']
+
+    def get_queryset(self):
+        """
+        This view should return a list of all the students
+        for the currently authenticated user's school.
+        """
+        user = self.request.user
+        # Use user's school if available, fallback to first school
+        school = user.school if user.school else School.objects.first()
+        if school:
+            return Student.objects.filter(school=school, is_active=True).order_by('-created_at')
+        return Student.objects.none() # Return empty queryset if no school
+    
+    def perform_create(self, serializer):
+        user = self.request.user
+        school = user.school if user.school else School.objects.first()
+        if not school:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("No school profile found. Please create a school profile first.")
+        serializer.save(school=school)

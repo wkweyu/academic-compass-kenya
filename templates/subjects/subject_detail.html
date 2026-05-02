@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ subject.name }} - Subject Details{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <div class="bg-white rounded-lg shadow-lg">
+        <!-- Header -->
+        <div class="px-6 py-4 border-b border-gray-200">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900">{{ subject.name }} ({{ subject.code }})</h2>
+                    <p class="text-gray-600">{{ subject.description|default:"No description" }}</p>
+                </div>
+                <div class="flex space-x-2">
+                    <a href="{% url 'subjects:subject_edit' subject.pk %}"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                        Edit
+                    </a>
+                    <a href="{% url 'subjects:subject_list' %}"
+                        class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors">
+                        Back to List
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Subject Details -->
+        <div class="px-6 py-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Basic Information -->
+                <div class="space-y-4">
+                    <h3 class="text-lg font-semibold text-gray-900 border-b pb-2">Basic Information</h3>
+                    <div class="space-y-2">
+                        <p><span class="font-medium">Subject Code:</span> {{ subject.code }}</p>
+                        <p><span class="font-medium">Core Subject:</span>
+                            <span
+                                class="px-2 py-1 text-xs rounded-full 
+                                {% if subject.is_core %}bg-green-100 text-green-800{% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ subject.is_core|yesno:"Yes,No" }}
+                            </span>
+                        </p>
+                        <p><span class="font-medium">Grade Levels:</span> {{ subject.grade_levels }}</p>
+                    </div>
+                </div>
+
+                <!-- Additional Information -->
+                <div class="space-y-4">
+                    <h3 class="text-lg font-semibold text-gray-900 border-b pb-2">Additional Information</h3>
+                    <div class="space-y-2">
+                        <p><span class="font-medium">Created:</span> {{ subject.created_at|date:"d/m/Y H:i" }}</p>
+                        <p><span class="font-medium">Last Updated:</span> {{ subject.updated_at|date:"d/m/Y H:i" }}</p>
+                    </div>
+                </div>
+
+                <!-- Description -->
+                {% if subject.description %}
+                <div class="col-span-1 md:col-span-2 space-y-4">
+                    <h3 class="text-lg font-semibold text-gray-900 border-b pb-2">Description</h3>
+                    <div class="prose max-w-none">
+                        {{ subject.description|linebreaks }}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
