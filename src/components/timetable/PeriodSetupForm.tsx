@@ -36,7 +36,6 @@ function SortablePeriodRow({ period, onEdit, onDelete }: { period: SchoolPeriod;
       <div className="flex-1 text-sm">
         <span className="font-medium">{period.name}</span>
         {period.is_break && <span className="ml-2 text-xs text-muted-foreground">(break)</span>}
-        {period.is_double && <span className="ml-2 text-xs text-blue-600 dark:text-blue-400">(double)</span>}
         <span className="ml-3 text-xs text-muted-foreground">{period.start_time}–{period.end_time}</span>
         {period.days_of_week.length < 5 && (
           <span className="ml-2 text-xs text-muted-foreground">
@@ -67,7 +66,6 @@ interface PeriodFormData {
   start_time: string;
   end_time: string;
   is_break: boolean;
-  is_double: boolean;
   days_of_week: number[];
 }
 
@@ -76,7 +74,6 @@ const EMPTY_FORM: PeriodFormData = {
   start_time: '08:00',
   end_time: '08:45',
   is_break: false,
-  is_double: false,
   days_of_week: [1, 2, 3, 4, 5],
 };
 
@@ -105,7 +102,6 @@ export const PeriodSetupForm = ({ schoolId }: { schoolId: number }) => {
       start_time: p.start_time,
       end_time: p.end_time,
       is_break: p.is_break,
-      is_double: p.is_double,
       days_of_week: p.days_of_week,
     });
     setDialogOpen(true);
@@ -121,7 +117,6 @@ export const PeriodSetupForm = ({ schoolId }: { schoolId: number }) => {
         start_time: form.start_time,
         end_time: form.end_time,
         is_break: form.is_break,
-        is_double: form.is_double,
         order_index: editing ? editing.order_index : periods.length,
         days_of_week: form.days_of_week.length > 0 ? form.days_of_week : [1, 2, 3, 4, 5],
       });
@@ -195,10 +190,6 @@ export const PeriodSetupForm = ({ schoolId }: { schoolId: number }) => {
             <div className="flex items-center gap-3">
               <Switch id="isbreak" checked={form.is_break} onCheckedChange={(v) => setForm((f) => ({ ...f, is_break: v }))} />
               <Label htmlFor="isbreak">Is break (recess / lunch)</Label>
-            </div>
-            <div className="flex items-center gap-3">
-              <Switch id="isdouble" checked={form.is_double} onCheckedChange={(v) => setForm((f) => ({ ...f, is_double: v }))} />
-              <Label htmlFor="isdouble">Double-length period</Label>
             </div>
             <div className="space-y-1">
               <Label>Runs on days</Label>

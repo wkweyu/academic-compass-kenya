@@ -8,7 +8,8 @@ export interface SchoolPeriod {
   end_time: string;
   order_index: number;
   is_break: boolean;
-  is_double: boolean; // marks a double-length period block
+  // is_double intentionally omitted: periods are atomic WHEN-slots only.
+  // Double-period scheduling logic lives in class_subjects.is_double.
   days_of_week: number[]; // 1=Mon … 5=Fri
   created_at: string;
 }
