@@ -15,6 +15,7 @@ import type {
   TimetableConflict,
   SchedulingConstraints,
   GenerationResult,
+  SchoolGenerationResult,
 } from '@/types/timetable';
 import { TimetableGrid } from '@/components/timetable/TimetableGrid';
 import { ConflictBanner } from '@/components/timetable/ConflictBanner';
@@ -224,6 +225,22 @@ export const TimetableModule = () => {
       });
     }
   }, [selectedClassId, selectedStreamId, selectedTerm, selectedYear, schoolId, timetable]);
+
+  // ============================================================
+  // School generation result handler
+  // ============================================================
+
+  const handleSchoolGenerationResult = useCallback((result: SchoolGenerationResult) => {
+    const filled = result.results.reduce((sum, r) => sum + r.slotsFilled, 0);
+    const total = result.results.reduce((sum, r) => sum + r.slotsRequired, 0);
+    const classCount = result.results.filter((r) => r.slotsFilled > 0).length;
+    toast({
+      title: `School-wide generation complete`,
+      description: `${classCount}/${result.results.length} classes generated — ${filled}/${total} slots filled.`,
+    });
+    // Reload current class if one is selected
+    if (selectedClassId) loadTimetable();
+  }, [selectedClassId, loadTimetable, toast]);
 
   // ============================================================
   // Print & Export CSV
@@ -461,6 +478,8 @@ export const TimetableModule = () => {
           year={selectedYear}
           onResult={handleGenerationResult}
           onClose={() => setShowGenerateDialog(false)}
+          schoolId={schoolId ?? undefined}
+          onSchoolResult={handleSchoolGenerationResult}
         />
       )}
 

@@ -40,7 +40,7 @@ export interface SchoolCalendarEvent {
   created_at: string;
 }
 
-export type TimetableStatus = 'draft' | 'published' | 'archived';
+export type TimetableStatus = 'staging' | 'draft' | 'published' | 'archived';
 
 export interface Timetable {
   id: string;
@@ -57,6 +57,7 @@ export interface Timetable {
   created_by: string | null;
   created_at: string;
   updated_at: string; // used for optimistic locking
+  generation_id?: string | null;
   // joined
   class?: { id: number; name: string; grade_level: string };
   stream?: { id: number; name: string } | null;
@@ -176,6 +177,45 @@ export interface GenerationResult {
     reason: 'no_valid_slot' | 'backtrack_limit' | 'no_room_capacity';
   })[];
   feasibilityError?: { required: number; available: number };
+  timedOut?: boolean;
+  timedOutReason?: 'elapsed' | 'predicted';
+  seed?: number;
+}
+
+// ============================================================
+// School-wide Generation
+// ============================================================
+
+export type FeasibilityLevel = 'ok' | 'tight' | 'impossible';
+
+export interface UnassignedSubject {
+  subjectId: number;
+  subjectName: string;
+  teacherId?: number;
+  reason: 'no_valid_slot' | 'backtrack_limit' | 'no_room_capacity' | 'exhausted_attempts' | 'starvation' | 'timeout';
+}
+
+export interface ClassGenerationResult {
+  classId: number;
+  streamId: number | null;
+  className: string;
+  streamName?: string;
+  feasibility: FeasibilityLevel;
+  feasibilityError?: { required: number; available: number };
+  slots: TimetableSlot[];
+  conflicts: TimetableConflict[];
+  unassigned: UnassignedSubject[];
+  slotsFilled: number;
+  slotsRequired: number;
+}
+
+export interface SchoolGenerationResult {
+  results: ClassGenerationResult[];
+  globalConflicts: TimetableConflict[];
+  executionTime: number;
+  timedOut: boolean;
+  timedOutReason?: 'elapsed' | 'predicted';
+  seed: number;
 }
 
 // ============================================================

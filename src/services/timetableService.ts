@@ -10,6 +10,8 @@ import type {
   BlackoutSlot,
   SchedulingConstraints,
   GenerationResult,
+  SchoolGenerationResult,
+  ClassGenerationResult,
 } from '@/types/timetable';
 
 // ============================================================
@@ -739,6 +741,174 @@ export const timetableService = {
     });
     if (error) throw error;
     return data as GenerationResult;
+  },
+
+  async generateSchoolTimetable(
+    schoolId: number,
+    term: 1 | 2 | 3,
+    year: number,
+    constraints: SchedulingConstraints,
+    preserveLocked: boolean,
+    seed?: number
+  ): Promise<SchoolGenerationResult> {
+    const { data, error } = await supabase.functions.invoke('generate-timetable', {
+      body: {
+        mode: 'school',
+        schoolId,
+        term,
+        year,
+        constraints,
+        preserveLocked,
+        seed: seed ?? Date.now(),
+      },
+    });
+    if (error) throw error;
+    return data as SchoolGenerationResult;
+  },
+
+  /**
+   * Two-phase save (spec §5.1):
+   *   Phase 1 — upsert each class timetable as 'staging' + insert generated slots.
+   *   Phase 2 — promote ALL to 'draft' atomically.
+   * Rollback: if ANY step in Phase 1 or the Phase 2 UPDATE fails, ALL staging
+   * rows for this generation_id are deleted (CASCADE removes their slots).
+   * Idempotent: re-running with the same generation_id reuses existing staging
+   * rows and replaces non-locked slots (spec §5.2).
+   */
+  async saveSchoolGeneratedTimetables(
+    schoolId: number,
+    term: 1 | 2 | 3,
+    year: number,
+    results: ClassGenerationResult[],
+    generationId: string
+  ): Promise<{ savedCount: number; timetableIds: string[] }> {
+    const saveable = results.filter((r) => r.feasibility !== 'impossible' && r.slots.length > 0);
+    const savedIds: string[] = [];
+
+    // ── Phase 1: stage each class ───────────────────────────────────────────
+    try {
+      for (const result of saveable) {
+        // Idempotency: find existing staging row for this generation_id
+        let existQuery = supabase
+          .from('timetables')
+          .select('id')
+          .eq('school_id', schoolId)
+          .eq('class_id', result.classId)
+          .eq('generation_id', generationId)
+          .eq('term', term)
+          .eq('academic_year', year);
+
+        if (result.streamId !== null) {
+          existQuery = existQuery.eq('stream_id', result.streamId);
+        } else {
+          existQuery = existQuery.is('stream_id', null);
+        }
+
+        const { data: existing, error: existErr } = await existQuery.maybeSingle();
+        if (existErr) throw existErr;
+
+        let timetableId: string;
+
+        if (existing) {
+          timetableId = existing.id;
+        } else {
+          // Next version for this class/stream
+          let vq = supabase
+            .from('timetables')
+            .select('version')
+            .eq('class_id', result.classId)
+            .eq('term', term)
+            .eq('academic_year', year)
+            .order('version', { ascending: false })
+            .limit(1);
+
+          if (result.streamId !== null) {
+            vq = vq.eq('stream_id', result.streamId);
+          } else {
+            vq = vq.is('stream_id', null);
+          }
+
+          const { data: versionRows } = await vq;
+          const nextVersion = ((versionRows?.[0]?.version) ?? 0) + 1;
+
+          const { data: newRow, error: insertErr } = await supabase
+            .from('timetables')
+            .insert({
+              school_id: schoolId,
+              class_id: result.classId,
+              stream_id: result.streamId,
+              academic_year: year,
+              term,
+              status: 'staging',
+              version: nextVersion,
+              generation_id: generationId,
+              generated_at: new Date().toISOString(),
+            })
+            .select('id')
+            .single();
+          if (insertErr) throw insertErr;
+          timetableId = newRow.id;
+        }
+
+        // Clear non-locked slots so re-save is safe
+        const { error: delSlotsErr } = await supabase
+          .from('timetable_slots')
+          .delete()
+          .eq('timetable_id', timetableId)
+          .eq('is_locked', false);
+        if (delSlotsErr) throw delSlotsErr;
+
+        // Insert generated slots — strip joined / auto-generated fields
+        if (result.slots.length > 0) {
+          const slotRows = result.slots.map((s) => ({
+            timetable_id: timetableId,
+            period_id: s.period_id,
+            day_of_week: s.day_of_week,
+            subject_id: s.subject_id,
+            teacher_id: s.teacher_id,
+            special_room_id: s.special_room_id,
+            is_locked: false,
+            notes: s.notes ?? null,
+          }));
+
+          const { error: slotsErr } = await supabase
+            .from('timetable_slots')
+            .insert(slotRows);
+          if (slotsErr) throw slotsErr;
+        }
+
+        savedIds.push(timetableId);
+      }
+    } catch (err) {
+      // Rollback: delete ALL staging rows — slots cascade-delete with them
+      await supabase
+        .from('timetables')
+        .delete()
+        .eq('school_id', schoolId)
+        .eq('generation_id', generationId)
+        .eq('status', 'staging');
+      throw err; // no silent failures (spec §7)
+    }
+
+    // ── Phase 2: promote all staging → draft ───────────────────────────────
+    const { error: promoteErr } = await supabase
+      .from('timetables')
+      .update({ status: 'draft' })
+      .eq('school_id', schoolId)
+      .eq('generation_id', generationId)
+      .eq('status', 'staging');
+
+    if (promoteErr) {
+      await supabase
+        .from('timetables')
+        .delete()
+        .eq('school_id', schoolId)
+        .eq('generation_id', generationId)
+        .eq('status', 'staging');
+      throw promoteErr; // no silent failures (spec §7)
+    }
+
+    return { savedCount: savedIds.length, timetableIds: savedIds };
   },
 
   // ============================================================

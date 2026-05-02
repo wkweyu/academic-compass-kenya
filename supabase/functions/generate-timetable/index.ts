@@ -5,6 +5,28 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const MAX_BACKTRACK_DEFAULT = 1000;
 
+// ============================================================
+// Seeded PRNG — mulberry32 (spec §2.1)
+// ============================================================
+function mulberry32(seed: number): () => number {
+  let s = seed >>> 0;
+  return function () {
+    s += 0x6d2b79f5;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) >>> 0;
+    return ((t ^ (t >>> 14)) >>> 0) / 0x100000000;
+  };
+}
+
+function seededShuffle<T>(arr: T[], rand: () => number): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 interface SchedulingConstraints {
   avoidBackToBack: boolean;
   evenDistribution: boolean;
@@ -27,6 +49,10 @@ interface GenerateRequest {
   year: number;
   constraints: SchedulingConstraints;
   preserveLocked: boolean;
+  // School-mode extensions
+  mode?: 'class' | 'school';
+  schoolId?: number;
+  seed?: number;
 }
 
 Deno.serve(async (req) => {
@@ -53,10 +79,731 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400 });
   }
 
-  const { classId, streamId, term, year, constraints, preserveLocked } = body;
+  const { classId, streamId, term, year, constraints, preserveLocked, mode = 'class', schoolId, seed } = body;
 
-  if (!classId || !term || !year || !constraints) {
-    return new Response(JSON.stringify({ error: 'Missing required fields: classId, term, year, constraints' }), { status: 400 });
+  if (!term || !year || !constraints) {
+    return new Response(JSON.stringify({ error: 'Missing required fields: term, year, constraints' }), { status: 400 });
+  }
+
+  // ============================================================
+  // SCHOOL-WIDE MODE — single batched data load, no per-class queries
+  // ============================================================
+  if (mode === 'school') {
+    if (!schoolId) {
+      return new Response(JSON.stringify({ error: 'schoolId is required for school mode' }), { status: 400 });
+    }
+
+    const effectiveSeed = seed ?? Date.now();
+
+    try {
+      // ── Round 1: all classes for this school ──────────────────
+      const { data: classes, error: classesErr } = await supabase
+        .from('classes')
+        .select('id, name, grade_level')
+        .eq('school_id', schoolId)
+        .eq('is_active', true)
+        .order('id', { ascending: true });
+      if (classesErr) throw classesErr;
+
+      const classIds: number[] = (classes ?? []).map((c: any) => c.id);
+      if (classIds.length === 0) {
+        return new Response(
+          JSON.stringify({ error: 'No active classes found for this school' }),
+          { status: 422, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } },
+        );
+      }
+
+      // ── Round 2: single Promise.all — everything needing classIds or schoolId ─
+      const [
+        csResult,
+        streamsResult,
+        periodsResult,
+        roomsResult,
+        calResult,
+        timetablesResult,
+      ] = await Promise.all([
+        // All class_subjects for ALL classes in one query (no per-class loops)
+        supabase
+          .from('class_subjects')
+          .select(`id, class_id, stream_id, subject_id, teacher_id,
+            periods_per_week, is_double, requires_special_room,
+            preferred_room_type, priority,
+            subject:subjects(id, name, code),
+            teacher:teachers(id, first_name, last_name)`)
+          .in('class_id', classIds)
+          .eq('is_active', true)
+          .order('class_id', { ascending: true })
+          .order('subject_id', { ascending: true }),
+
+        // All streams for these classes
+        supabase
+          .from('streams')
+          .select('id, class_id, name, current_enrollment')
+          .in('class_id', classIds)
+          .eq('is_active', true),
+
+        // All periods for the school
+        supabase
+          .from('school_periods')
+          .select('*')
+          .eq('school_id', schoolId)
+          .order('order_index', { ascending: true }),
+
+        // All active special rooms for the school
+        supabase
+          .from('special_rooms')
+          .select('*')
+          .eq('school_id', schoolId)
+          .eq('is_active', true)
+          .order('room_type', { ascending: true })
+          .order('id', { ascending: true }),
+
+        // Calendar events that could black out slots
+        supabase
+          .from('school_calendar_events')
+          .select('start_date, end_date, affected_period_ids, affects_all_classes, affected_class_ids')
+          .eq('school_id', schoolId)
+          .eq('academic_year', year)
+          .or(`term.eq.${term},term.is.null`),
+
+        // Non-archived timetables for school/term/year — we need their IDs for locked slots
+        supabase
+          .from('timetables')
+          .select('id, class_id, stream_id')
+          .eq('school_id', schoolId)
+          .eq('term', term)
+          .eq('academic_year', year)
+          .neq('status', 'archived'),
+      ]);
+
+      if (csResult.error) throw csResult.error;
+      if (streamsResult.error) throw streamsResult.error;
+      if (periodsResult.error) throw periodsResult.error;
+      if (roomsResult.error) throw roomsResult.error;
+      if (calResult.error) throw calResult.error;
+      if (timetablesResult.error) throw timetablesResult.error;
+
+      const allClassSubjects: any[] = csResult.data ?? [];
+      const allStreams: any[] = streamsResult.data ?? [];
+      const allPeriods: any[] = periodsResult.data ?? [];
+      const allRooms: any[] = (roomsResult.data as any[]) ?? [];
+      const timetableIds: string[] = (timetablesResult.data ?? []).map((t: any) => t.id);
+
+      // Derive teacher/room sets for occupancy RPCs — no per-class iteration
+      const uniqueTeacherIds: number[] = [
+        ...new Set(allClassSubjects.filter((cs: any) => cs.teacher_id).map((cs: any) => cs.teacher_id as number)),
+      ].sort((a, b) => a - b);
+      const allRoomIds: string[] = allRooms.map((r: any) => r.id as string);
+
+      // ── Round 3: single Promise.all — occupancy maps + locked slots ─────────
+      const [
+        teacherOccResult,
+        roomOccResult,
+        teacherLoadResult,
+        roomUsageResult,
+        lockedSlotsResult,
+      ] = await Promise.all([
+        uniqueTeacherIds.length > 0
+          ? supabase.rpc('get_teacher_occupied_slots', { teacher_ids: uniqueTeacherIds, p_term: term, p_year: year })
+          : Promise.resolve({ data: [], error: null }),
+
+        allRoomIds.length > 0
+          ? supabase.rpc('get_special_room_occupied_slots', { room_ids: allRoomIds, p_term: term, p_year: year })
+          : Promise.resolve({ data: [], error: null }),
+
+        uniqueTeacherIds.length > 0
+          ? supabase.rpc('get_teacher_weekly_load', { teacher_ids: uniqueTeacherIds, p_term: term, p_year: year })
+          : Promise.resolve({ data: [], error: null }),
+
+        allRoomIds.length > 0
+          ? supabase.rpc('get_special_room_usage_count', { room_ids: allRoomIds, p_term: term, p_year: year })
+          : Promise.resolve({ data: [], error: null }),
+
+        // ALL locked slots across all existing timetables for this school — single IN query
+        timetableIds.length > 0
+          ? supabase
+              .from('timetable_slots')
+              .select('*')
+              .in('timetable_id', timetableIds)
+              .eq('is_locked', true)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+
+      if (teacherOccResult.error) throw teacherOccResult.error;
+      if (roomOccResult.error) throw roomOccResult.error;
+      if (teacherLoadResult.error) throw teacherLoadResult.error;
+      if (roomUsageResult.error) throw roomUsageResult.error;
+      if (lockedSlotsResult.error) throw lockedSlotsResult.error;
+
+      const allLockedSlots: any[] = (lockedSlotsResult.data as any[]) ?? [];
+
+      // ============================================================
+      // SHARED MAPS — seeded from DB data then overlaid with locked slots
+      // (spec §3.2)
+      // ============================================================
+
+      // teacherOccupancyMap  key: `${teacherId}_${day}_${periodId}`
+      const teacherOccupancyMap = new Map<string, boolean>();
+      for (const row of (teacherOccResult.data ?? [])) {
+        teacherOccupancyMap.set(`${row.teacher_id}_${row.day_of_week}_${row.period_id}`, true);
+      }
+
+      // roomOccupancyMap  key: `${roomId}_${day}_${periodId}`
+      const roomOccupancyMap = new Map<string, boolean>();
+      for (const row of (roomOccResult.data ?? [])) {
+        roomOccupancyMap.set(`${row.special_room_id}_${row.day_of_week}_${row.period_id}`, true);
+      }
+
+      // teacherLoadMap (weekly)  key: teacherId
+      const teacherLoadMap = new Map<number, number>();
+      for (const row of (teacherLoadResult.data ?? [])) {
+        teacherLoadMap.set(Number(row.teacher_id), Number(row.assigned_count));
+      }
+
+      // roomUsageMap  key: roomId
+      const roomUsageMap = new Map<string, number>();
+      for (const row of (roomUsageResult.data ?? [])) {
+        roomUsageMap.set(String(row.special_room_id), Number(row.usage_count));
+      }
+
+      // teacherDailyLoadMap  key: `${teacherId}_${day}`  — start at 0 from DB baseline
+      // (DB RPCs give per-slot rows; we aggregate to a daily count)
+      const teacherDailyLoadMap = new Map<string, number>();
+      for (const row of (teacherOccResult.data ?? [])) {
+        const k = `${row.teacher_id}_${row.day_of_week}`;
+        teacherDailyLoadMap.set(k, (teacherDailyLoadMap.get(k) ?? 0) + 1);
+      }
+
+      // Overlay locked slots — locked slots are NOT returned by the occupancy
+      // RPCs (which reflect already-persisted published/draft slots), so we
+      // must add them manually to ensure hard constraints respect locks.
+      for (const ls of allLockedSlots) {
+        if (ls.teacher_id) {
+          const occKey = `${ls.teacher_id}_${ls.day_of_week}_${ls.period_id}`;
+          teacherOccupancyMap.set(occKey, true);
+
+          const dailyKey = `${ls.teacher_id}_${ls.day_of_week}`;
+          teacherDailyLoadMap.set(dailyKey, (teacherDailyLoadMap.get(dailyKey) ?? 0) + 1);
+
+          teacherLoadMap.set(ls.teacher_id, (teacherLoadMap.get(ls.teacher_id) ?? 0) + 1);
+        }
+        if (ls.special_room_id) {
+          atomicAssignRoom(String(ls.special_room_id), ls.day_of_week, ls.period_id, roomOccupancyMap, roomUsageMap);
+        }
+      }
+
+      // ============================================================
+      // SCHEDULING — main assignment loop  (spec §3.1–§3.9)
+      // ============================================================
+
+      const TIMEOUT_MS = 50_000;
+      const STARVATION_THRESHOLD = 5;
+      const MAX_MICRO_BACKTRACKS = 50;
+      const TIGHT_BUFFER_RATIO = 0.15;
+      const DAYS = [1, 2, 3, 4, 5];
+      const rand = mulberry32(effectiveSeed); // single seeded PRNG for entire run
+      const startTime = Date.now();
+
+      const nonBreakPeriods: any[] = allPeriods.filter((p: any) => !p.is_break);
+
+      // ── Precompute valid double pairs per day (spec §3.4) ──────────────────
+      // MUST be precomputed, MUST NOT span breaks, MUST NOT be computed inline
+      const validDoublePairs = new Map<number, Array<[any, any]>>();
+      for (const d of DAYS) {
+        const dp = nonBreakPeriods
+          .filter((p: any) => p.days_of_week?.includes(d))
+          .sort((a: any, b: any) => a.order_index - b.order_index);
+        const pairs: Array<[any, any]> = [];
+        for (let i = 0; i < dp.length - 1; i++) {
+          if (dp[i + 1].order_index === dp[i].order_index + 1) pairs.push([dp[i], dp[i + 1]]);
+        }
+        validDoublePairs.set(d, pairs);
+      }
+
+      // ── Central blackoutSet (spec §3.5) ───────────────────────────────────
+      // key: `${dayOfWeek}_${periodId}` — single source of truth
+      const blackoutSet = new Set<string>();
+      for (const evt of (calResult.data ?? [])) {
+        const cur = new Date(evt.start_date);
+        const end = new Date(evt.end_date);
+        while (cur <= end) {
+          const dow = cur.getDay(); // 1=Mon…5=Fri
+          if (dow >= 1 && dow <= 5) {
+            if (evt.affected_period_ids?.length > 0) {
+              for (const pid of evt.affected_period_ids) blackoutSet.add(`${dow}_${pid}`);
+            } else {
+              for (const p of nonBreakPeriods) blackoutSet.add(`${dow}_${p.id}`);
+            }
+          }
+          cur.setDate(cur.getDate() + 1);
+        }
+      }
+      // Single source of truth checked in all three places (spec §3.5)
+      const isBlackout = (day: number, periodId: string): boolean =>
+        blackoutSet.has(`${day}_${periodId}`);
+
+      // ── Class lookup ───────────────────────────────────────────────────────
+      const classById = new Map<number, any>();
+      for (const c of (classes ?? [])) classById.set(c.id, c);
+
+      // ── Map timetableId → classKey for locked-slot grouping ───────────────
+      const timetableKeyMap = new Map<string, string>();
+      for (const t of (timetablesResult.data ?? [])) {
+        timetableKeyMap.set(t.id, `${t.class_id}_${t.stream_id ?? 'null'}`);
+      }
+
+      // ── Group locked slots by classKey ────────────────────────────────────
+      const classLockedSlots = new Map<string, any[]>();
+      for (const ls of allLockedSlots) {
+        const ck = timetableKeyMap.get(ls.timetable_id);
+        if (!ck) continue;
+        if (!classLockedSlots.has(ck)) classLockedSlots.set(ck, []);
+        classLockedSlots.get(ck)!.push(ls);
+      }
+
+      // ── Per-class grids, locked slots pre-populated ────────────────────────
+      // classKey: `${classId}_${streamId ?? 'null'}`
+      type Grid = Record<number, Record<string, any>>;
+      const classStreamKeys = new Set<string>();
+      for (const cs of allClassSubjects) {
+        classStreamKeys.add(`${cs.class_id}_${cs.stream_id ?? 'null'}`);
+      }
+      const classGrids = new Map<string, Grid>();
+      for (const key of classStreamKeys) {
+        const g: Grid = {};
+        for (const d of DAYS) {
+          g[d] = {};
+          for (const p of nonBreakPeriods) g[d][p.id] = null;
+        }
+        for (const ls of (classLockedSlots.get(key) ?? [])) {
+          if (g[ls.day_of_week]) g[ls.day_of_week][ls.period_id] = ls;
+        }
+        classGrids.set(key, g);
+      }
+
+      // ── Feasibility classification per class (spec §3.6) ──────────────────
+      interface FeasInfo {
+        feasibility: 'ok' | 'tight' | 'impossible';
+        required: number; available: number;
+        error?: { required: number; available: number };
+      }
+      const feasByKey = new Map<string, FeasInfo>();
+      for (const key of classStreamKeys) {
+        const [cIdStr, sIdStr] = key.split('_');
+        const cId = Number(cIdStr);
+        const sId = sIdStr === 'null' ? null : Number(sIdStr);
+        const cSubjects = allClassSubjects.filter(
+          (cs: any) => cs.class_id === cId && (cs.stream_id === sId || cs.stream_id === null),
+        );
+        const required = cSubjects.reduce((s: number, cs: any) => s + cs.periods_per_week, 0);
+        const grid = classGrids.get(key)!;
+        let available = 0;
+        for (const d of DAYS) {
+          for (const p of nonBreakPeriods) {
+            if (!p.days_of_week?.includes(d)) continue;
+            if (grid[d][p.id]) continue; // locked slot occupies this slot
+            if (isBlackout(d, p.id)) continue;
+            available++;
+          }
+        }
+        const impossible = required > available;
+        const tight = !impossible && (available - required) < available * TIGHT_BUFFER_RATIO;
+        feasByKey.set(key, {
+          feasibility: impossible ? 'impossible' : tight ? 'tight' : 'ok',
+          required, available,
+          error: impossible ? { required, available } : undefined,
+        });
+      }
+
+      // ── Global task queue (spec §3.1) ──────────────────────────────────────
+      interface Task {
+        classKey: string; classId: number; streamId: number | null; cs: any;
+        remainingPeriods: number;
+        attempts: number;       // consecutive failures — reset on success or starvation move
+        totalAttempts: number;  // cumulative — never reset, capped at maxTotalAttempts
+        maxTotalAttempts: number; // periods_per_week × 10 (spec §3.1)
+        boostedPriority: number;
+      }
+      const taskQueue: Task[] = [];
+      for (const key of classStreamKeys) {
+        if (feasByKey.get(key)!.feasibility === 'impossible') continue; // skip entirely (spec §3.6)
+        const [cIdStr, sIdStr] = key.split('_');
+        const cId = Number(cIdStr), sId = sIdStr === 'null' ? null : Number(sIdStr);
+        const cSubjects = allClassSubjects.filter(
+          (cs: any) => cs.class_id === cId && (cs.stream_id === sId || cs.stream_id === null),
+        );
+        for (const cs of cSubjects) {
+          taskQueue.push({
+            classKey: key, classId: cId, streamId: sId, cs,
+            remainingPeriods: cs.periods_per_week,
+            attempts: 0, totalAttempts: 0,
+            maxTotalAttempts: cs.periods_per_week * 10,
+            boostedPriority: cs.priority ?? 0,
+          });
+        }
+      }
+      // Stable sort: priority DESC → periods_per_week DESC → requires_special_room DESC
+      //              → classId ASC → subjectId ASC  (spec §3.1)
+      const sortTasks = (a: Task, b: Task): number => {
+        if (b.boostedPriority !== a.boostedPriority) return b.boostedPriority - a.boostedPriority;
+        if (b.cs.periods_per_week !== a.cs.periods_per_week) return b.cs.periods_per_week - a.cs.periods_per_week;
+        const ra = Number(a.cs.requires_special_room), rb = Number(b.cs.requires_special_room);
+        if (rb !== ra) return rb - ra;
+        if (a.classId !== b.classId) return a.classId - b.classId;
+        return a.cs.subject_id - b.cs.subject_id;
+      };
+      taskQueue.sort(sortTasks);
+
+      // ── Assignment history for micro-backtracking (spec §3.8) ─────────────
+      // ONLY isGenerated:true entries may ever be rolled back
+      interface HistEntry {
+        slot: any; classKey: string;
+        teacherId: number | null; roomId: string | null;
+        day: number; periodId: string;
+        isGenerated: true;
+      }
+      const assignmentHistory: HistEntry[] = [];
+      let microBacktrackOps = 0; // global cap: MAX_MICRO_BACKTRACKS total
+
+      // ── Per-class slot and unassigned tracking ─────────────────────────────
+      const generatedByClass = new Map<string, any[]>();
+      const unassignedByClass = new Map<string, any[]>();
+      for (const key of classStreamKeys) {
+        generatedByClass.set(key, []);
+        unassignedByClass.set(key, []);
+      }
+
+      // ── Retry queue — starvation protection (spec §3.7) ───────────────────
+      const retryQueue: Task[] = [];
+
+      // ── EMA durations for predictive timeout (spec §3.9) ──────────────────
+      const iterDurations: number[] = [];
+
+      // ── Class-size helper ─────────────────────────────────────────────────
+      const getClassSize = (key: string): number => {
+        const sid = key.split('_')[1];
+        if (sid === 'null') return 40;
+        const s = allStreams.find((st: any) => st.id === Number(sid));
+        return (s as any)?.current_enrollment ?? 40;
+      };
+
+      // ── tryAssignSlot: one single-period assignment attempt ────────────────
+      const tryAssignSlot = (task: Task): boolean => {
+        const { classKey, cs } = task;
+        const grid = classGrids.get(classKey)!;
+        const sz = getClassSize(classKey);
+        const teacherId: number | null = cs.teacher_id ?? null;
+
+        const candidates: { day: number; periodId: string; tb: number }[] = [];
+        for (const d of DAYS) {
+          for (const p of nonBreakPeriods) {
+            if (!p.days_of_week?.includes(d)) continue;
+            if (grid[d][p.id]) continue;
+            if (isBlackout(d, p.id)) continue; // spec §3.5
+            if (teacherId) {
+              if (teacherOccupancyMap.has(`${teacherId}_${d}_${p.id}`)) continue;
+              // HARD skip: daily load cap — not a score penalty (spec §2.3)
+              if ((teacherDailyLoadMap.get(`${teacherId}_${d}`) ?? 0) >= constraints.maxPeriodsPerDay) continue;
+            }
+            if (cs.requires_special_room) {
+              if (!selectRoom(cs, d, p.id, allRooms, roomOccupancyMap, roomUsageMap, sz)) continue;
+            }
+            candidates.push({ day: d, periodId: p.id, tb: rand() }); // seeded tiebreaker (spec §2.1)
+          }
+        }
+        if (candidates.length === 0) return false;
+
+        candidates.sort((a, b) => a.tb - b.tb);
+        const best = candidates[0];
+
+        let roomId: string | null = null;
+        if (cs.requires_special_room) {
+          const room = selectRoom(cs, best.day, best.periodId, allRooms, roomOccupancyMap, roomUsageMap, sz);
+          if (!room) return false; // room snatched between scan and commit
+          roomId = room.id;
+          atomicAssignRoom(roomId, best.day, best.periodId, roomOccupancyMap, roomUsageMap);
+        }
+
+        const slot = makeSlot(cs, best.day, best.periodId, roomId);
+        grid[best.day][best.periodId] = slot;
+        generatedByClass.get(classKey)!.push(slot);
+
+        if (teacherId) {
+          teacherOccupancyMap.set(`${teacherId}_${best.day}_${best.periodId}`, true);
+          const dk = `${teacherId}_${best.day}`;
+          teacherDailyLoadMap.set(dk, (teacherDailyLoadMap.get(dk) ?? 0) + 1);
+          teacherLoadMap.set(teacherId, (teacherLoadMap.get(teacherId) ?? 0) + 1);
+        }
+        assignmentHistory.push({
+          slot, classKey, teacherId, roomId,
+          day: best.day, periodId: best.periodId, isGenerated: true,
+        });
+        return true;
+      };
+
+      // ── tryAssignDouble: one consecutive double-period assignment attempt ──
+      const tryAssignDouble = (task: Task): boolean => {
+        const { classKey, cs } = task;
+        const grid = classGrids.get(classKey)!;
+        const sz = getClassSize(classKey);
+        const teacherId: number | null = cs.teacher_id ?? null;
+
+        // seededShuffle day order for determinism (spec §2.1)
+        const dayOrder = seededShuffle([...DAYS], rand);
+        for (const d of dayOrder) {
+          for (const [p1, p2] of (validDoublePairs.get(d) ?? [])) {
+            if (grid[d][p1.id] || grid[d][p2.id]) continue;
+            if (isBlackout(d, p1.id) || isBlackout(d, p2.id)) continue; // spec §3.5
+            if (teacherId) {
+              if (teacherOccupancyMap.has(`${teacherId}_${d}_${p1.id}`)) continue;
+              if (teacherOccupancyMap.has(`${teacherId}_${d}_${p2.id}`)) continue;
+              if ((teacherDailyLoadMap.get(`${teacherId}_${d}`) ?? 0) + 2 > constraints.maxPeriodsPerDay) continue;
+            }
+            let roomId: string | null = null;
+            if (cs.requires_special_room) {
+              const r1 = selectRoom(cs, d, p1.id, allRooms, roomOccupancyMap, roomUsageMap, sz);
+              if (!r1) continue;
+              const r2 = selectRoom(cs, d, p2.id, allRooms, roomOccupancyMap, roomUsageMap, sz);
+              if (!r2 || r2.id !== r1.id) continue; // must be the same room
+              roomId = r1.id;
+              atomicAssignRoom(roomId, d, p1.id, roomOccupancyMap, roomUsageMap);
+              atomicAssignRoom(roomId, d, p2.id, roomOccupancyMap, roomUsageMap);
+            }
+            const slot1 = makeSlot(cs, d, p1.id, roomId);
+            const slot2 = makeSlot(cs, d, p2.id, roomId);
+            grid[d][p1.id] = slot1;
+            grid[d][p2.id] = slot2;
+            generatedByClass.get(classKey)!.push(slot1, slot2);
+            if (teacherId) {
+              teacherOccupancyMap.set(`${teacherId}_${d}_${p1.id}`, true);
+              teacherOccupancyMap.set(`${teacherId}_${d}_${p2.id}`, true);
+              const dk = `${teacherId}_${d}`;
+              teacherDailyLoadMap.set(dk, (teacherDailyLoadMap.get(dk) ?? 0) + 2);
+              teacherLoadMap.set(teacherId, (teacherLoadMap.get(teacherId) ?? 0) + 2);
+            }
+            assignmentHistory.push(
+              { slot: slot1, classKey, teacherId, roomId, day: d, periodId: p1.id, isGenerated: true },
+              { slot: slot2, classKey, teacherId, roomId, day: d, periodId: p2.id, isGenerated: true },
+            );
+            return true;
+          }
+        }
+        return false;
+      };
+
+      // ── microBacktrack: roll back last n isGenerated history entries ───────
+      // spec §3.8: cap at MAX_MICRO_BACKTRACKS total, NEVER touch locked slots
+      const microBacktrack = (n: number): void => {
+        for (
+          let i = 0;
+          i < n && assignmentHistory.length > 0 && microBacktrackOps < MAX_MICRO_BACKTRACKS;
+          i++
+        ) {
+          const entry = assignmentHistory[assignmentHistory.length - 1];
+          if (!entry.isGenerated) break; // guard: never rollback locked/DB-loaded slots
+          assignmentHistory.pop();
+
+          const grid = classGrids.get(entry.classKey)!;
+          grid[entry.day][entry.periodId] = null;
+
+          const gen = generatedByClass.get(entry.classKey)!;
+          const idx = gen.lastIndexOf(entry.slot);
+          if (idx >= 0) gen.splice(idx, 1);
+
+          if (entry.teacherId) {
+            teacherOccupancyMap.delete(`${entry.teacherId}_${entry.day}_${entry.periodId}`);
+            const dk = `${entry.teacherId}_${entry.day}`;
+            const pd = teacherDailyLoadMap.get(dk) ?? 0;
+            if (pd <= 1) teacherDailyLoadMap.delete(dk); else teacherDailyLoadMap.set(dk, pd - 1);
+            const pw = teacherLoadMap.get(entry.teacherId) ?? 0;
+            if (pw <= 1) teacherLoadMap.delete(entry.teacherId); else teacherLoadMap.set(entry.teacherId, pw - 1);
+          }
+          if (entry.roomId) {
+            atomicReleaseRoom(entry.roomId, entry.day, entry.periodId, roomOccupancyMap, roomUsageMap);
+          }
+          microBacktrackOps++;
+        }
+      };
+
+      // ── Audit: generation start (best-effort — table requires timetable FK) (spec §6)
+      try {
+        await supabase.from('timetable_audit_logs').insert({
+          action: 'school_generation_start',
+          changes: { seed: effectiveSeed, classCount: classIds.length, term, year },
+        });
+      } catch { /* audit failure must never abort generation */ }
+
+      // ── MAIN ASSIGNMENT LOOP ──────────────────────────────────────────────
+      let timedOut = false;
+      let timedOutReason: 'elapsed' | 'predicted' | undefined;
+      let activeQueue: Task[] = [...taskQueue];
+
+      mainLoop: while (activeQueue.length > 0 || retryQueue.length > 0) {
+        // Predictive timeout: EMA of last 10 iteration durations (spec §3.9)
+        if (iterDurations.length >= 2) {
+          const window = iterDurations.slice(-10);
+          const avg = window.reduce((a, b) => a + b, 0) / window.length;
+          const remaining = TIMEOUT_MS - (Date.now() - startTime);
+          if ((activeQueue.length + retryQueue.length) * avg > remaining) {
+            timedOut = true; timedOutReason = 'predicted'; break mainLoop;
+          }
+        }
+        // Hard timeout (spec §3.9)
+        if (Date.now() - startTime >= TIMEOUT_MS) {
+          timedOut = true; timedOutReason = 'elapsed'; break mainLoop;
+        }
+
+        const iterStart = Date.now();
+
+        // Drain retry queue → active when main queue is empty
+        if (activeQueue.length === 0) {
+          activeQueue = retryQueue.splice(0);
+          activeQueue.sort(sortTasks);
+        }
+
+        const task = activeQueue.shift()!;
+
+        // Impossible classes are never enqueued; double-guard here
+        if (feasByKey.get(task.classKey)?.feasibility === 'impossible') continue;
+
+        // Exhaust check (spec §3.1)
+        if (task.totalAttempts >= task.maxTotalAttempts) {
+          unassignedByClass.get(task.classKey)!.push({
+            subjectId: task.cs.subject_id,
+            subjectName: task.cs.subject?.name ?? String(task.cs.subject_id),
+            teacherId: task.cs.teacher_id ?? undefined,
+            reason: 'exhausted_attempts',
+          });
+          continue;
+        }
+
+        task.totalAttempts++;
+
+        // Double subject with odd remainingPeriods cannot form a pair
+        const isDouble = !!task.cs.is_double;
+        if (isDouble && task.remainingPeriods < 2) {
+          unassignedByClass.get(task.classKey)!.push({
+            subjectId: task.cs.subject_id,
+            subjectName: task.cs.subject?.name ?? String(task.cs.subject_id),
+            teacherId: task.cs.teacher_id ?? undefined,
+            reason: 'no_valid_slot',
+          });
+          continue;
+        }
+
+        const success = isDouble ? tryAssignDouble(task) : tryAssignSlot(task);
+
+        if (success) {
+          task.remainingPeriods -= isDouble ? 2 : 1;
+          task.attempts = 0; // reset consecutive failure count
+          if (task.remainingPeriods > 0) activeQueue.push(task);
+        } else {
+          task.attempts++;
+
+          if (task.attempts >= STARVATION_THRESHOLD) {
+            // Starvation protection (spec §3.7): boost priority +1, move to retry queue
+            task.attempts = 0;
+            task.boostedPriority += 1;
+            retryQueue.push(task);
+          } else {
+            // Micro-backtrack: roll back 3–5 entries to open slots (spec §3.8)
+            if (microBacktrackOps < MAX_MICRO_BACKTRACKS) {
+              microBacktrack(3 + Math.floor(rand() * 3)); // 3, 4, or 5
+            }
+            activeQueue.push(task); // re-enqueue for retry
+          }
+        }
+
+        iterDurations.push(Date.now() - iterStart);
+      }
+
+      // Remaining tasks at timeout → mark timed-out (spec §3.9)
+      if (timedOut) {
+        for (const task of [...activeQueue, ...retryQueue]) {
+          if (task.remainingPeriods > 0) {
+            unassignedByClass.get(task.classKey)!.push({
+              subjectId: task.cs.subject_id,
+              subjectName: task.cs.subject?.name ?? String(task.cs.subject_id),
+              teacherId: task.cs.teacher_id ?? undefined,
+              reason: 'timeout',
+            });
+          }
+        }
+      }
+
+      // ── Global conflict detection across ALL classes (spec §2.2) ──────────
+      const allSlotsForConflict: any[] = [];
+      for (const slots of generatedByClass.values()) allSlotsForConflict.push(...slots);
+      for (const ls of allLockedSlots) allSlotsForConflict.push(ls);
+      const globalConflicts = detectConflicts(allSlotsForConflict, allPeriods, constraints);
+
+      // ── Per-class results (spec §4.2) ──────────────────────────────────────
+      const classResults: any[] = [];
+      for (const key of classStreamKeys) {
+        const [cIdStr, sIdStr] = key.split('_');
+        const cId = Number(cIdStr), sId = sIdStr === 'null' ? null : Number(sIdStr);
+        const feas = feasByKey.get(key)!;
+        const gen = generatedByClass.get(key) ?? [];
+        const locked = classLockedSlots.get(key) ?? [];
+        const allSlots = [...locked, ...gen];
+        const cls = classById.get(cId);
+        const stream = allStreams.find((s: any) => s.id === sId);
+        const slotConflicts = globalConflicts.filter((c: any) =>
+          c.affectedSlotIds?.some((id: string) => allSlots.find((s: any) => s.id === id)),
+        );
+        classResults.push({
+          classId: cId, streamId: sId,
+          className: cls?.name ?? String(cId),
+          streamName: stream?.name,
+          feasibility: feas.feasibility,
+          feasibilityError: feas.error,
+          slots: gen,
+          conflicts: slotConflicts,
+          unassigned: unassignedByClass.get(key) ?? [],
+          slotsFilled: gen.length,
+          slotsRequired: feas.required,
+        });
+      }
+
+      const executionTime = Date.now() - startTime;
+
+      // ── Audit: generation end (best-effort, spec §6) ──────────────────────
+      try {
+        await supabase.from('timetable_audit_logs').insert({
+          action: 'school_generation_end',
+          changes: {
+            seed: effectiveSeed, executionTime, timedOut, timedOutReason,
+            classCount: classResults.length,
+            totalSlots: allSlotsForConflict.length,
+            globalConflictCount: globalConflicts.length,
+          },
+        });
+      } catch { /* audit failure must never abort generation */ }
+
+      // ── Response (spec §4.1) ──────────────────────────────────────────────
+      return new Response(
+        JSON.stringify({
+          results: classResults,
+          globalConflicts,
+          executionTime,
+          timedOut,
+          timedOutReason,
+          seed: effectiveSeed,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } },
+      );
+    } catch (err: any) {
+      console.error('generate-timetable school-mode error:', err);
+      return new Response(
+        JSON.stringify({ error: err.message ?? 'Internal server error' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } },
+      );
+    }
+  }
+
+  // ── CLASS MODE (original, unchanged below this line) ──────────────────────
+  if (!classId) {
+    return new Response(JSON.stringify({ error: 'Missing required field: classId' }), { status: 400 });
   }
 
   const weights = {
@@ -555,6 +1302,43 @@ Deno.serve(async (req) => {
 // Helpers
 // ============================================================
 
+/**
+ * Atomically marks a room as occupied AND increments its usage counter.
+ * This is the ONLY function that may write to roomOccupancyMap / roomUsageMap
+ * during assignment. (spec §3.3)
+ */
+function atomicAssignRoom(
+  roomId: string,
+  day: number,
+  periodId: string,
+  roomOccupancyMap: Map<string, boolean>,
+  roomUsageMap: Map<string, number>,
+): void {
+  roomOccupancyMap.set(`${roomId}_${day}_${periodId}`, true);
+  roomUsageMap.set(roomId, (roomUsageMap.get(roomId) ?? 0) + 1);
+}
+
+/**
+ * Atomically releases a room booking AND decrements its usage counter.
+ * This is the ONLY function that may delete from roomOccupancyMap / roomUsageMap
+ * during rollback. (spec §3.3)
+ */
+function atomicReleaseRoom(
+  roomId: string,
+  day: number,
+  periodId: string,
+  roomOccupancyMap: Map<string, boolean>,
+  roomUsageMap: Map<string, number>,
+): void {
+  roomOccupancyMap.delete(`${roomId}_${day}_${periodId}`);
+  const prev = roomUsageMap.get(roomId) ?? 0;
+  if (prev <= 1) {
+    roomUsageMap.delete(roomId);
+  } else {
+    roomUsageMap.set(roomId, prev - 1);
+  }
+}
+
 function makeSlot(cs: any, day: number, periodId: string, roomId: string | null): any {
   return {
     id: crypto.randomUUID(),
@@ -591,14 +1375,7 @@ function selectRoom(
   return candidates[0];
 }
 
-function shuffled<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
+// shuffled() removed — replaced by seededShuffle(arr, rand) — see spec §2.1
 
 function detectConflicts(slots: any[], allPeriods: any[], constraints: any): any[] {
   const conflicts: any[] = [];
