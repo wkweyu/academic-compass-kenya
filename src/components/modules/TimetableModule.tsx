@@ -47,6 +47,31 @@ const TAB_ROUTES: Record<string, string> = {
   '/timetable/substitutions': 'substitutions',
 };
 
+const TeacherKey = ({ slots }: { slots: TimetableSlot[] }) => {
+  if (!slots.length) return null;
+  const displayMap = makeTeacherDisplayMap(slots);
+  const entries: { code: string; fullName: string }[] = [];
+  const seen = new Set<number>();
+  for (const s of slots) {
+    if (s.teacher && !seen.has(s.teacher.id)) {
+      seen.add(s.teacher.id);
+      entries.push({
+        code: displayMap.get(s.teacher.id) ?? '??',
+        fullName: `${s.teacher.first_name} ${s.teacher.last_name}`,
+      });
+    }
+  }
+  entries.sort((a, b) => a.code.localeCompare(b.code));
+  return (
+    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground border-t pt-2 mt-1 print:mt-2">
+      <span className="font-semibold text-foreground">Teacher Key:</span>
+      {entries.map((e) => (
+        <span key={e.code + e.fullName}><strong>{e.code}</strong> — {e.fullName}</span>
+      ))}
+    </div>
+  );
+};
+
 export const TimetableModule = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -439,47 +464,26 @@ export const TimetableModule = () => {
               </button>
             </div>
           ) : (
-            <TimetableGrid
-              slots={slots}
-              timetableId={timetable.id}
-              onSlotUpdated={handleSlotUpdate}
-              conflicts={conflicts}
-              classSize={streams.find((s) => s.id === selectedStreamId)?.current_enrollment ?? 40}
-              schoolId={schoolId!}
-              periods={schoolPeriods}
-              days={schoolDays}
-              printMeta={{
-                className: classes.find((c) => c.id === selectedClassId)?.name ?? '',
-                streamName: streams.find((s) => s.id === selectedStreamId)?.name,
-                term: selectedTerm,
-                year: selectedYear,
-                generatedAt: timetable.generated_at,
-              }}
-            />
-            {/* Teacher key — shown when there are slots */}
-            {slots.length > 0 && (() => {
-              const displayMap = makeTeacherDisplayMap(slots);
-              const entries: { code: string; fullName: string }[] = [];
-              const seen = new Set<number>();
-              for (const s of slots) {
-                if (s.teacher && !seen.has(s.teacher.id)) {
-                  seen.add(s.teacher.id);
-                  entries.push({
-                    code: displayMap.get(s.teacher.id) ?? '??',
-                    fullName: `${s.teacher.first_name} ${s.teacher.last_name}`,
-                  });
-                }
-              }
-              entries.sort((a, b) => a.code.localeCompare(b.code));
-              return (
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground border-t pt-2 mt-1 print:mt-2">
-                  <span className="font-semibold text-foreground">Teacher Key:</span>
-                  {entries.map((e) => (
-                    <span key={e.code + e.fullName}><strong>{e.code}</strong> — {e.fullName}</span>
-                  ))}
-                </div>
-              );
-            })()}
+            <>
+              <TimetableGrid
+                slots={slots}
+                timetableId={timetable.id}
+                onSlotUpdated={handleSlotUpdate}
+                conflicts={conflicts}
+                classSize={streams.find((s) => s.id === selectedStreamId)?.current_enrollment ?? 40}
+                schoolId={schoolId!}
+                periods={schoolPeriods}
+                days={schoolDays}
+                printMeta={{
+                  className: classes.find((c) => c.id === selectedClassId)?.name ?? '',
+                  streamName: streams.find((s) => s.id === selectedStreamId)?.name,
+                  term: selectedTerm,
+                  year: selectedYear,
+                  generatedAt: timetable.generated_at,
+                }}
+              />
+              <TeacherKey slots={slots} />
+            </>
           )}
 
           {/* Reports section below grid */}
