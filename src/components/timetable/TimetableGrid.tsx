@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
   DndContext,
   DragEndEvent,
@@ -8,17 +8,10 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import { timetableService } from '@/services/timetableService';
-import type { TimetableSlot, TimetableConflict } from '@/types/timetable';
+import type { TimetableSlot, TimetableConflict, SchoolPeriod, SchoolDay } from '@/types/timetable';
+import { makeTeacherDisplayMap } from '@/utils/timetableFormatters';
 import { TimetableSlotCard } from './TimetableSlotCard';
 import { useToast } from '@/hooks/use-toast';
-
-const DAYS = [
-  { key: 1, label: 'Monday' },
-  { key: 2, label: 'Tuesday' },
-  { key: 3, label: 'Wednesday' },
-  { key: 4, label: 'Thursday' },
-  { key: 5, label: 'Friday' },
-];
 
 interface Props {
   slots: TimetableSlot[];
@@ -27,6 +20,10 @@ interface Props {
   conflicts: TimetableConflict[];
   classSize: number;
   schoolId: number;
+  /** Authoritative ordered period list fetched from API */
+  periods: SchoolPeriod[];
+  /** Authoritative ordered day list fetched from API */
+  days: SchoolDay[];
   printMeta?: {
     schoolName?: string;
     className: string;
@@ -37,7 +34,10 @@ interface Props {
   };
 }
 
-export const TimetableGrid = ({ slots, timetableId, onSlotUpdated, conflicts, classSize, schoolId, printMeta }: Props) => {
+export const TimetableGrid = ({
+  slots, timetableId, onSlotUpdated, conflicts,
+  classSize, schoolId, periods, days, printMeta,
+}: Props) => {
   const { toast } = useToast();
 
   const sensors = useSensors(
@@ -45,14 +45,8 @@ export const TimetableGrid = ({ slots, timetableId, onSlotUpdated, conflicts, cl
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
   );
 
-  // Group slots by period
-  const periodIds = [...new Set(slots.map((s) => s.period_id))];
-  // Sort by period order_index if available
-  const sortedPeriodIds = periodIds.sort((a, b) => {
-    const pA = slots.find((s) => s.period_id === a)?.period;
-    const pB = slots.find((s) => s.period_id === b)?.period;
-    return (pA?.order_index ?? 0) - (pB?.order_index ?? 0);
-  });
+  // Build teacher display codes once per render — shared with all slot cards
+  const teacherDisplayMap = useMemo(() => makeTeacherDisplayMap(slots), [slots]);
 
   const getSlot = (day: number, periodId: string) =>
     slots.find((s) => s.day_of_week === day && s.period_id === periodId) ?? null;
@@ -74,6 +68,10 @@ export const TimetableGrid = ({ slots, timetableId, onSlotUpdated, conflicts, cl
 
       if (!fromSlot || !periodId || !toDay) return;
       if (fromSlot.is_locked) return;
+
+      // Guard: reject drops onto break periods
+      const targetPeriod = periods.find((p) => p.id === periodId);
+      if (!targetPeriod || targetPeriod.is_break) return;
 
       const occupyingSlot = getSlot(toDay, periodId);
 
@@ -99,8 +97,24 @@ export const TimetableGrid = ({ slots, timetableId, onSlotUpdated, conflicts, cl
         toast({ title: 'Move failed', description: err.message, variant: 'destructive' });
       }
     },
-    [slots, onSlotUpdated, toast]
+    [slots, periods, onSlotUpdated, toast]
   );
+
+  // Empty state guards
+  if (periods.length === 0) {
+    return (
+      <p className="py-8 text-center text-sm text-muted-foreground">
+        No periods configured. Go to the <strong>Periods &amp; Calendar</strong> tab to set them up.
+      </p>
+    );
+  }
+  if (days.length === 0) {
+    return (
+      <p className="py-8 text-center text-sm text-muted-foreground">
+        No school days configured.
+      </p>
+    );
+  }
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
@@ -127,30 +141,44 @@ export const TimetableGrid = ({ slots, timetableId, onSlotUpdated, conflicts, cl
           <thead>
             <tr>
               <th className="border border-border bg-muted px-3 py-2 text-left font-medium w-28">Period</th>
-              {DAYS.map((d) => (
-                <th key={d.key} className="border border-border bg-muted px-3 py-2 text-center font-medium min-w-[140px]">
-                  {d.label}
+              {days.map((d) => (
+                <th key={d.day_of_week} className="border border-border bg-muted px-3 py-2 text-center font-medium min-w-[130px]">
+                  {d.name}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {sortedPeriodIds.map((periodId) => {
-              const period = slots.find((s) => s.period_id === periodId)?.period;
+            {periods.map((period) => {
+              if (period.is_break) {
+                return (
+                  <tr key={period.id} className="bg-muted/50">
+                    <td className="border border-border px-3 py-1 font-medium text-xs whitespace-nowrap">
+                      <div>{period.name}</div>
+                      <div className="text-[10px] text-muted-foreground">{period.start_time}–{period.end_time}</div>
+                    </td>
+                    <td
+                      colSpan={days.length}
+                      className="border border-border px-3 py-1 text-center text-xs text-muted-foreground italic"
+                    >
+                      {period.name}
+                    </td>
+                  </tr>
+                );
+              }
+
               return (
-                <tr key={periodId} className={period?.is_break ? 'bg-muted/30' : ''}>
-                  <td className="border border-border px-3 py-1 font-medium text-xs">
-                    <div>{period?.name ?? '—'}</div>
-                    {period && (
-                      <div className="text-muted-foreground">{period.start_time}–{period.end_time}</div>
-                    )}
+                <tr key={period.id}>
+                  <td className="border border-border px-3 py-1 font-medium text-xs whitespace-nowrap">
+                    <div>{period.name}</div>
+                    <div className="text-[10px] text-muted-foreground">{period.start_time}–{period.end_time}</div>
                   </td>
-                  {DAYS.map((d) => {
-                    const slot = getSlot(d.key, periodId);
-                    const cellId = `${d.key}_${periodId}`;
+                  {days.map((d) => {
+                    const slot = getSlot(d.day_of_week, period.id);
+                    const cellId = `${d.day_of_week}_${period.id}`;
                     return (
                       <td
-                        key={d.key}
+                        key={d.day_of_week}
                         className="border border-border px-1 py-1 align-top"
                         data-droppable-id={cellId}
                       >
@@ -163,6 +191,7 @@ export const TimetableGrid = ({ slots, timetableId, onSlotUpdated, conflicts, cl
                             onUpdated={onSlotUpdated}
                             classSize={classSize}
                             schoolId={schoolId}
+                            teacherCode={teacherDisplayMap.get(slot.teacher_id ?? -1)}
                           />
                         ) : (
                           <div
@@ -182,3 +211,4 @@ export const TimetableGrid = ({ slots, timetableId, onSlotUpdated, conflicts, cl
     </DndContext>
   );
 };
+

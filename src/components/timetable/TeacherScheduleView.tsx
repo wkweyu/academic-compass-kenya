@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { timetableService } from '@/services/timetableService';
-import type { TimetableSlot, SchoolPeriod } from '@/types/timetable';
+import type { TimetableSlot, SchoolPeriod, SchoolDay } from '@/types/timetable';
 import { supabase } from '@/integrations/supabase/client';
 
 interface Teacher {
@@ -20,13 +20,12 @@ interface Props {
   year: number;
 }
 
-const DAY_LABELS = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-
 export const TeacherScheduleView = ({ schoolId, term, year }: Props) => {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [selectedTeacherId, setSelectedTeacherId] = useState<number | null>(null);
   const [date, setDate] = useState<string>('');
   const [periods, setPeriods] = useState<SchoolPeriod[]>([]);
+  const [days, setDays] = useState<SchoolDay[]>([]);
   const [slots, setSlots] = useState<TimetableSlot[]>([]);
 
   useEffect(() => {
@@ -36,6 +35,7 @@ export const TeacherScheduleView = ({ schoolId, term, year }: Props) => {
       .eq('school_id', schoolId)
       .then(({ data }) => setTeachers((data as Teacher[]) ?? []));
     timetableService.getSchoolPeriods(schoolId).then(setPeriods);
+    timetableService.getSchoolDays(schoolId).then(setDays);
   }, [schoolId]);
 
   useEffect(() => {
@@ -77,8 +77,8 @@ export const TeacherScheduleView = ({ schoolId, term, year }: Props) => {
               <thead>
                 <tr className="bg-muted">
                   <th className="border px-2 py-1">Period</th>
-                  {[1, 2, 3, 4, 5].map((d) => (
-                    <th key={d} className="border px-2 py-1">{DAY_LABELS[d]}</th>
+                  {days.map((d) => (
+                    <th key={d.day_of_week} className="border px-2 py-1">{d.short_name}</th>
                   ))}
                 </tr>
               </thead>
@@ -86,10 +86,10 @@ export const TeacherScheduleView = ({ schoolId, term, year }: Props) => {
                 {periods.filter((p) => !p.is_break).map((p) => (
                   <tr key={p.id}>
                     <td className="border px-2 py-1 font-medium whitespace-nowrap">{p.name}<div className="text-muted-foreground">{p.start_time}</div></td>
-                    {[1, 2, 3, 4, 5].map((d) => {
-                      const slot = slots.find((s) => s.period_id === p.id && s.day_of_week === d);
+                    {days.map((d) => {
+                      const slot = slots.find((s) => s.period_id === p.id && s.day_of_week === d.day_of_week);
                       return (
-                        <td key={d} className={`border px-2 py-1 ${slot?.isSubstituted ? 'bg-yellow-50' : ''}`}>
+                        <td key={d.day_of_week} className={`border px-2 py-1 ${slot?.isSubstituted ? 'bg-yellow-50' : ''}`}>
                           {slot ? (
                             <div>
                               <div className="font-medium">{(slot as any).subject?.name}</div>

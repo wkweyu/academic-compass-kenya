@@ -14,6 +14,17 @@ export interface SchoolPeriod {
   created_at: string;
 }
 
+export interface SchoolDay {
+  id: string;
+  school_id: number;
+  /** 1=Monday … 7=Sunday; matches TimetableSlot.day_of_week */
+  day_of_week: number;
+  name: string;       // e.g. "Monday", "Saturday"
+  short_name: string; // e.g. "Mon", "Sat"
+  order_index: number;
+  is_active: boolean;
+}
+
 export interface SpecialRoom {
   id: string;
   school_id: number;

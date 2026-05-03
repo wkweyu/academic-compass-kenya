@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import type {
   SchoolPeriod,
+  SchoolDay,
   SpecialRoom,
   SchoolCalendarEvent,
   Timetable,
@@ -63,6 +64,36 @@ export const timetableService = {
     }));
     const { error } = await supabase.from('school_periods').upsert(updates, { onConflict: 'id' });
     if (error) throw error;
+  },
+
+  // ============================================================
+  // School Days
+  // ============================================================
+
+  async getSchoolDays(schoolId: number): Promise<SchoolDay[]> {
+    const { data, error } = await supabase
+      .from('school_days')
+      .select('*')
+      .eq('school_id', schoolId)
+      .eq('is_active', true)
+      .order('order_index', { ascending: true })
+      .order('day_of_week', { ascending: true }); // tiebreaker — stable sort
+    if (error) throw error;
+    if (!data || data.length === 0) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn(
+          `[timetableService] getSchoolDays: school ${schoolId} has no configured days — using Mon-Fri fallback`
+        );
+      }
+      return [
+        { id: '1', school_id: schoolId, day_of_week: 1, name: 'Monday',    short_name: 'Mon', order_index: 0, is_active: true },
+        { id: '2', school_id: schoolId, day_of_week: 2, name: 'Tuesday',   short_name: 'Tue', order_index: 1, is_active: true },
+        { id: '3', school_id: schoolId, day_of_week: 3, name: 'Wednesday', short_name: 'Wed', order_index: 2, is_active: true },
+        { id: '4', school_id: schoolId, day_of_week: 4, name: 'Thursday',  short_name: 'Thu', order_index: 3, is_active: true },
+        { id: '5', school_id: schoolId, day_of_week: 5, name: 'Friday',    short_name: 'Fri', order_index: 4, is_active: true },
+      ];
+    }
+    return data as SchoolDay[];
   },
 
   // ============================================================

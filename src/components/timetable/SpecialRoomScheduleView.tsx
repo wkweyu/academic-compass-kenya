@@ -3,7 +3,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { timetableService } from '@/services/timetableService';
-import type { SpecialRoom, TimetableSlot, SchoolPeriod } from '@/types/timetable';
+import type { SpecialRoom, TimetableSlot, SchoolPeriod, SchoolDay } from '@/types/timetable';
 
 interface Props {
   schoolId: number;
@@ -11,21 +11,23 @@ interface Props {
   year: number;
 }
 
-const DAY_LABELS = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-
 export const SpecialRoomScheduleView = ({ schoolId, term, year }: Props) => {
   const [rooms, setRooms] = useState<SpecialRoom[]>([]);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [periods, setPeriods] = useState<SchoolPeriod[]>([]);
+  const [days, setDays] = useState<SchoolDay[]>([]);
   const [slots, setSlots] = useState<TimetableSlot[]>([]);
 
   useEffect(() => {
-    Promise.all([timetableService.getSpecialRooms(schoolId), timetableService.getSchoolPeriods(schoolId)]).then(
-      ([r, p]) => {
-        setRooms(r);
-        setPeriods(p);
-      }
-    );
+    Promise.all([
+      timetableService.getSpecialRooms(schoolId),
+      timetableService.getSchoolPeriods(schoolId),
+      timetableService.getSchoolDays(schoolId),
+    ]).then(([r, p, d]) => {
+      setRooms(r);
+      setPeriods(p);
+      setDays(d);
+    });
   }, [schoolId]);
 
   useEffect(() => {
@@ -57,8 +59,8 @@ export const SpecialRoomScheduleView = ({ schoolId, term, year }: Props) => {
               <thead>
                 <tr className="bg-muted">
                   <th className="border px-2 py-1">Period</th>
-                  {[1, 2, 3, 4, 5].map((d) => (
-                    <th key={d} className="border px-2 py-1">{DAY_LABELS[d]}</th>
+                  {days.map((d) => (
+                    <th key={d.day_of_week} className="border px-2 py-1">{d.short_name}</th>
                   ))}
                 </tr>
               </thead>
@@ -69,10 +71,10 @@ export const SpecialRoomScheduleView = ({ schoolId, term, year }: Props) => {
                       {p.name}
                       <div className="text-muted-foreground">{p.start_time}</div>
                     </td>
-                    {[1, 2, 3, 4, 5].map((d) => {
-                      const slot = slots.find((s) => s.period_id === p.id && s.day_of_week === d);
+                    {days.map((d) => {
+                      const slot = slots.find((s) => s.period_id === p.id && s.day_of_week === d.day_of_week);
                       return (
-                        <td key={d} className="border px-2 py-1">
+                        <td key={d.day_of_week} className="border px-2 py-1">
                           {slot ? (
                             <div>
                               <div className="font-medium">{(slot as any).subject?.name ?? '—'}</div>

@@ -16,7 +16,10 @@ import type {
   SchedulingConstraints,
   GenerationResult,
   SchoolGenerationResult,
+  SchoolPeriod,
+  SchoolDay,
 } from '@/types/timetable';
+import { makeTeacherDisplayMap, subjectDisplay } from '@/utils/timetableFormatters';
 import { TimetableGrid } from '@/components/timetable/TimetableGrid';
 import { ConflictBanner } from '@/components/timetable/ConflictBanner';
 import { GenerateTimetableDialog } from '@/components/timetable/GenerateTimetableDialog';
@@ -60,6 +63,10 @@ export const TimetableModule = () => {
   const [selectedYear, setSelectedYear] = useState<number>(TermManager.getCurrentYear());
   const [schoolId, setSchoolId] = useState<number | null>(null);
 
+  // Periods & days — authoritative lists from API
+  const [schoolPeriods, setSchoolPeriods] = useState<SchoolPeriod[]>([]);
+  const [schoolDays, setSchoolDays] = useState<SchoolDay[]>([]);
+
   // Timetable state
   const [timetable, setTimetable] = useState<Timetable | null>(null);
   const [slots, setSlots] = useState<TimetableSlot[]>([]);
@@ -89,7 +96,15 @@ export const TimetableModule = () => {
 
   const loadInitialData = async () => {
     const { data: sid } = await supabase.rpc('get_user_school_id');
-    if (sid) setSchoolId(sid);
+    if (sid) {
+      setSchoolId(sid);
+      const [periods, days] = await Promise.all([
+        timetableService.getSchoolPeriods(sid),
+        timetableService.getSchoolDays(sid),
+      ]);
+      setSchoolPeriods(periods);
+      setSchoolDays(days);
+    }
 
     const { data: classData } = await supabase
       .from('classes')
@@ -249,18 +264,29 @@ export const TimetableModule = () => {
   const handlePrint = () => window.print();
 
   const handleExportCSV = useCallback(() => {
-    if (!slots.length) return;
-    const DAYS = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-    const header = ['Period', 'Day', 'Subject', 'Teacher', 'Special Room', 'Locked'];
-    const rows = slots.map((s) => [
-      s.period?.name ?? s.period_id,
-      DAYS[s.day_of_week],
-      s.subject?.name ?? '',
-      s.teacher ? `${s.teacher.first_name} ${s.teacher.last_name}` : '',
-      s.special_room?.name ?? '',
-      s.is_locked ? 'Yes' : 'No',
-    ]);
-    const csv = [header, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    if (!slots.length || !schoolPeriods.length) return;
+    const displayMap = makeTeacherDisplayMap(slots);
+    const header = ['Period', 'Time', ...schoolDays.map((d) => d.name)];
+    const rows = schoolPeriods.map((p) => {
+      const time = `${p.start_time}–${p.end_time}`;
+      if (p.is_break) {
+        return [p.name, time, ...schoolDays.map(() => 'Break')];
+      }
+      return [
+        p.name,
+        time,
+        ...schoolDays.map((d) => {
+          const s = slots.find((sl) => sl.period_id === p.id && sl.day_of_week === d.day_of_week);
+          if (!s) return '';
+          const code = subjectDisplay(s.subject);
+          const teacherCode = s.teacher_id != null ? (displayMap.get(s.teacher_id) ?? '') : '';
+          return teacherCode ? `${code} (${teacherCode})` : code;
+        }),
+      ];
+    });
+    const csv = [header, ...rows]
+      .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -269,7 +295,7 @@ export const TimetableModule = () => {
     a.download = `timetable-${className}-term${selectedTerm}-${selectedYear}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [slots, classes, selectedClassId, selectedTerm, selectedYear]);
+  }, [slots, schoolPeriods, schoolDays, classes, selectedClassId, selectedTerm, selectedYear]);
 
   // ============================================================
   // Render
@@ -420,6 +446,8 @@ export const TimetableModule = () => {
               conflicts={conflicts}
               classSize={streams.find((s) => s.id === selectedStreamId)?.current_enrollment ?? 40}
               schoolId={schoolId!}
+              periods={schoolPeriods}
+              days={schoolDays}
               printMeta={{
                 className: classes.find((c) => c.id === selectedClassId)?.name ?? '',
                 streamName: streams.find((s) => s.id === selectedStreamId)?.name,
@@ -428,6 +456,30 @@ export const TimetableModule = () => {
                 generatedAt: timetable.generated_at,
               }}
             />
+            {/* Teacher key — shown when there are slots */}
+            {slots.length > 0 && (() => {
+              const displayMap = makeTeacherDisplayMap(slots);
+              const entries: { code: string; fullName: string }[] = [];
+              const seen = new Set<number>();
+              for (const s of slots) {
+                if (s.teacher && !seen.has(s.teacher.id)) {
+                  seen.add(s.teacher.id);
+                  entries.push({
+                    code: displayMap.get(s.teacher.id) ?? '??',
+                    fullName: `${s.teacher.first_name} ${s.teacher.last_name}`,
+                  });
+                }
+              }
+              entries.sort((a, b) => a.code.localeCompare(b.code));
+              return (
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground border-t pt-2 mt-1 print:mt-2">
+                  <span className="font-semibold text-foreground">Teacher Key:</span>
+                  {entries.map((e) => (
+                    <span key={e.code + e.fullName}><strong>{e.code}</strong> — {e.fullName}</span>
+                  ))}
+                </div>
+              );
+            })()}
           )}
 
           {/* Reports section below grid */}
@@ -478,7 +530,7 @@ export const TimetableModule = () => {
           year={selectedYear}
           onResult={handleGenerationResult}
           onClose={() => setShowGenerateDialog(false)}
-          schoolId={schoolId ?? undefined}
+          schoolId={schoolId}
           onSchoolResult={handleSchoolGenerationResult}
         />
       )}

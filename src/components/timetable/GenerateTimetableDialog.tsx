@@ -23,7 +23,7 @@ interface Props {
   onResult: (result: GenerationResult) => void;
   onClose: () => void;
   /** Required for school-wide generation */
-  schoolId?: number;
+  schoolId?: number | null;
   onSchoolResult?: (result: SchoolGenerationResult) => void;
 }
 
@@ -132,7 +132,7 @@ export const GenerateTimetableDialog = ({ classId, streamId, term, year, onResul
             )}
 
             {/* Scope toggle */}
-            {schoolId !== undefined && (
+            {schoolId != null && (
               <div className="flex items-center gap-3 p-3 border rounded-md bg-muted/40">
                 <Label className="text-sm font-medium">Generation scope</Label>
                 <div className="flex gap-1 ml-auto">

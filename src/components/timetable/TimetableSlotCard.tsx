@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { TimetableSlot } from '@/types/timetable';
+import { subjectDisplay } from '@/utils/timetableFormatters';
 import { SlotEditDialog } from './SlotEditDialog';
 
 // 12-color palette keyed by subject index (assigned at render time)
@@ -47,6 +48,8 @@ interface Props {
   onUpdated: (slot: TimetableSlot) => void;
   classSize: number;
   schoolId: number;
+  /** Pre-computed display code from makeTeacherDisplayMap (e.g. "JN", "JN2") */
+  teacherCode?: string;
 }
 
 export const TimetableSlotCard = ({
@@ -57,6 +60,7 @@ export const TimetableSlotCard = ({
   onUpdated,
   classSize,
   schoolId,
+  teacherCode,
 }: Props) => {
   const [editOpen, setEditOpen] = useState(false);
 
@@ -89,20 +93,24 @@ export const TimetableSlotCard = ({
           ${isDragging ? 'opacity-50 shadow-lg' : ''}
         `}
       >
-        {/* Subject name */}
-        <div className="font-semibold leading-tight truncate">
-          {slot.subject?.name ?? '—'}
+        {/* Subject: show code as primary, full name as tooltip + small subtitle */}
+        <div className="font-semibold leading-tight truncate" title={slot.subject?.name}>
+          {subjectDisplay(slot.subject)}
         </div>
+        {slot.subject?.code?.trim() && (
+          <div className="text-[9px] opacity-60 truncate leading-tight">{slot.subject.name}</div>
+        )}
 
-        {/* Teacher */}
+        {/* Teacher: show pre-computed initials code with full name as tooltip */}
         {slot.teacher && (
-          <div className="text-[10px] leading-tight truncate opacity-80">
+          <div
+            className="text-[10px] leading-tight truncate opacity-80"
+            title={`${slot.teacher.first_name} ${slot.teacher.last_name}`}
+          >
             {slot.isSubstituted ? (
-              <span className="text-yellow-700 font-medium">
-                {slot.teacher.first_name} {slot.teacher.last_name}
-              </span>
+              <span className="text-yellow-700 font-medium">{teacherCode ?? '??'}</span>
             ) : (
-              `${slot.teacher.first_name} ${slot.teacher.last_name}`
+              teacherCode ?? '??'
             )}
           </div>
         )}
