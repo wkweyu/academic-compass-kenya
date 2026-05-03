@@ -101,14 +101,13 @@ Deno.serve(async (req) => {
         .from('classes')
         .select('id, name, grade_level')
         .eq('school_id', schoolId)
-        .eq('is_active', true)
         .order('id', { ascending: true });
       if (classesErr) throw classesErr;
 
       const classIds: number[] = (classes ?? []).map((c: any) => c.id);
       if (classIds.length === 0) {
         return new Response(
-          JSON.stringify({ error: 'No active classes found for this school' }),
+          JSON.stringify({ error: 'No classes found for this school' }),
           { status: 422, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } },
         );
       }
@@ -139,8 +138,7 @@ Deno.serve(async (req) => {
         supabase
           .from('streams')
           .select('id, class_id, name, current_enrollment')
-          .in('class_id', classIds)
-          .eq('is_active', true),
+          .in('class_id', classIds),
 
         // All periods for the school
         supabase
