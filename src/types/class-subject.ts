@@ -11,6 +11,10 @@ export interface ClassSubject {
   is_compulsory: boolean;
   periods_per_week: number | null;
   subject_group_id: number | null;
+  is_double: boolean;
+  priority: number;
+  requires_special_room: boolean;
+  preferred_room_type: 'lab' | 'computer' | 'hall' | 'library' | 'other' | null;
   created_at: string;
   updated_at: string;
   // Joined data
@@ -75,6 +79,10 @@ export interface ClassSubjectFormData {
   is_compulsory: boolean;
   periods_per_week?: number;
   subject_group_id?: number | null;
+  is_double?: boolean;
+  priority?: number;
+  requires_special_room?: boolean;
+  preferred_room_type?: 'lab' | 'computer' | 'hall' | 'library' | 'other' | null;
 }
 
 export interface SubjectGroupFormData {

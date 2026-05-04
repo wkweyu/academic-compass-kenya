@@ -64,6 +64,7 @@ const studentNavigation = [
       { id: 'timetable-substitutions', title: 'Substitutions', url: '/timetable/substitutions' },
     ]
   },
+  { id: 'my-timetable', title: 'My Timetable', url: '/my-timetable', icon: CalendarDays },
 ];
 
 const staffNavigation = [

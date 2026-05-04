@@ -48,7 +48,11 @@ export const ClassSubjectsTab = ({ classes, teachers }: ClassSubjectsTabProps) =
     is_examinable: true,
     is_compulsory: true,
     periods_per_week: 3,
-    subject_group_id: null
+    subject_group_id: null,
+    is_double: false,
+    priority: 0,
+    requires_special_room: false,
+    preferred_room_type: null
   });
   
   const [groupForm, setGroupForm] = useState<SubjectGroupFormData>({
@@ -312,7 +316,11 @@ export const ClassSubjectsTab = ({ classes, teachers }: ClassSubjectsTabProps) =
       is_examinable: true,
       is_compulsory: true,
       periods_per_week: 3,
-      subject_group_id: null
+      subject_group_id: null,
+      is_double: false,
+      priority: 0,
+      requires_special_room: false,
+      preferred_room_type: null
     });
   };
 
@@ -453,6 +461,70 @@ export const ClassSubjectsTab = ({ classes, teachers }: ClassSubjectsTabProps) =
                           }))}
                         />
                       </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label>Double Period</Label>
+                          <p className="text-xs text-muted-foreground">Schedule as consecutive paired slots</p>
+                        </div>
+                        <Switch
+                          checked={subjectForm.is_double ?? false}
+                          onCheckedChange={(c) => setSubjectForm(prev => ({ ...prev, is_double: c }))}
+                        />
+                      </div>
+
+                      <div className="grid gap-2">
+                        <Label>Priority (0–10)</Label>
+                        <p className="text-xs text-muted-foreground">Higher = scheduled first during generation</p>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={10}
+                          value={subjectForm.priority ?? 0}
+                          onChange={(e) => setSubjectForm(prev => ({
+                            ...prev,
+                            priority: Math.min(10, Math.max(0, parseInt(e.target.value) || 0))
+                          }))}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label>Special Room Required</Label>
+                          <p className="text-xs text-muted-foreground">Needs a lab, hall, or other special room</p>
+                        </div>
+                        <Switch
+                          checked={subjectForm.requires_special_room ?? false}
+                          onCheckedChange={(c) => setSubjectForm(prev => ({
+                            ...prev,
+                            requires_special_room: c,
+                            preferred_room_type: c ? prev.preferred_room_type : null
+                          }))}
+                        />
+                      </div>
+
+                      {subjectForm.requires_special_room && (
+                        <div className="grid gap-2">
+                          <Label>Room Type</Label>
+                          <Select
+                            value={subjectForm.preferred_room_type ?? 'any'}
+                            onValueChange={(v) => setSubjectForm(prev => ({
+                              ...prev,
+                              preferred_room_type: v === 'any' ? null : v as ClassSubjectFormData['preferred_room_type']
+                            }))}
+                          >
+                            <SelectTrigger><SelectValue placeholder="Select room type..." /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="any">Any special room</SelectItem>
+                              <SelectItem value="lab">Science Lab</SelectItem>
+                              <SelectItem value="computer">Computer Lab</SelectItem>
+                              <SelectItem value="hall">Hall</SelectItem>
+                              <SelectItem value="library">Library</SelectItem>
+                              <SelectItem value="other">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
 
                       <div className="flex items-center justify-between">
                         <div className="space-y-0.5">

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getStudents, getStudentById } from '@/services/studentService';
 import { getSiblings } from '@/services/guardianService';
 import { timetableService } from '@/services/timetableService';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -53,6 +54,27 @@ export default function StudentProfilePage() {
     queryKey: ['student-timetable-slots', studentTimetable?.id],
     queryFn: () => timetableService.getTimetableSlots(studentTimetable!.id),
     enabled: !!studentTimetable?.id,
+  });
+
+  // School ID — needed for periods and days (this is an admin view, use the admin's school)
+  const { data: schoolId } = useQuery({
+    queryKey: ['admin-school-id'],
+    queryFn: async () => {
+      const { data } = await supabase.rpc('get_user_school_id');
+      return data as number | null;
+    },
+  });
+
+  const { data: timetablePeriods = [] } = useQuery({
+    queryKey: ['school-periods', schoolId],
+    queryFn: () => timetableService.getSchoolPeriods(schoolId!),
+    enabled: !!schoolId,
+  });
+
+  const { data: timetableDays = [] } = useQuery({
+    queryKey: ['school-days', schoolId],
+    queryFn: () => timetableService.getSchoolDays(schoolId!),
+    enabled: !!schoolId,
   });
 
   if (isLoading) {
@@ -396,7 +418,9 @@ export default function StudentProfilePage() {
                   onSlotUpdated={() => {/* read-only — no updates */}}
                   conflicts={[]}
                   classSize={0}
-                  schoolId={0}
+                  schoolId={schoolId ?? 0}
+                  periods={timetablePeriods}
+                  days={timetableDays}
                   printMeta={{
                     className: student.current_class_name,
                     streamName: student.current_stream_name || null,

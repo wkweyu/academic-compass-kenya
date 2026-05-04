@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type {
   SchoolPeriod,
   SchoolDay,
+  SubjectConstraint,
   SpecialRoom,
   SchoolCalendarEvent,
   Timetable,
@@ -94,6 +95,50 @@ export const timetableService = {
       ];
     }
     return data as SchoolDay[];
+  },
+
+  // ============================================================
+  // Subject Constraints
+  // ============================================================
+
+  async getSubjectConstraints(schoolId: number): Promise<SubjectConstraint[]> {
+    const { data, error } = await supabase
+      .from('subject_constraints')
+      .select('*, subject_a:subjects!subject_a_id(id,name,code), subject_b:subjects!subject_b_id(id,name,code)')
+      .eq('school_id', schoolId)
+      .order('subject_a_id', { ascending: true })
+      .order('subject_b_id', { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as unknown as SubjectConstraint[];
+  },
+
+  async createSubjectConstraint(data: {
+    school_id: number;
+    subject_a_id: number;
+    subject_b_id: number;
+    constraint_type: SubjectConstraint['constraint_type'];
+    min_gap: number | null;
+    is_hard: boolean;
+    priority: number;
+  }): Promise<SubjectConstraint> {
+    if (data.subject_a_id === data.subject_b_id)
+      throw new Error('Invalid constraint: a subject cannot be constrained against itself');
+    // Enforce canonical ordering (DB CHECK requires subject_a_id < subject_b_id)
+    const [a, b] = data.subject_a_id < data.subject_b_id
+      ? [data.subject_a_id, data.subject_b_id]
+      : [data.subject_b_id, data.subject_a_id];
+    const { data: result, error } = await supabase
+      .from('subject_constraints')
+      .insert({ ...data, subject_a_id: a, subject_b_id: b })
+      .select('*, subject_a:subjects!subject_a_id(id,name,code), subject_b:subjects!subject_b_id(id,name,code)')
+      .single();
+    if (error) throw error;
+    return result as unknown as SubjectConstraint;
+  },
+
+  async deleteSubjectConstraint(id: string): Promise<void> {
+    const { error } = await supabase.from('subject_constraints').delete().eq('id', id);
+    if (error) throw error;
   },
 
   // ============================================================

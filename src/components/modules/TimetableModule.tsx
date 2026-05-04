@@ -30,6 +30,7 @@ import { TeacherScheduleView } from '@/components/timetable/TeacherScheduleView'
 import { SpecialRoomScheduleView } from '@/components/timetable/SpecialRoomScheduleView';
 import { PeriodSetupForm } from '@/components/timetable/PeriodSetupForm';
 import { SpecialRoomForm } from '@/components/timetable/SpecialRoomForm';
+import { SubjectConstraintsManager } from '@/components/timetable/SubjectConstraintsManager';
 import { CalendarEventsManager } from '@/components/timetable/CalendarEventsManager';
 import { SubstitutionForm } from '@/components/timetable/SubstitutionForm';
 import { SubstitutionList } from '@/components/timetable/SubstitutionList';
@@ -507,6 +508,7 @@ export const TimetableModule = () => {
             <>
               <PeriodSetupForm schoolId={schoolId} />
               <SpecialRoomForm schoolId={schoolId} />
+              <SubjectConstraintsManager schoolId={schoolId} />
               <CalendarEventsManager schoolId={schoolId} term={selectedTerm} year={selectedYear} />
             </>
           )}

@@ -51,6 +51,10 @@ export const classSubjectService = {
         is_compulsory: data.is_compulsory,
         periods_per_week: data.periods_per_week || 3,
         subject_group_id: data.subject_group_id || null,
+        is_double: data.is_double ?? false,
+        priority: data.priority ?? 0,
+        requires_special_room: data.requires_special_room ?? false,
+        preferred_room_type: data.preferred_room_type ?? null,
         is_active: true
       })
       .select(`

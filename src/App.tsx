@@ -36,6 +36,7 @@ import AccountingPage from "./pages/AccountingPage";
 import PayrollPage from "./pages/PayrollPage";
 import IGAPage from "./pages/IGAPage";
 import TimetablePage from "./pages/TimetablePage";
+import MyTimetablePage from "./pages/MyTimetablePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -92,6 +93,7 @@ const App = () => (
                 <Route path="/timetable/room" element={<TimetablePage />} />
                 <Route path="/timetable/periods" element={<TimetablePage />} />
                 <Route path="/timetable/substitutions" element={<TimetablePage />} />
+                <Route path="/my-timetable" element={<MyTimetablePage />} />
                 <Route path="/grading" element={<ComingSoonPage title="Grading" />} />
                 <Route path="/transport" element={<TransportPage />} />
                 <Route path="/procurement" element={<ProcurementPage />} />

@@ -25,6 +25,19 @@ export interface SchoolDay {
   is_active: boolean;
 }
 
+export interface SubjectConstraint {
+  id: string;
+  school_id: number;
+  subject_a_id: number;
+  subject_b_id: number;
+  constraint_type: 'no_consecutive' | 'no_same_day' | 'preferred_gap';
+  min_gap: number | null;
+  is_hard: boolean;
+  priority: number;
+  subject_a?: { id: number; name: string; code: string };
+  subject_b?: { id: number; name: string; code: string };
+}
+
 export interface SpecialRoom {
   id: string;
   school_id: number;
