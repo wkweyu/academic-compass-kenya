@@ -123,6 +123,8 @@ export const timetableService = {
   }): Promise<SubjectConstraint> {
     if (data.subject_a_id === data.subject_b_id)
       throw new Error('Invalid constraint: a subject cannot be constrained against itself');
+    if (data.constraint_type === 'preferred_gap' && (data.min_gap === null || data.min_gap === undefined))
+      throw new Error('min_gap is required for preferred_gap constraints');
     // Enforce canonical ordering (DB CHECK requires subject_a_id < subject_b_id)
     const [a, b] = data.subject_a_id < data.subject_b_id
       ? [data.subject_a_id, data.subject_b_id]
