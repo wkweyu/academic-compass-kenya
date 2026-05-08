@@ -27,6 +27,10 @@ export const getStudents = async (
       query = query.eq('status', params.status);
     }
 
+    if (params.gender) {
+      query = query.eq('gender', params.gender);
+    }
+
     const { data, error } = await query.order('created_at', { ascending: false });
     
     if (error) {

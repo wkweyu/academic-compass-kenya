@@ -79,6 +79,8 @@ const StudentManagementModule = () => {
   });
   const [showPrintDialog, setShowPrintDialog] = useState(false);
   const [printStudentData, setPrintStudentData] = useState<Omit<Student, 'id' | 'admission_number' | 'created_at' | 'updated_at'> | null>(null);
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [exportFilters, setExportFilters] = useState<StudentFilters>({});
   
   const queryClient = useQueryClient();
 
@@ -340,9 +342,14 @@ const StudentManagementModule = () => {
     }
   };
 
-  const handleExport = async () => {
+  const handleOpenExportDialog = () => {
+    setExportFilters({ ...filters }); // pre-fill from current page filters
+    setIsExportDialogOpen(true);
+  };
+
+  const handleExportFromDialog = async () => {
     try {
-      const blob = await exportStudents(filters);
+      const blob = await exportStudents(exportFilters);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -351,10 +358,64 @@ const StudentManagementModule = () => {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+      setIsExportDialogOpen(false);
       toast.success('Student data exported successfully');
-    } catch (error) {
+    } catch {
       toast.error('Failed to export student data');
     }
+  };
+
+  const handlePrintList = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    let tableRows = '';
+    let rowNum = 1;
+    sortedClassNames.forEach(className => {
+      const cls = groupedStudents[className];
+      tableRows += `<tr class="class-header"><td colspan="7"><strong>${escapeHtml(className)}</strong> &mdash; ${cls.length} student${cls.length !== 1 ? 's' : ''}</td></tr>`;
+      cls.forEach(s => {
+        const dob = new Date(s.date_of_birth);
+        const age = isNaN(dob.getTime()) ? '—' : String(new Date().getFullYear() - dob.getFullYear());
+        const stream = escapeHtml(s.current_stream_name || s.current_class_name || '—');
+        tableRows += `<tr>
+          <td>${rowNum++}</td>
+          <td>${escapeHtml(s.full_name)}</td>
+          <td>${escapeHtml(s.admission_number)}</td>
+          <td>${stream}</td>
+          <td>${s.gender === 'M' ? 'Male' : 'Female'}</td>
+          <td>${age}</td>
+          <td>${escapeHtml(s.guardian_phone || '—')}</td>
+        </tr>`;
+      });
+    });
+    const filterDesc = [
+      filters.status ? `Status: ${filters.status}` : '',
+      filters.gender ? `Gender: ${filters.gender === 'M' ? 'Male' : 'Female'}` : '',
+      filters.search ? `Search: "${filters.search}"` : '',
+    ].filter(Boolean).join(' · ');
+    printWindow.document.write(`<!DOCTYPE html><html lang="en"><head>
+      <meta charset="UTF-8"><title>Student List</title>
+      <style>
+        body { font-family: Arial, sans-serif; font-size: 11px; margin: 24px; color: #111; }
+        h1 { font-size: 16px; margin: 0 0 4px; }
+        .meta { font-size: 10px; color: #666; margin-bottom: 16px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #f0f0f0; text-align: left; padding: 6px 8px; border: 1px solid #ccc; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
+        td { padding: 5px 8px; border: 1px solid #ddd; }
+        tr:nth-child(even) td { background: #fafafa; }
+        tr.class-header td { background: #e4e4e4; font-size: 10.5px; padding: 4px 8px; border-top: 2px solid #bbb; }
+        @media print { body { margin: 0; } }
+      </style>
+    </head><body>
+      <h1>SkoolTrack Pro &mdash; Student List</h1>
+      <p class="meta">Printed ${new Date().toLocaleDateString()} &nbsp;|&nbsp; ${students.length} students${filterDesc ? ' &nbsp;|&nbsp; Filters: ' + escapeHtml(filterDesc) : ''}</p>
+      <table>
+        <thead><tr><th>#</th><th>Full Name</th><th>Adm. No.</th><th>Stream</th><th>Gender</th><th>Age</th><th>Guardian Phone</th></tr></thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+    </body></html>`);
+    printWindow.document.close();
+    setTimeout(() => { printWindow.print(); }, 300);
   };
 
   const handleDownloadTemplate = () => {
@@ -397,6 +458,15 @@ const StudentManagementModule = () => {
     ),
     [groupedStudents]
   );
+
+  const exportPreviewCount = useMemo(() => {
+    return students.filter(s => {
+      if (exportFilters.status && s.status !== exportFilters.status) return false;
+      if (exportFilters.gender && s.gender !== exportFilters.gender) return false;
+      if (exportFilters.class_id && s.current_class !== exportFilters.class_id) return false;
+      return true;
+    }).length;
+  }, [students, exportFilters]);
 
   // Track collapsed sections (empty = all expanded)
   const [collapsedClasses, setCollapsedClasses] = useState<Set<string>>(new Set());
@@ -455,7 +525,11 @@ const StudentManagementModule = () => {
             <Upload className="h-4 w-4 mr-2" />
             Import
           </Button>
-          <Button variant="outline" onClick={handleExport}>
+          <Button variant="outline" onClick={handlePrintList}>
+            <Printer className="h-4 w-4 mr-2" />
+            Print List
+          </Button>
+          <Button variant="outline" onClick={handleOpenExportDialog}>
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
@@ -1138,7 +1212,7 @@ const StudentManagementModule = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Print Dialog */}
+      {/* Print Dialog (admission form) */}
       <Dialog open={showPrintDialog} onOpenChange={setShowPrintDialog}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -1234,6 +1308,117 @@ const StudentManagementModule = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Export Dialog */}
+      <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="h-5 w-5" />
+              Export Students
+            </DialogTitle>
+            <DialogDescription>
+              Apply filters then download a CSV of matching students.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Class filter */}
+            <div className="space-y-1.5">
+              <Label>Class</Label>
+              <Select
+                value={exportFilters.class_id || 'all'}
+                onValueChange={v =>
+                  setExportFilters(p => ({ ...p, class_id: v === 'all' ? undefined : v }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All Classes" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Classes</SelectItem>
+                  {(classes || []).map((c: any) => (
+                    <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Status filter */}
+            <div className="space-y-1.5">
+              <Label>Status</Label>
+              <Select
+                value={exportFilters.status || 'all'}
+                onValueChange={v =>
+                  setExportFilters(p => ({ ...p, status: v === 'all' ? undefined : v }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All Statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  {STUDENT_STATUS_OPTIONS.map(o => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Gender filter */}
+            <div className="space-y-1.5">
+              <Label>Gender</Label>
+              <Select
+                value={exportFilters.gender || 'all'}
+                onValueChange={v =>
+                  setExportFilters(p => ({ ...p, gender: v === 'all' ? undefined : v as 'M' | 'F' }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All Genders" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Genders</SelectItem>
+                  {GENDER_OPTIONS.map(o => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Preview count */}
+            <div className="rounded-md bg-muted px-4 py-3 text-sm flex items-center justify-between">
+              <span>
+                <span className="font-semibold">{exportPreviewCount}</span>
+                <span className="text-muted-foreground">
+                  {' '}student{exportPreviewCount !== 1 ? 's' : ''} will be exported
+                </span>
+              </span>
+              {(exportFilters.class_id || exportFilters.status || exportFilters.gender) && (
+                <button
+                  className="text-xs text-primary underline"
+                  onClick={() => setExportFilters({})}
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsExportDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleExportFromDialog}
+              disabled={exportPreviewCount === 0}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export{exportPreviewCount > 0 ? ` (${exportPreviewCount})` : ''}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
