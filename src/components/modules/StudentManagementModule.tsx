@@ -83,7 +83,7 @@ const StudentManagementModule = () => {
   const queryClient = useQueryClient();
 
   // Fetch students
-  const { data: students, isLoading, error } = useQuery({
+  const { data: students = [], isLoading, error } = useQuery({
     queryKey: ['students', filters],
     queryFn: () => getStudents(filters),
   });
