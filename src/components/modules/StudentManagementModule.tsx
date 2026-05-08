@@ -641,99 +641,98 @@ const StudentManagementModule = () => {
                 </Badge>
               </button>
               {isExpanded(className) && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {groupedStudents[className].map((student) => (
-                    <Card key={student.id} className="hover:shadow-md transition-shadow">
-                      <CardHeader className="pb-3">
-                        <div className="flex items-start gap-3">
-                          <Avatar className="h-12 w-12">
-                            <AvatarImage src={student.photo || undefined} alt={student.full_name} />
-                            <AvatarFallback>
-                              {student.full_name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 min-w-0">
-                            <CardTitle className="text-lg truncate">{student.full_name}</CardTitle>
-                            <CardDescription>{student.admission_number}</CardDescription>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Badge className={getStatusBadgeColor(student.status)}>
-                                {student.status}
-                              </Badge>
-                              <Badge variant="outline" className="text-xs">
-                                {student.current_class_stream}
-                              </Badge>
-                            </div>
-                          </div>
+                <div className="border rounded-lg divide-y overflow-hidden">
+                  {groupedStudents[className].map((student) => {
+                    const age = new Date().getFullYear() - new Date(student.date_of_birth).getFullYear();
+                    const enrolledRaw = formatEnrollmentDate(student.enrollment_date);
+                    const enrolledLabel = enrolledRaw !== 'N/A'
+                      ? enrolledRaw
+                      : student.admission_year ? String(student.admission_year) : 'N/A';
+                    return (
+                      <div key={student.id} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors">
+                        <Avatar className="h-9 w-9 shrink-0">
+                          <AvatarImage src={student.photo || undefined} alt={student.full_name} />
+                          <AvatarFallback className="text-xs">
+                            {student.full_name.split(' ').map(n => n[0]).join('').slice(0, 3).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+
+                        {/* Name + admission number */}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm leading-tight truncate">{student.full_name}</p>
+                          <p className="text-xs text-muted-foreground">{student.admission_number}</p>
                         </div>
-                      </CardHeader>
-                      <CardContent className="pt-0">
-                        <div className="space-y-2 text-sm">
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <Calendar className="h-3 w-3" />
-                            <span>Age: {new Date().getFullYear() - new Date(student.date_of_birth).getFullYear()}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <Phone className="h-3 w-3" />
-                            <span className="truncate">{student.guardian_phone}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <GraduationCap className="h-3 w-3" />
-                            <span>{student.guardian_name}</span>
-                            {student.siblings && student.siblings.length > 0 && (
-                              <Badge variant="secondary" className="text-xs">
-                                +{student.siblings.length} sibling{student.siblings.length !== 1 ? 's' : ''}
-                              </Badge>
-                            )}
-                          </div>
+
+                        {/* Stream badge */}
+                        <Badge variant="outline" className="hidden sm:flex text-xs shrink-0">
+                          {student.current_stream_name || student.current_class_name}
+                        </Badge>
+
+                        {/* Gender · Age */}
+                        <span className="hidden md:block text-xs text-muted-foreground w-20 shrink-0">
+                          {student.gender === 'M' ? 'Male' : 'Female'} · {age}y
+                        </span>
+
+                        {/* Guardian phone */}
+                        <span className="hidden lg:block text-xs text-muted-foreground w-28 truncate shrink-0">
+                          {student.guardian_phone}
+                        </span>
+
+                        {/* Enrolled */}
+                        <span className="hidden xl:block text-xs text-muted-foreground w-20 shrink-0">
+                          {enrolledLabel}
+                        </span>
+
+                        {/* Status */}
+                        <Badge className={`${getStatusBadgeColor(student.status)} text-xs shrink-0`}>
+                          {student.status || 'active'}
+                        </Badge>
+
+                        {/* Actions */}
+                        <div className="flex gap-0.5 shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewStudent(student.id)}
+                            title="View"
+                            className="h-7 w-7 p-0"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditStudent(student.id)}
+                            title="Edit"
+                            className="h-7 w-7 p-0"
+                          >
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" title="More" className="h-7 w-7 p-0">
+                                <MoreVertical className="h-3.5 w-3.5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleTransferStudent(student)}>
+                                <ArrowRightLeft className="h-3.5 w-3.5 mr-2" />
+                                Transfer
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => handleDeleteStudent(student.id)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="h-3.5 w-3.5 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
-                        <Separator className="my-3" />
-                        <div className="flex justify-between items-center">
-                          <div className="text-xs text-muted-foreground">
-                            Enrolled: {formatEnrollmentDate(student.enrollment_date)}
-                          </div>
-                          <div className="flex gap-1 items-center">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleViewStudent(student.id)}
-                              title="View Details"
-                            >
-                              <Eye className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEditStudent(student.id)}
-                              title="Edit Student"
-                            >
-                              <Edit className="h-3 w-3" />
-                            </Button>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" title="More actions">
-                                  <MoreVertical className="h-3 w-3" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleTransferStudent(student)}>
-                                  <ArrowRightLeft className="h-3 w-3 mr-2" />
-                                  Transfer
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() => handleDeleteStudent(student.id)}
-                                  className="text-destructive focus:text-destructive"
-                                >
-                                  <Trash2 className="h-3 w-3 mr-2" />
-                                  Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

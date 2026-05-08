@@ -45,7 +45,9 @@ export function StudentLifecycleActions({
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [reason, setReason] = useState('');
 
-  const currentStatus = student.status as StudentLifecycleStatus;
+  // Fall back to 'active' when status is null/undefined so dropdown items always render
+  const currentStatus: StudentLifecycleStatus =
+    (student.status as StudentLifecycleStatus) || 'active';
 
   const isTerminal =
     currentStatus === 'graduated' ||
