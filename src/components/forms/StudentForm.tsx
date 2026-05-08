@@ -72,7 +72,7 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
     queryFn: () => classService.getClasses(),
   });
 
-  const { data: streams = [] } = useQuery({
+  const { data: streams = [], isLoading: streamsLoading } = useQuery({
     queryKey: ['streams'],
     queryFn: () => classService.getStreams(),
   });
@@ -204,16 +204,14 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
 
   // Get selected class ID for filtering streams (must be after form declaration)
   const selectedClassId = form.watch('current_class');
-  
-  console.log('Selected class ID:', selectedClassId);
-  console.log('All streams:', streams);
-  
+
+  // Normalize to number once — avoids "01" vs "1" edge cases
+  const normalizedClassId = selectedClassId ? Number(selectedClassId) : null;
+
   // Filter streams based on selected class
   const filteredStreams = streams.filter((stream: Stream) => {
-    if (!selectedClassId) return false; // Don't show any streams if no class selected
-    const match = stream.class_assigned === selectedClassId;
-    console.log(`Stream ${stream.name}: class_assigned=${stream.class_assigned}, match=${match}`);
-    return match;
+    if (!normalizedClassId) return false;
+    return Number(stream.class_assigned) === normalizedClassId;
   });
 
   return (
@@ -583,8 +581,12 @@ export function StudentForm({ initialData, onSubmit, onSuccess, isSubmitting }: 
                     <SelectTrigger><SelectValue placeholder={!selectedClassId ? "Select class first" : "Select stream"} /></SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {filteredStreams.length === 0 ? (
-                      <div className="px-4 py-2 text-sm text-muted-foreground">No streams available for this class</div>
+                    {streamsLoading ? (
+                      <div className="px-4 py-2 text-sm text-muted-foreground">Loading streams...</div>
+                    ) : filteredStreams.length === 0 ? (
+                      <div className="px-4 py-2 text-sm text-muted-foreground">
+                        {selectedClassId ? 'No streams for this class' : 'Select a class first'}
+                      </div>
                     ) : (
                       filteredStreams.map((stream: Stream) => (
                         <SelectItem key={stream.id} value={stream.id}>

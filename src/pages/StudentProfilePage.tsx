@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getStudents, getStudentById } from '@/services/studentService';
+import { getStudentById } from '@/services/studentService';
 import { getSiblings } from '@/services/guardianService';
 import { timetableService } from '@/services/timetableService';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,11 +14,13 @@ import { ArrowLeft, Edit, Phone, Mail, MapPin, Calendar, User, GraduationCap, Us
 import { StudentExamProgress } from '@/components/exams/StudentExamProgress';
 import { StudentFeesTab } from '@/components/fees/StudentFeesTab';
 import { TimetableGrid } from '@/components/timetable/TimetableGrid';
+import { StudentEditDialog } from '@/components/students/StudentEditDialog';
 import { TermManager } from '@/utils/termManager';
 
 export default function StudentProfilePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [isEditOpen, setIsEditOpen] = useState(false);
 
   const { data: student, isLoading, error } = useQuery({
     queryKey: ['student', id],
@@ -112,7 +115,7 @@ export default function StudentProfilePage() {
           <ArrowLeft size={16} />
           Back
         </Button>
-        <Button className="gap-2" onClick={() => navigate(`/students/${student.id}/edit`)}>
+        <Button className="gap-2" onClick={() => setIsEditOpen(true)}>
           <Edit size={16} />
           Edit Student
         </Button>
@@ -434,6 +437,12 @@ export default function StudentProfilePage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <StudentEditDialog
+        student={student}
+        open={isEditOpen}
+        onOpenChange={setIsEditOpen}
+      />
     </div>
   );
 }

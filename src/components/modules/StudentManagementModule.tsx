@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { escapeHtml } from '@/utils/escapeHtml';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -32,6 +32,9 @@ import {
   FileText,
   Printer,
   ArrowRightLeft,
+  ChevronDown,
+  ChevronRight,
+  MoreVertical,
 } from 'lucide-react';
 import { 
   getStudents, 
@@ -47,9 +50,11 @@ import {
 import { transferStudent } from '@/services/promotionService';
 import { findExistingGuardian } from '@/services/guardianService';
 import { StudentForm } from '@/components/forms/StudentForm';
+import { StudentEditDialog } from '@/components/students/StudentEditDialog';
 import AdmissionFormPrint from '@/components/AdmissionFormPrint';
 import { Student, StudentFilters, STUDENT_STATUS_OPTIONS, GENDER_OPTIONS } from '@/types/student';
 import { supabase } from '@/integrations/supabase/client';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 
 const StudentManagementModule = () => {
@@ -162,22 +167,7 @@ const StudentManagementModule = () => {
     },
   });
 
-  // Update student mutation
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<Student> }) => 
-      updateStudent(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['students'] });
-      queryClient.invalidateQueries({ queryKey: ['student-stats'] });
-      setIsEditDialogOpen(false);
-      setSelectedStudent(null);
-      toast.success('Student updated successfully');
-    },
-    onError: (error) => {
-      toast.error('Failed to update student');
-      console.error('Update student error:', error);
-    },
-  });
+  // Update student mutation handled by StudentEditDialog
 
   // Delete student mutation
   const deleteMutation = useMutation({
@@ -385,6 +375,40 @@ const StudentManagementModule = () => {
     return statusOption?.color || 'bg-gray-100 text-gray-800';
   };
 
+  const formatEnrollmentDate = (dateStr: string | null | undefined): string => {
+    if (!dateStr) return 'N/A';
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? 'N/A' : d.toLocaleDateString();
+  };
+
+  // Group students by class name with stable numeric ordering
+  const groupedStudents = useMemo(() => {
+    const grouped: Record<string, Student[]> = {};
+    for (const student of students) {
+      const key = student.current_class_name || 'Unassigned';
+      (grouped[key] ||= []).push(student);
+    }
+    return grouped;
+  }, [students]);
+
+  const sortedClassNames = useMemo(
+    () => Object.keys(groupedStudents).sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+    ),
+    [groupedStudents]
+  );
+
+  // Track collapsed sections (empty = all expanded)
+  const [collapsedClasses, setCollapsedClasses] = useState<Set<string>>(new Set());
+  const toggleClass = (name: string) => {
+    setCollapsedClasses(prev => {
+      const next = new Set(prev);
+      next.has(name) ? next.delete(name) : next.add(name);
+      return next;
+    });
+  };
+  const isExpanded = (name: string) => !collapsedClasses.has(name);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -454,8 +478,8 @@ const StudentManagementModule = () => {
         stats.female_students === 0 ? (
         <div className="text-muted-foreground">No students yet. Add your first student to see stats.</div>
       ) : stats ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+          <Card className="min-w-0">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Students</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
@@ -464,7 +488,7 @@ const StudentManagementModule = () => {
               <div className="text-2xl font-bold">{stats.total_students}</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="min-w-0">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Active Students</CardTitle>
               <UserCheck className="h-4 w-4 text-muted-foreground" />
@@ -473,7 +497,7 @@ const StudentManagementModule = () => {
               <div className="text-2xl font-bold text-green-600">{stats.active_students}</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="min-w-0">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Male Students</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
@@ -482,13 +506,31 @@ const StudentManagementModule = () => {
               <div className="text-2xl font-bold text-blue-600">{stats.male_students}</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="min-w-0">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Female Students</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-pink-600">{stats.female_students}</div>
+            </CardContent>
+          </Card>
+          <Card className="min-w-0">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Transferred</CardTitle>
+              <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-amber-600">{stats.students_by_status?.transferred ?? 0}</div>
+            </CardContent>
+          </Card>
+          <Card className="min-w-0">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Alumni</CardTitle>
+              <GraduationCap className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-600">{stats.students_by_status?.graduated ?? 0}</div>
             </CardContent>
           </Card>
         </div>
@@ -560,119 +602,144 @@ const StudentManagementModule = () => {
         </CardContent>
       </Card>
 
-      {/* Students Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {students.length === 0 ? (
-          <div className="col-span-full flex flex-col items-center justify-center py-12">
-            <Users className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">No students found</h3>
-            <p className="text-muted-foreground text-center">
-              {Object.keys(filters).length > 0 
-                ? "Try adjusting your search or filters" 
-                : "Get started by adding your first student"
-              }
-            </p>
-            {Object.keys(filters).length === 0 && (
-              <Button 
-                className="mt-4" 
-                onClick={() => setIsCreateDialogOpen(true)}
+      {/* Students by Class */}
+      {students.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12">
+          <Users className="h-12 w-12 text-muted-foreground mb-4" />
+          <h3 className="text-lg font-medium mb-2">No students found</h3>
+          <p className="text-muted-foreground text-center">
+            {Object.keys(filters).length > 0
+              ? "Try adjusting your search or filters"
+              : "Get started by adding your first student"
+            }
+          </p>
+          {Object.keys(filters).length === 0 && (
+            <Button
+              className="mt-4"
+              onClick={() => setIsCreateDialogOpen(true)}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add First Student
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {sortedClassNames.map(className => (
+            <div key={className}>
+              <button
+                type="button"
+                className="flex items-center gap-2 mb-3 hover:opacity-75 transition-opacity w-full text-left"
+                onClick={() => toggleClass(className)}
               >
-                <Plus className="h-4 w-4 mr-2" />
-                Add First Student
-              </Button>
-            )}
-          </div>
-        ) : (
-          students.map((student) => (
-            <Card key={student.id} className="hover:shadow-md transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex items-start gap-3">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src={student.photo || undefined} alt={student.full_name} />
-                    <AvatarFallback>
-                      {student.full_name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <CardTitle className="text-lg truncate">{student.full_name}</CardTitle>
-                    <CardDescription>{student.admission_number}</CardDescription>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge className={getStatusBadgeColor(student.status)}>
-                        {student.status}
-                      </Badge>
-                      <Badge variant="outline" className="text-xs">
-                        {student.current_class_stream}
-                      </Badge>
-                    </div>
-                  </div>
+                {isExpanded(className)
+                  ? <ChevronDown className="h-4 w-4 shrink-0" />
+                  : <ChevronRight className="h-4 w-4 shrink-0" />}
+                <span className="font-semibold text-base">{className}</span>
+                <Badge variant="secondary">
+                  {groupedStudents[className].length} student{groupedStudents[className].length !== 1 ? 's' : ''}
+                </Badge>
+              </button>
+              {isExpanded(className) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {groupedStudents[className].map((student) => (
+                    <Card key={student.id} className="hover:shadow-md transition-shadow">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start gap-3">
+                          <Avatar className="h-12 w-12">
+                            <AvatarImage src={student.photo || undefined} alt={student.full_name} />
+                            <AvatarFallback>
+                              {student.full_name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <CardTitle className="text-lg truncate">{student.full_name}</CardTitle>
+                            <CardDescription>{student.admission_number}</CardDescription>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge className={getStatusBadgeColor(student.status)}>
+                                {student.status}
+                              </Badge>
+                              <Badge variant="outline" className="text-xs">
+                                {student.current_class_stream}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="pt-0">
+                        <div className="space-y-2 text-sm">
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Calendar className="h-3 w-3" />
+                            <span>Age: {new Date().getFullYear() - new Date(student.date_of_birth).getFullYear()}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Phone className="h-3 w-3" />
+                            <span className="truncate">{student.guardian_phone}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <GraduationCap className="h-3 w-3" />
+                            <span>{student.guardian_name}</span>
+                            {student.siblings && student.siblings.length > 0 && (
+                              <Badge variant="secondary" className="text-xs">
+                                +{student.siblings.length} sibling{student.siblings.length !== 1 ? 's' : ''}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <Separator className="my-3" />
+                        <div className="flex justify-between items-center">
+                          <div className="text-xs text-muted-foreground">
+                            Enrolled: {formatEnrollmentDate(student.enrollment_date)}
+                          </div>
+                          <div className="flex gap-1 items-center">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewStudent(student.id)}
+                              title="View Details"
+                            >
+                              <Eye className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditStudent(student.id)}
+                              title="Edit Student"
+                            >
+                              <Edit className="h-3 w-3" />
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" title="More actions">
+                                  <MoreVertical className="h-3 w-3" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleTransferStudent(student)}>
+                                  <ArrowRightLeft className="h-3 w-3 mr-2" />
+                                  Transfer
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => handleDeleteStudent(student.id)}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="h-3 w-3 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Calendar className="h-3 w-3" />
-                    <span>Age: {new Date().getFullYear() - new Date(student.date_of_birth).getFullYear()}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Phone className="h-3 w-3" />
-                    <span className="truncate">{student.guardian_phone}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <GraduationCap className="h-3 w-3" />
-                    <span>{student.guardian_name}</span>
-                    {student.siblings && student.siblings.length > 0 && (
-                      <Badge variant="secondary" className="text-xs">
-                        +{student.siblings.length} sibling{student.siblings.length !== 1 ? 's' : ''}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-                <Separator className="my-3" />
-                <div className="flex justify-between items-center">
-                  <div className="text-xs text-muted-foreground">
-                    Enrolled: {new Date(student.enrollment_date).toLocaleDateString()}
-                  </div>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleViewStudent(student.id)}
-                      title="View Details"
-                    >
-                      <Eye className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleTransferStudent(student)}
-                      title="Transfer to Another Class"
-                    >
-                      <ArrowRightLeft className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEditStudent(student.id)}
-                      title="Edit Student"
-                    >
-                      <Edit className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteStudent(student.id)}
-                      className="text-destructive hover:text-destructive"
-                      title="Delete Student"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Results summary */}
       {students.length > 0 && (
@@ -837,26 +904,14 @@ const StudentManagementModule = () => {
       </Dialog>
 
       {/* Edit Student Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-5xl">
-          <DialogHeader>
-            <DialogTitle>Edit Student</DialogTitle>
-            <DialogDescription>
-              Update student information
-            </DialogDescription>
-          </DialogHeader>
-          {selectedStudent && (
-            <StudentForm
-              initialData={selectedStudent}
-              onSubmit={(data) => updateMutation.mutate({ 
-                id: selectedStudent.id, 
-                data 
-              })}
-              isSubmitting={updateMutation.isPending}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      <StudentEditDialog
+        student={selectedStudent}
+        open={isEditDialogOpen}
+        onOpenChange={(open) => {
+          setIsEditDialogOpen(open);
+          if (!open) setSelectedStudent(null);
+        }}
+      />
 
       {/* Import Dialog */}
       <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
