@@ -172,3 +172,48 @@ export const GUARDIAN_RELATIONSHIP_OPTIONS = [
   'Sibling',
   'Other',
 ];
+
+// ── Academic History & Lifecycle Types ─────────────────────────────────────
+
+export type AcademicHistoryEventType =
+  | 'admission'
+  | 'promotion'
+  | 'transfer'
+  | 'suspension'
+  | 'reinstatement'
+  | 'graduation'
+  | 'archival';
+
+export interface AcademicHistoryEvent {
+  id: string;
+  type: AcademicHistoryEventType;
+  date: string;
+  from?: string;
+  to?: string;
+  performedBy?: string;
+  notes?: string;
+}
+
+export interface AuditEntry {
+  id: string;
+  date: string;
+  user: string;
+  action: string;
+  changes: string[];
+}
+
+export type StudentLifecycleStatus =
+  | 'active'
+  | 'inactive'
+  | 'graduated'
+  | 'transferred'
+  | 'suspended'
+  | 'archived';
+
+export interface LifecycleTransitionRequest {
+  studentId: string;
+  fromStatus: StudentLifecycleStatus;
+  toStatus: StudentLifecycleStatus;
+  reason?: string;
+  performedBy?: string;
+}

@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getStudentById } from '@/services/studentService';
 import { getSiblings } from '@/services/guardianService';
 import { timetableService } from '@/services/timetableService';
@@ -15,12 +15,17 @@ import { StudentExamProgress } from '@/components/exams/StudentExamProgress';
 import { StudentFeesTab } from '@/components/fees/StudentFeesTab';
 import { TimetableGrid } from '@/components/timetable/TimetableGrid';
 import { StudentEditDialog } from '@/components/students/StudentEditDialog';
+import { AcademicHistoryTab } from '@/components/students/AcademicHistoryTab';
+import { StudentLifecycleActions } from '@/components/students/StudentLifecycleActions';
+import { getStudentAuditLog } from '@/services/studentHistoryService';
 import { TermManager } from '@/utils/termManager';
 
 export default function StudentProfilePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [showChangeHistory, setShowChangeHistory] = useState(false);
 
   const { data: student, isLoading, error } = useQuery({
     queryKey: ['student', id],
@@ -80,6 +85,13 @@ export default function StudentProfilePage() {
     enabled: !!schoolId,
   });
 
+  // Change history — only fetch when user explicitly expands the section
+  const { data: auditLog = [], isLoading: auditLoading } = useQuery({
+    queryKey: ['student-audit-log', id],
+    queryFn: () => getStudentAuditLog(id!),
+    enabled: !!id && showChangeHistory,
+  });
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -115,10 +127,18 @@ export default function StudentProfilePage() {
           <ArrowLeft size={16} />
           Back
         </Button>
-        <Button className="gap-2" onClick={() => setIsEditOpen(true)}>
-          <Edit size={16} />
-          Edit Student
-        </Button>
+        <div className="flex items-center gap-2">
+          {student && (
+            <StudentLifecycleActions
+              student={student}
+              onActionComplete={() => queryClient.invalidateQueries({ queryKey: ['student', id] })}
+            />
+          )}
+          <Button className="gap-2" onClick={() => setIsEditOpen(true)}>
+            <Edit size={16} />
+            Edit Student
+          </Button>
+        </div>
       </div>
 
       {/* Student Header Card */}
@@ -293,12 +313,51 @@ export default function StudentProfilePage() {
               <CardTitle>Academic History</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <GraduationCap size={48} className="mx-auto mb-4 opacity-50" />
-                <p>Academic history will be displayed here</p>
-                <p className="text-sm">Including grades, transfers, and promotions</p>
-              </div>
+              <AcademicHistoryTab studentId={student.id} />
             </CardContent>
+          </Card>
+
+          {/* Change History — lazy loaded */}
+          <Card>
+            <CardHeader className="cursor-pointer select-none" onClick={() => setShowChangeHistory((v) => !v)}>
+              <CardTitle className="flex items-center justify-between text-base">
+                <span>Change History</span>
+                <span className="text-xs text-muted-foreground font-normal">
+                  {showChangeHistory ? 'Hide' : 'Show'}
+                </span>
+              </CardTitle>
+            </CardHeader>
+            {showChangeHistory && (
+              <CardContent>
+                {auditLoading ? (
+                  <p className="text-sm text-muted-foreground py-4 text-center">Loading…</p>
+                ) : auditLog.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4 text-center">No changes recorded.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {auditLog.map((entry) => (
+                      <div key={entry.id} className="border rounded-md p-3 text-sm">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-medium capitalize">{entry.action.replace(/_/g, ' ')}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(entry.date).toLocaleString()}
+                          </span>
+                        </div>
+                        {entry.changes.length > 0 ? (
+                          <ul className="list-disc list-inside space-y-0.5 text-muted-foreground">
+                            {entry.changes.map((c, i) => (
+                              <li key={i}>{c}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="text-muted-foreground">No field changes recorded.</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            )}
           </Card>
         </TabsContent>
 
