@@ -39,8 +39,10 @@ class SupabaseJWTAuthentication(authentication.BaseAuthentication):
                 },
                 timeout=10,
             )
-        except requests.RequestException as exc:
-            raise AuthenticationFailed('Unable to validate Supabase session.') from exc
+        except requests.RequestException:
+            # Supabase is unreachable (e.g. project paused, DNS failure, network error).
+            # Return None so DRF tries the next authentication backend instead of hard-failing.
+            return None
 
         if response.status_code == 401:
             return None

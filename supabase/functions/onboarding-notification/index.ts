@@ -208,7 +208,7 @@ Deno.serve(async (req) => {
 
     const serviceClient = createClient(supabaseUrl, serviceRoleKey);
     const results: { email_sent: boolean; email_error?: string; communication_id?: number | null } = { email_sent: false };
-    const origin = req.headers.get("origin") || req.headers.get("referer") || "https://academic-compass-kenya.lovable.app";
+    const origin = req.headers.get("origin") || req.headers.get("referer") || Deno.env.get("APP_URL") || "https://academic-compass-web.onrender.com";
     const loginUrl = `${origin.replace(/\/$/, "")}/auth`;
     console.log("onboarding-notification: loginUrl =", loginUrl);
     const subject = "Welcome to SkoolTrack Pro — Your School Login Details";
