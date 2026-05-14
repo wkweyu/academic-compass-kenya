@@ -1400,7 +1400,7 @@ const SchoolDetailDialog = ({
 
     setRepairingAdmin(true);
     try {
-      await saasService.provisionSchoolAdminAccess({
+      const result = await saasService.provisionSchoolAdminAccess({
         schoolId: school.id,
         schoolCode: school.code,
         schoolName: form.name || school.name,
@@ -1409,7 +1409,12 @@ const SchoolDetailDialog = ({
         adminEmail: adminAccess.adminEmail,
         adminPassword: adminAccess.adminPassword,
       });
-      toast.success(`Admin access updated and emailed to ${adminAccess.adminEmail}`);
+      if (result?.warning) {
+        toast.success(`Admin access updated for ${adminAccess.adminEmail}`);
+        toast.warning(`Email notification failed: ${result.warning}`);
+      } else {
+        toast.success(`Admin access updated and emailed to ${adminAccess.adminEmail}`);
+      }
     } catch (err: any) {
       toast.error(err.message || "Failed to resend admin access");
     } finally {
@@ -2626,14 +2631,14 @@ const OnboardForm = ({ onSuccess, onCancel, tiers = [] }: { onSuccess: () => voi
       toast.success(`School onboarded! Code: ${res.school_code}`);
 
       void (async () => {
-        let adminCredentialsReady = false;
-
         if (createAdmin && form.admin_email && form.admin_password) {
+          // Steps 3+4 combined: provisionSchoolAdminAccess handles notification internally.
+          // Do NOT call sendOnboardingNotification separately — that would duplicate the email.
+          if (import.meta.env.DEV) {
+            console.info("Onboarding Step 3: Provisioning school admin access", { schoolId: res.school_id, adminEmail: form.admin_email });
+          }
           try {
-            if (import.meta.env.DEV) {
-              console.info("Onboarding Step 3: Provisioning school admin access", { schoolId: res.school_id, adminEmail: form.admin_email });
-            }
-            await saasService.provisionSchoolAdminAccess({
+            const result = await saasService.provisionSchoolAdminAccess({
               schoolId: res.school_id,
               schoolCode: res.school_code,
               schoolName: normalizedName,
@@ -2642,32 +2647,38 @@ const OnboardForm = ({ onSuccess, onCancel, tiers = [] }: { onSuccess: () => voi
               adminEmail: form.admin_email,
               adminPassword: form.admin_password,
             });
-            adminCredentialsReady = true;
-            setNotificationSent(true);
-            toast.success("School admin account created and emailed");
+            setNotificationSent(result.email_sent);
+            if (result.warning) {
+              toast.success("School admin account created");
+              toast.warning(`Email notification failed: ${result.warning}`);
+            } else {
+              toast.success("School admin account created and emailed");
+            }
           } catch (adminErr: unknown) {
             toast.error(`Admin account creation failed: ${getErrorMessage(adminErr, "Unknown error")}`);
           }
-        }
-
-        // Always send onboarding notification with admin credentials if available
-        try {
+        } else {
+          // Step 4 only: no admin being created — send school welcome notification without credentials.
           if (import.meta.env.DEV) {
             console.info("Onboarding Step 4: Sending onboarding notification", { schoolId: res.school_id });
           }
-          await saasService.sendOnboardingNotification(
-            res.school_id,
-            res.school_code,
-            normalizedName,
-            form.email,
-            form.contact_person,
-            form.admin_email,
-            form.admin_password,
-          );
-          setNotificationSent(true);
-          toast.success("Onboarding email sent");
-        } catch {
-          toast.error("School created, but notification email failed");
+          try {
+            const notifResult = await saasService.sendOnboardingNotification(
+              res.school_id,
+              res.school_code,
+              normalizedName,
+              form.email,
+              form.contact_person,
+            );
+            if (notifResult?.email_sent) {
+              setNotificationSent(true);
+              toast.success("Onboarding email sent");
+            } else {
+              toast.warning(`School created, but notification email failed: ${notifResult?.email_error || "Unknown error"}`);
+            }
+          } catch {
+            toast.warning("School created, but notification email could not be sent");
+          }
         }
       })();
     } catch (err: unknown) {

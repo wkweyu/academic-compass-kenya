@@ -810,10 +810,18 @@ export const saasService = {
     return data;
   },
 
+  /**
+   * Sends the onboarding notification email via the edge function.
+   *
+   * Throws ONLY for infrastructure failures (session expired, relay error,
+   * non-2xx HTTP from the edge function). Does NOT throw when email delivery
+   * itself fails — in that case it returns { email_sent: false, email_error }.
+   * Callers must inspect `email_sent` to determine whether the email was sent.
+   */
   async sendOnboardingNotification(
     schoolId: number, schoolCode: string, schoolName: string, email: string, contactPerson: string,
     adminEmail?: string, adminPassword?: string
-  ) {
+  ): Promise<{ email_sent: boolean; email_error?: string; communication_id?: number | null }> {
     const data = await this._invokeFunction("onboarding-notification", {
       school_id: schoolId, school_code: schoolCode, school_name: schoolName,
       email, contact_person: contactPerson,
@@ -821,10 +829,12 @@ export const saasService = {
     }, "Failed to send onboarding notification");
 
     if (data && !data.email_sent) {
-      console.error("onboarding-notification failed:", data.email_error);
-      throw new Error(data.email_error || "Email sending failed");
+      console.warn("sendOnboardingNotification: email not delivered", {
+        school_id: schoolId,
+        email_error: data.email_error,
+      });
     }
-    return data;
+    return data ?? { email_sent: false };
   },
 
   async createSchoolAdmin(schoolId: number, adminEmail: string, adminPassword: string) {
@@ -833,18 +843,45 @@ export const saasService = {
     }, "Failed to create school admin");
   },
 
-  async provisionSchoolAdminAccess(payload: SchoolAdminAccessPayload) {
-    await this.createSchoolAdmin(payload.schoolId, payload.adminEmail, payload.adminPassword);
+  async provisionSchoolAdminAccess(payload: SchoolAdminAccessPayload): Promise<{
+    success: boolean; created: boolean; user_id: string; email_sent: boolean; warning?: string;
+  }> {
+    // Admin creation is the core action — allowed to throw on genuine failure.
+    const adminResult = await this.createSchoolAdmin(payload.schoolId, payload.adminEmail, payload.adminPassword);
 
-    await this.sendOnboardingNotification(
-      payload.schoolId,
-      payload.schoolCode,
-      payload.schoolName,
-      payload.schoolEmail,
-      payload.contactPerson || "",
-      payload.adminEmail,
-      payload.adminPassword,
-    );
+    // Notification is a side-effect — must never block or mask the success outcome.
+    let emailSent = false;
+    let warning: string | undefined;
+    try {
+      const notifResult = await this.sendOnboardingNotification(
+        payload.schoolId,
+        payload.schoolCode,
+        payload.schoolName,
+        payload.schoolEmail,
+        payload.contactPerson || "",
+        payload.adminEmail,
+        payload.adminPassword,
+      );
+      emailSent = notifResult?.email_sent ?? false;
+      if (!emailSent) {
+        warning = notifResult?.email_error || "Onboarding email could not be sent";
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.warn("provisionSchoolAdminAccess: notification failed (non-critical)", {
+        school_id: payload.schoolId,
+        error: msg,
+      });
+      warning = msg || "Onboarding email could not be sent";
+    }
+
+    return {
+      success: true,
+      created: adminResult?.created ?? false,
+      user_id: adminResult?.user_id ?? "",
+      email_sent: emailSent,
+      ...(warning ? { warning } : {}),
+    };
   },
 
   async updateSchoolDetails(schoolId: number, details: {
