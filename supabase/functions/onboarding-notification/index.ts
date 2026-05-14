@@ -125,7 +125,7 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const brevoApiKey = Deno.env.get("BREVO_API_KEY");
 
-    // Verify auth
+    // --- Auth verification (401) ---
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -147,13 +147,26 @@ Deno.serve(async (req) => {
       });
     }
 
+    // --- Request payload validation (400) ---
     const body = await req.json();
-    console.log("onboarding-notification: body received", JSON.stringify({ school_id: body.school_id, school_code: body.school_code, email: body.email }));
     const { school_id, school_code, school_name, email, contact_person, admin_email, admin_password } = body;
+    console.log("onboarding-notification: body received", JSON.stringify({ school_id, school_code, email }));
 
+    if (!email) {
+      return new Response(JSON.stringify({ error: "email is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // --- Permission check (403) ---
     const { data: accessProfile, error: accessError } = await supabase.rpc("get_platform_access_profile");
     if (accessError) {
-      console.error("onboarding-notification: profile RPC error", accessError);
+      console.error("onboarding-notification: profile RPC error", {
+        operation: "onboarding-notification/get_platform_access_profile",
+        school_id,
+        error: accessError.message,
+      });
       return new Response(JSON.stringify({ error: accessError.message }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -162,19 +175,22 @@ Deno.serve(async (req) => {
 
     const profile = accessProfile?.[0];
     if (!profile?.can_resend_admin_access) {
-      console.warn("onboarding-notification: forbidden - no resend permission", claimsData.user.id);
-      return new Response(JSON.stringify({ error: "Forbidden: no permission to send onboarding notifications" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      console.warn("onboarding-notification: forbidden - no resend permission", {
+        operation: "onboarding-notification/permission-check",
+        school_id,
+        auth_user_id: claimsData.user.id,
       });
+      return new Response(
+        JSON.stringify({ error: "Forbidden: no permission to send onboarding notifications" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     if (school_id) {
-      // Platform admins and support have global access, so we bypass the secondary check
-      const hasGlobalAccess = profile.primary_role === 'platform_admin' || profile.primary_role === 'support';
+      const hasGlobalAccess =
+        profile.primary_role === "platform_admin" || profile.primary_role === "support";
 
       if (!hasGlobalAccess) {
-        // Retry logic to account for race condition between Django transaction commit and Supabase view visibility
         let canAccessSchool = false;
         let lastError = null;
 
@@ -191,155 +207,206 @@ Deno.serve(async (req) => {
 
           lastError = error;
           console.log(`onboarding-notification: access check attempt ${i + 1} failed, retrying...`);
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          await new Promise((resolve) => setTimeout(resolve, 2000));
         }
 
         if (!canAccessSchool) {
           console.warn("onboarding-notification: forbidden - no school access after retries", {
-            user_id: claimsData.user.id,
+            operation: "onboarding-notification/can_access_platform_school",
             school_id,
-            error: lastError
+            auth_user_id: claimsData.user.id,
+            error: lastError?.message ?? null,
           });
-          return new Response(JSON.stringify({ error: "Forbidden: you cannot manage this school or portfolio assignment is still propagating" }), {
-            status: 403,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          return new Response(
+            JSON.stringify({
+              error:
+                "Forbidden: you cannot manage this school or portfolio assignment is still propagating",
+            }),
+            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
         }
       }
     }
 
     const serviceClient = createClient(supabaseUrl, serviceRoleKey);
-    const results: { email_sent: boolean; email_error?: string; communication_id?: number | null } = { email_sent: false };
-    const origin = req.headers.get("origin") || req.headers.get("referer") || Deno.env.get("APP_URL") || "https://academic-compass-web.onrender.com";
+
+    const origin =
+      req.headers.get("origin") ||
+      req.headers.get("referer") ||
+      Deno.env.get("APP_URL") ||
+      "https://academic-compass-web.onrender.com";
     const loginUrl = `${origin.replace(/\/$/, "")}/auth`;
     console.log("onboarding-notification: loginUrl =", loginUrl);
+
     const subject = "Welcome to SkoolTrack Pro — Your School Login Details";
-    const trackedContent = buildTrackedEmailSummary(school_name, school_code, contact_person, loginUrl, admin_email || email);
+    const trackedContent = buildTrackedEmailSummary(
+      school_name,
+      school_code,
+      contact_person,
+      loginUrl,
+      admin_email || email
+    );
 
-    const { data: communicationRecord, error: communicationInsertError } = await serviceClient
-      .from("saas_communications")
-      .insert({
+    // --- Insert communication log (non-fatal) ---
+    let communicationId: number | null = null;
+    try {
+      const { data: commRecord, error: commInsertError } = await serviceClient
+        .from("saas_communications")
+        .insert({
+          school_id,
+          recipient_email: email,
+          subject,
+          content: trackedContent,
+          category: "update",
+          type: "email",
+          status: "pending",
+        })
+        .select("id")
+        .single();
+
+      if (commInsertError) {
+        console.error("onboarding-notification: saas_communications insert failed", {
+          operation: "onboarding-notification/comm-insert",
+          school_id,
+          auth_user_id: claimsData.user.id,
+          error: commInsertError.message,
+        });
+      } else {
+        communicationId = commRecord?.id ?? null;
+      }
+    } catch (e: any) {
+      console.error("onboarding-notification: saas_communications insert threw", {
+        operation: "onboarding-notification/comm-insert",
         school_id,
-        recipient_email: email,
-        subject,
-        content: trackedContent,
-        category: "update",
-        type: "email",
-        status: "pending",
-      })
-      .select("id")
-      .single();
-
-    if (communicationInsertError) {
-      console.error("Failed to create communication log", communicationInsertError);
+        auth_user_id: claimsData.user.id,
+        error: e.message,
+      });
     }
 
-    results.communication_id = communicationRecord?.id ?? null;
+    // --- Attempt email send (non-fatal) ---
+    let emailSent = false;
+    let emailError: string | undefined;
 
     if (!brevoApiKey) {
-      results.email_error = "BREVO_API_KEY not configured";
+      emailError = "BREVO_API_KEY not configured";
+      console.warn("onboarding-notification: BREVO_API_KEY not set — email skipped", {
+        operation: "onboarding-notification/email-send",
+        school_id,
+      });
+    } else {
+      try {
+        const senderEmail = Deno.env.get("BREVO_SENDER_EMAIL") || "360.hector@gmail.com";
+        const senderName = Deno.env.get("BREVO_SENDER_NAME") || "SkoolTrack Pro";
+        const htmlBody = buildEmailHtml(
+          school_name,
+          school_code,
+          contact_person,
+          loginUrl,
+          admin_email,
+          admin_password
+        );
+
+        const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
+          method: "POST",
+          headers: {
+            accept: "application/json",
+            "api-key": brevoApiKey,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            sender: { name: senderName, email: senderEmail },
+            to: [{ email, name: contact_person || "Administrator" }],
+            subject,
+            htmlContent: htmlBody,
+          }),
+        });
+
+        const brevoBody = await brevoRes.text();
+        console.log("onboarding-notification: Brevo response", {
+          operation: "onboarding-notification/email-send",
+          school_id,
+          status: brevoRes.status,
+          body: brevoBody,
+        });
+
+        if (brevoRes.ok) {
+          emailSent = true;
+        } else {
+          emailError = brevoBody;
+          console.error("onboarding-notification: Brevo API rejected send", {
+            operation: "onboarding-notification/email-send",
+            school_id,
+            error: brevoBody,
+          });
+        }
+      } catch (e: any) {
+        emailError = e.message;
+        console.error("onboarding-notification: email send threw", {
+          operation: "onboarding-notification/email-send",
+          school_id,
+          error: e.message,
+        });
+      }
     }
 
-    if (!email) {
-      results.email_error = results.email_error || "No email address provided";
-    }
-
-    if (results.email_error) {
-      if (results.communication_id) {
+    // --- Update communication log status (non-fatal) ---
+    if (communicationId !== null) {
+      try {
         await serviceClient
           .from("saas_communications")
-          .update({ status: "failed", error_message: results.email_error })
-          .eq("id", results.communication_id);
+          .update(
+            emailSent
+              ? { status: "sent", sent_at: new Date().toISOString(), error_message: null }
+              : { status: "failed", error_message: emailError ?? null }
+          )
+          .eq("id", communicationId);
+      } catch (e: any) {
+        console.error("onboarding-notification: saas_communications update threw", {
+          operation: "onboarding-notification/comm-update",
+          school_id,
+          communication_id: communicationId,
+          error: e.message,
+        });
       }
+    }
 
+    // --- Insert onboarding log (non-fatal) ---
+    try {
       await serviceClient.from("onboarding_logs").insert({
         school_id,
         step: "notification_sent",
-        status: "failed",
+        status: emailSent ? "completed" : "failed",
         details: {
-          ...results,
+          email_sent: emailSent,
+          ...(emailError ? { email_error: emailError } : {}),
+          communication_id: communicationId,
           recipient_email: email,
           subject,
         },
       });
-
-      return new Response(JSON.stringify(results), {
-        status: !email ? 400 : 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const htmlBody = buildEmailHtml(school_name, school_code, contact_person, loginUrl, admin_email, admin_password);
-
-    try {
-      const senderEmail = Deno.env.get("BREVO_SENDER_EMAIL") || "360.hector@gmail.com";
-      const senderName = Deno.env.get("BREVO_SENDER_NAME") || "SkoolTrack Pro";
-
-      const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
-        method: "POST",
-        headers: {
-          "accept": "application/json",
-          "api-key": brevoApiKey,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          sender: { name: senderName, email: senderEmail },
-          to: [{ email, name: contact_person || "Administrator" }],
-          subject,
-          htmlContent: htmlBody,
-        }),
-      });
-
-      const brevoStatus = brevoRes.status;
-      const brevoBody = await brevoRes.text();
-      console.log("onboarding-notification: Brevo response status =", brevoStatus, "body =", brevoBody);
-      if (brevoRes.ok) {
-        results.email_sent = true;
-        if (results.communication_id) {
-          await serviceClient
-            .from("saas_communications")
-            .update({ status: "sent", sent_at: new Date().toISOString(), error_message: null })
-            .eq("id", results.communication_id);
-        }
-      } else {
-        console.error("Brevo API error:", brevoBody);
-        results.email_error = brevoBody;
-        if (results.communication_id) {
-          await serviceClient
-            .from("saas_communications")
-            .update({ status: "failed", error_message: brevoBody })
-            .eq("id", results.communication_id);
-        }
-      }
     } catch (e: any) {
-      console.error("Email send error:", e);
-      results.email_error = e.message;
-      if (results.communication_id) {
-        await serviceClient
-          .from("saas_communications")
-          .update({ status: "failed", error_message: e.message })
-          .eq("id", results.communication_id);
-      }
+      console.error("onboarding-notification: onboarding_logs insert threw", {
+        operation: "onboarding-notification/onboarding-log",
+        school_id,
+        error: e.message,
+      });
     }
 
-    // Log the onboarding notification
-    await serviceClient.from("onboarding_logs").insert({
-      school_id,
-      step: "notification_sent",
-      status: results.email_sent ? "completed" : "failed",
-      details: {
-        ...results,
-        recipient_email: email,
-        subject,
-      },
-    });
-
-    return new Response(JSON.stringify(results), {
-      status: results.email_sent ? 200 : 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    // Always 200 — email/logging failures are reported in body, not HTTP status
+    return new Response(
+      JSON.stringify({
+        email_sent: emailSent,
+        ...(emailError ? { email_error: emailError } : {}),
+        communication_id: communicationId,
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   } catch (err: any) {
-    console.error("Edge function error:", err);
+    // Only true unhandled system exceptions reach here
+    console.error("onboarding-notification: unhandled error", {
+      operation: "onboarding-notification/outer-catch",
+      error: err.message,
+    });
     return new Response(JSON.stringify({ error: err.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
