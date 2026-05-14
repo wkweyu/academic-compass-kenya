@@ -8,6 +8,28 @@
 -- All 14 existing params, return table shape, and RLS are unchanged.
 -- =============================================================================
 
+-- Drop ALL existing create_student overloads by OID before redefining.
+-- CREATE OR REPLACE with a different parameter list creates a new overload instead
+-- of replacing the old one, causing "Could not choose the best candidate function"
+-- ambiguity. Dropping by OID is signature-independent and handles any number of
+-- hidden variants. format() used for safe identifier quoting in dynamic DDL.
+-- This block and the CREATE below are wrapped in one transaction by the caller
+-- (supabase db push) so a failure rolls back cleanly — no zero-function window.
+DO $$
+DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN
+    SELECT oid::regprocedure::text AS sig
+    FROM pg_proc
+    WHERE proname = 'create_student'
+      AND pronamespace = 'public'::regnamespace
+  LOOP
+    EXECUTE format('DROP FUNCTION IF EXISTS %s', r.sig);
+  END LOOP;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION public.create_student(
   p_full_name text,
   p_gender text,
