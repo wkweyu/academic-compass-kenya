@@ -786,28 +786,40 @@ export const saasService = {
     await supabase.rpc("record_login_attempt", { p_identifier: identifier, p_success: success });
   },
 
+  async _getValidSession() {
+    const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+    if (!refreshError && refreshed.session) return refreshed.session;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error("Your session has expired. Please sign in again.");
+    return session;
+  },
+
+  async _invokeFunction(fnName: string, body: Record<string, unknown>, fallbackError: string) {
+    await this._getValidSession();
+    const { data, error } = await supabase.functions.invoke(fnName, { body });
+    if (error) {
+      let detail: string | undefined;
+      try { detail = (await (error as any).context?.json?.())?.error; } catch { /* not JSON */ }
+      const isRelayError = error.message?.toLowerCase().includes("relay") ||
+        error.message?.toLowerCase().includes("failed to send a request");
+      if (isRelayError) {
+        throw new Error("The email service is temporarily unavailable. Please try again in a moment.");
+      }
+      throw new Error(detail || error.message || fallbackError);
+    }
+    return data;
+  },
+
   async sendOnboardingNotification(
     schoolId: number, schoolCode: string, schoolName: string, email: string, contactPerson: string,
     adminEmail?: string, adminPassword?: string
   ) {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) throw new Error("Not authenticated");
-    
-    const { data, error } = await supabase.functions.invoke("onboarding-notification", {
-      body: {
-        school_id: schoolId, school_code: schoolCode, school_name: schoolName,
-        email, contact_person: contactPerson,
-        admin_email: adminEmail, admin_password: adminPassword,
-      },
-    });
-    if (error) {
-      let detail: string | undefined;
-      try {
-        const body = await (error as any).context?.json?.();
-        detail = body?.error;
-      } catch { /* response may not be JSON */ }
-      throw new Error(detail || error.message || "Failed to send onboarding notification");
-    }
+    const data = await this._invokeFunction("onboarding-notification", {
+      school_id: schoolId, school_code: schoolCode, school_name: schoolName,
+      email, contact_person: contactPerson,
+      admin_email: adminEmail, admin_password: adminPassword,
+    }, "Failed to send onboarding notification");
+
     if (data && !data.email_sent) {
       console.error("onboarding-notification failed:", data.email_error);
       throw new Error(data.email_error || "Email sending failed");
@@ -816,18 +828,9 @@ export const saasService = {
   },
 
   async createSchoolAdmin(schoolId: number, adminEmail: string, adminPassword: string) {
-    const { data, error } = await supabase.functions.invoke("create-school-admin", {
-      body: { school_id: schoolId, admin_email: adminEmail, admin_password: adminPassword },
-    });
-    if (error) {
-      let detail: string | undefined;
-      try {
-        const body = await (error as any).context?.json?.();
-        detail = body?.error;
-      } catch { /* response may not be JSON */ }
-      throw new Error(detail || error.message || "Failed to create school admin");
-    }
-    return data;
+    return this._invokeFunction("create-school-admin", {
+      school_id: schoolId, admin_email: adminEmail, admin_password: adminPassword,
+    }, "Failed to create school admin");
   },
 
   async provisionSchoolAdminAccess(payload: SchoolAdminAccessPayload) {
