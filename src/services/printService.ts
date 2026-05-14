@@ -145,7 +145,7 @@ export function printAdmissionForm(student: Student, schoolProfile: SchoolProfil
   <h2>Transport</h2>
   <div class="field-row">
     <div class="field"><label>Enrolled in Transport</label><span>${student.is_on_transport ? 'Yes' : 'No'}</span></div>
-    ${student.is_on_transport && student.transport_route ? `<div class="field"><label>Route</label><span>${escapeHtml(String(student.transport_route))}</span></div>` : ''}
+    ${student.is_on_transport && student.transport_route_name ? `<div class="field"><label>Route</label><span>${escapeHtml(student.transport_route_name)}</span></div>` : ''}
     ${student.is_on_transport && transportType ? `<div class="field"><label>Type</label><span>${escapeHtml(transportType)}</span></div>` : ''}
   </div>
 </div>

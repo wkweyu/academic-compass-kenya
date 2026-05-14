@@ -56,6 +56,7 @@ export interface Student {
   // Transport Information
   is_on_transport: boolean;
   transport_route?: number;
+  transport_route_name?: string | null;
   transport_type?: 'one_way' | 'two_way';
   
   // Status and Metadata

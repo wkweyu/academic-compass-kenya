@@ -196,7 +196,7 @@ export default function StudentProfilePage() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Personal Information */}
             <Card>
               <CardHeader>
@@ -249,40 +249,13 @@ export default function StudentProfilePage() {
                   <p className="text-sm">{student.current_stream_name}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Admission Year</label>
-                  <p className="text-sm">{student.admission_year}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Enrolled</label>
+                  <p className="text-sm">{student.enrollment_date ? new Date(student.enrollment_date).toLocaleDateString('en-KE', { year: 'numeric', month: 'short', day: 'numeric' }) : String(student.admission_year)}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Current Term</label>
-                  <p className="text-sm">Term {student.term}</p>
+                  <p className="text-sm">Term {currentTerm}</p>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Guardian Contact */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Guardian Contact</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {student.phone && (
-                  <div className="flex items-center gap-2">
-                    <Phone size={16} className="text-muted-foreground" />
-                    <span className="text-sm">{student.phone}</span>
-                  </div>
-                )}
-                {student.email && (
-                  <div className="flex items-center gap-2">
-                    <Mail size={16} className="text-muted-foreground" />
-                    <span className="text-sm">{student.email}</span>
-                  </div>
-                )}
-                {student.address && (
-                  <div className="flex items-center gap-2">
-                    <MapPin size={16} className="text-muted-foreground" />
-                    <span className="text-sm">{student.address}</span>
-                  </div>
-                )}
               </CardContent>
             </Card>
 
@@ -306,7 +279,7 @@ export default function StudentProfilePage() {
                     </div>
                     <div>
                       <label className="text-sm font-medium text-muted-foreground">Route</label>
-                      <p className="text-sm">{student.transport_route ?? 'Not assigned'}</p>
+                      <p className="text-sm">{student.transport_route_name ?? 'Not assigned'}</p>
                     </div>
                     {student.transport_type && (
                       <div>

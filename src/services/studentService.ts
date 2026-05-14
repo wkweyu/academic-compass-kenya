@@ -105,7 +105,8 @@ export const getStudentById = async (id: string): Promise<Student | null> => {
       .select(`
         *,
         classes:current_class_id(id, name, grade_level),
-        streams:current_stream_id(id, name)
+        streams:current_stream_id(id, name),
+        transport_transportroute:transport_route_id(name)
       `)
       .eq('id', id)
       .maybeSingle();
@@ -141,6 +142,7 @@ export const getStudentById = async (id: string): Promise<Student | null> => {
       is_active: data.is_active,
       is_on_transport: data.is_on_transport || false,
       transport_route: data.transport_route_id,
+      transport_route_name: (data as any).transport_transportroute?.name || null,
       transport_type: data.transport_type,
       stream: data.streams?.name || '',
       photo: data.photo,
