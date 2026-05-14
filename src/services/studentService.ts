@@ -16,7 +16,17 @@ export const getStudents = async (
       `);
     
     if (params.search) {
-      query = query.or(`full_name.ilike.%${params.search}%,admission_number.ilike.%${params.search}%`);
+      const term = params.search.trim();
+      // Strip ADM/ prefix (and variants) to isolate any numeric part for exact lookup.
+      const stripped = term.replace(/^ADM[\s\/]*/i, '').trim();
+      const isNumeric = /^\d+$/.test(stripped);
+      // When the input is purely digits after stripping the prefix, use exact integer
+      // match on the indexed admission_numeric column — avoids partial collisions.
+      // Otherwise fall back to text contains on both name and admission_number.
+      const orClause = isNumeric
+        ? `full_name.ilike.%${term}%,admission_numeric.eq.${parseInt(stripped, 10)}`
+        : `full_name.ilike.%${term}%,admission_number.ilike.%${term}%`;
+      query = query.or(orClause);
     }
     
     if (params.class_id) {
@@ -151,7 +161,8 @@ export const getStudentById = async (id: string): Promise<Student | null> => {
 };
 
 export const createStudent = async (
-  studentData: Omit<Student, "id" | "admission_number" | "created_at" | "updated_at">
+  studentData: Omit<Student, "id" | "admission_number" | "created_at" | "updated_at">,
+  admissionNumber?: string
 ): Promise<Student> => {
   try {
     console.log('Creating student with data:', studentData);
@@ -170,7 +181,8 @@ export const createStudent = async (
       p_level: studentData.level,
       p_admission_year: studentData.academic_year || new Date().getFullYear(),
       p_is_on_transport: studentData.is_on_transport || false,
-      p_photo: studentData.photo_url || null
+      p_photo: studentData.photo_url || null,
+      p_admission_number: admissionNumber || null
     });
     
     if (error) {
@@ -543,7 +555,9 @@ export const bulkImportStudents = async (file: File): Promise<ImportResult> => {
           throw new Error(`Insufficient columns (expected at least ${expectedColumns}, got ${values.length})`);
         }
 
-        // Skip admission number column if present
+        // Extract admission number from first column when present, then slice it off.
+        // Empty cells → undefined → RPC receives null → sequence fires automatically.
+        const importedAdmissionNumber = columnOffset > 0 ? values[0]?.trim() || undefined : undefined;
         const dataValues = columnOffset > 0 ? values.slice(1) : values;
 
         const [
@@ -626,8 +640,8 @@ export const bulkImportStudents = async (file: File): Promise<ImportResult> => {
           photo_url: null,
         };
 
-        // Create student
-        await createStudent(studentData);
+        // Create student — pass through admission number from CSV when provided.
+        await createStudent(studentData, importedAdmissionNumber);
         result.success++;
       } catch (error: any) {
         result.errors++;
@@ -654,8 +668,9 @@ export const exportStudents = async (filters: StudentFilters = {}): Promise<Blob
   try {
     const students = await getStudents(filters);
     
-    // CSV headers - Match import template format
+    // CSV headers — admission_number first so re-import preserves assigned numbers.
     const headers = [
+      'admission_number',
       'full_name', 'date_of_birth', 'gender', 'upi_number',
       'guardian_name', 'guardian_phone', 'guardian_email', 'guardian_relationship',
       'level', 'current_class_name', 'current_stream_name',
@@ -665,6 +680,7 @@ export const exportStudents = async (filters: StudentFilters = {}): Promise<Blob
 
     // Build CSV rows - Use same format as import template
     const rows = students.map(student => [
+      student.admission_number || '',
       student.full_name,
       student.date_of_birth,
       student.gender, // Keep as M/F for import compatibility
@@ -701,6 +717,7 @@ export const exportStudents = async (filters: StudentFilters = {}): Promise<Blob
 
 export const getImportTemplate = (): Blob => {
   const headers = [
+    'admission_number',
     'full_name', 'date_of_birth', 'gender', 'upi_number',
     'guardian_name', 'guardian_phone', 'guardian_email', 'guardian_relationship',
     'level', 'current_class_name', 'current_stream_name',
@@ -709,6 +726,7 @@ export const getImportTemplate = (): Blob => {
   ];
 
   const exampleRow = [
+    '',              // admission_number: leave blank to auto-generate, or enter e.g. ADM/0042
     'John Doe',
     '2010-01-15',
     'M',
