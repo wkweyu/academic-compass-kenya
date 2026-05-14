@@ -8,9 +8,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ArrowLeft, Edit, Phone, Mail, MapPin, Calendar, User, GraduationCap, Users, FileText, DollarSign, CalendarDays } from 'lucide-react';
+import { ArrowLeft, Edit, Phone, Mail, MapPin, Calendar, User, GraduationCap, Users, FileText, DollarSign, CalendarDays, Printer, Bus } from 'lucide-react';
 import { StudentExamProgress } from '@/components/exams/StudentExamProgress';
 import { StudentFeesTab } from '@/components/fees/StudentFeesTab';
 import { TimetableGrid } from '@/components/timetable/TimetableGrid';
@@ -19,6 +18,10 @@ import { AcademicHistoryTab } from '@/components/students/AcademicHistoryTab';
 import { StudentLifecycleActions } from '@/components/students/StudentLifecycleActions';
 import { getStudentAuditLog } from '@/services/studentHistoryService';
 import { TermManager } from '@/utils/termManager';
+import { settingsService } from '@/services/settingsService';
+import { printAdmissionForm } from '@/services/printService';
+import { FEATURES } from '@/config/features';
+import { StatusBadge } from '@/components/shared/StatusBadge';
 
 export default function StudentProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -108,16 +111,11 @@ export default function StudentProfilePage() {
     );
   }
 
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
-      case 'active': return 'default';
-      case 'inactive': return 'secondary';
-      case 'graduated': return 'outline';
-      case 'transferred': return 'secondary';
-      case 'suspended': return 'destructive';
-      default: return 'secondary';
-    }
-  };
+  const today = new Date();
+  const dob = new Date(student.date_of_birth);
+  let age = today.getFullYear() - dob.getFullYear();
+  const _m = today.getMonth() - dob.getMonth();
+  if (_m < 0 || (_m === 0 && today.getDate() < dob.getDate())) age--;
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -133,8 +131,15 @@ export default function StudentProfilePage() {
               student={student}
               onActionComplete={() => queryClient.invalidateQueries({ queryKey: ['student', id] })}
             />
-          )}
-          <Button className="gap-2" onClick={() => setIsEditOpen(true)}>
+          )}          {FEATURES.print && (
+            <Button variant="outline" className="gap-2" onClick={async () => {
+              const profile = await settingsService.getSchoolProfile();
+              printAdmissionForm(student, profile);
+            }}>
+              <Printer size={16} />
+              Print Form
+            </Button>
+          )}          <Button className="gap-2" onClick={() => setIsEditOpen(true)}>
             <Edit size={16} />
             Edit Student
           </Button>
@@ -155,9 +160,7 @@ export default function StudentProfilePage() {
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
                 <h1 className="text-2xl font-bold">{student.full_name}</h1>
-                <Badge variant={getStatusBadgeVariant(student.status)}>
-                  {student.status}
-                </Badge>
+                <StatusBadge status={student.status} />
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-muted-foreground">
@@ -189,10 +192,11 @@ export default function StudentProfilePage() {
           <TabsTrigger value="academic">Academic History</TabsTrigger>
           <TabsTrigger value="guardian">Guardian Info</TabsTrigger>
           <TabsTrigger value="siblings">Siblings</TabsTrigger>
+          <TabsTrigger value="history" onClick={() => setShowChangeHistory(true)}>Change Log</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
             {/* Personal Information */}
             <Card>
               <CardHeader>
@@ -206,6 +210,10 @@ export default function StudentProfilePage() {
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Date of Birth</label>
                   <p className="text-sm">{new Date(student.date_of_birth).toLocaleDateString()}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Age</label>
+                  <p className="text-sm">{age} years</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Level</label>
@@ -251,10 +259,10 @@ export default function StudentProfilePage() {
               </CardContent>
             </Card>
 
-            {/* Contact Information */}
+            {/* Guardian Contact */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Contact Information</CardTitle>
+                <CardTitle className="text-lg">Guardian Contact</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {student.phone && (
@@ -275,10 +283,39 @@ export default function StudentProfilePage() {
                     <span className="text-sm">{student.address}</span>
                   </div>
                 )}
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Transport</label>
-                  <p className="text-sm">{student.is_on_transport ? 'Yes' : 'No'}</p>
-                </div>
+              </CardContent>
+            </Card>
+
+            {/* Transport Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Bus size={18} /> Transport Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {!FEATURES.transport ? (
+                  <p className="text-sm text-muted-foreground">Transport tracking not enabled</p>
+                ) : !student.is_on_transport ? (
+                  <p className="text-sm text-muted-foreground">Not enrolled in school transport</p>
+                ) : (
+                  <>
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Enrolled</label>
+                      <p className="text-sm">Yes</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Route</label>
+                      <p className="text-sm">{student.transport_route ?? 'Not assigned'}</p>
+                    </div>
+                    {student.transport_type && (
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Type</label>
+                        <p className="text-sm">{student.transport_type === 'one_way' ? 'One Way' : 'Two Way'}</p>
+                      </div>
+                    )}
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -317,48 +354,6 @@ export default function StudentProfilePage() {
             </CardContent>
           </Card>
 
-          {/* Change History — lazy loaded */}
-          <Card>
-            <CardHeader className="cursor-pointer select-none" onClick={() => setShowChangeHistory((v) => !v)}>
-              <CardTitle className="flex items-center justify-between text-base">
-                <span>Change History</span>
-                <span className="text-xs text-muted-foreground font-normal">
-                  {showChangeHistory ? 'Hide' : 'Show'}
-                </span>
-              </CardTitle>
-            </CardHeader>
-            {showChangeHistory && (
-              <CardContent>
-                {auditLoading ? (
-                  <p className="text-sm text-muted-foreground py-4 text-center">Loading…</p>
-                ) : auditLog.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4 text-center">No changes recorded.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {auditLog.map((entry) => (
-                      <div key={entry.id} className="border rounded-md p-3 text-sm">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-medium capitalize">{entry.action.replace(/_/g, ' ')}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(entry.date).toLocaleString()}
-                          </span>
-                        </div>
-                        {entry.changes.length > 0 ? (
-                          <ul className="list-disc list-inside space-y-0.5 text-muted-foreground">
-                            {entry.changes.map((c, i) => (
-                              <li key={i}>{c}</li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="text-muted-foreground">No field changes recorded.</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            )}
-          </Card>
         </TabsContent>
 
         <TabsContent value="guardian" className="space-y-4">
@@ -433,9 +428,7 @@ export default function StudentProfilePage() {
                         </p>
                       </div>
                       <div className="flex flex-col items-end gap-1">
-                        <Badge variant={getStatusBadgeVariant(sibling.status)}>
-                          {sibling.status}
-                        </Badge>
+                        <StatusBadge status={sibling.status} />
                         <Button variant="outline" size="sm" onClick={() => navigate(`/students/${sibling.id}`)}>
                           View Profile
                         </Button>
@@ -448,6 +441,43 @@ export default function StudentProfilePage() {
                   <Users size={48} className="mx-auto mb-4 opacity-50" />
                   <p>No siblings found</p>
                   <p className="text-sm">Students with the same guardian will appear here</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="history" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Change Log</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {auditLoading ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">Loading…</p>
+              ) : auditLog.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">No changes recorded.</p>
+              ) : (
+                <div className="space-y-3">
+                  {auditLog.map((entry) => (
+                    <div key={entry.id} className="border rounded-md p-3 text-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-medium capitalize">{entry.action.replace(/_/g, ' ')}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(entry.date).toLocaleString()}
+                        </span>
+                      </div>
+                      {entry.changes.length > 0 ? (
+                        <ul className="list-disc list-inside space-y-0.5 text-muted-foreground">
+                          {entry.changes.map((c, i) => (
+                            <li key={i}>{c}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-muted-foreground">No field changes recorded.</p>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
             </CardContent>

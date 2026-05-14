@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { Student, StudentFilters, StudentStats, ImportResult } from "@/types/student";
 import { toSentenceCase } from "@/utils/nameFormatter";
+import { downloadCsv } from "@/utils/exportUtils";
 
 export const getStudents = async (
   params: StudentFilters = {}
@@ -664,7 +665,7 @@ export const bulkImportStudents = async (file: File): Promise<ImportResult> => {
   return result;
 };
 
-export const exportStudents = async (filters: StudentFilters = {}): Promise<Blob> => {
+export const exportStudents = async (filters: StudentFilters = {}, filename = `students-export-${new Date().toISOString().split('T')[0]}.csv`): Promise<void> => {
   try {
     const students = await getStudents(filters);
     
@@ -678,12 +679,12 @@ export const exportStudents = async (filters: StudentFilters = {}): Promise<Blob
       'is_on_transport', 'transport_route', 'transport_type'
     ];
 
-    // Build CSV rows - Use same format as import template
+    // Build CSV rows — Keep as M/F for import compatibility
     const rows = students.map(student => [
       student.admission_number || '',
       student.full_name,
       student.date_of_birth,
-      student.gender, // Keep as M/F for import compatibility
+      student.gender,
       student.upi_number || '',
       student.guardian_name,
       student.guardian_phone,
@@ -694,28 +695,22 @@ export const exportStudents = async (filters: StudentFilters = {}): Promise<Blob
       student.current_stream_name || '',
       student.enrollment_date,
       student.status,
-      student.academic_year,
-      student.admission_year,
-      student.term,
+      String(student.academic_year),
+      String(student.admission_year),
+      String(student.term),
       student.is_on_transport ? 'true' : 'false',
-      student.transport_route || '',
+      String(student.transport_route || ''),
       student.transport_type || ''
     ]);
 
-    // Combine headers and rows
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
-
-    return new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    downloadCsv(filename, headers, rows);
   } catch (error) {
     console.error('Error exporting students:', error);
     throw error;
   }
 };
 
-export const getImportTemplate = (): Blob => {
+export const getImportTemplate = (): void => {
   const headers = [
     'admission_number',
     'full_name', 'date_of_birth', 'gender', 'upi_number',
@@ -748,10 +743,5 @@ export const getImportTemplate = (): Blob => {
     ''
   ];
 
-  const csvContent = [
-    headers.join(','),
-    exampleRow.map(cell => `"${cell}"`).join(',')
-  ].join('\n');
-
-  return new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  downloadCsv('student-import-template.csv', headers, [exampleRow]);
 };

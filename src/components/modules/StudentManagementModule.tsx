@@ -349,15 +349,7 @@ const StudentManagementModule = () => {
 
   const handleExportFromDialog = async () => {
     try {
-      const blob = await exportStudents(exportFilters);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `students-export-${new Date().toISOString().split('T')[0]}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      await exportStudents(exportFilters);
       setIsExportDialogOpen(false);
       toast.success('Student data exported successfully');
     } catch {
@@ -419,15 +411,7 @@ const StudentManagementModule = () => {
   };
 
   const handleDownloadTemplate = () => {
-    const blob = getImportTemplate();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'student-import-template.csv';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    getImportTemplate();
     toast.success('Template downloaded successfully');
   };
 
