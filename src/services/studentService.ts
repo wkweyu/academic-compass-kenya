@@ -48,7 +48,7 @@ export const getStudents = async (
       // to avoid PostgREST FK column type-coercion issues
     }
 
-    if (params.academic_year && !params.search) {
+    if (params.academic_year && !params.search && !params.class_id) {
       query = query.eq('admission_year', params.academic_year);
     }
 
