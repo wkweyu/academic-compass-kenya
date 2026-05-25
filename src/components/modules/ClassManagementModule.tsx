@@ -821,17 +821,16 @@ export const ClassManagementModule = () => {
               </div>
 
               {(() => {
-                // Check for mismatched student-stream-class relationships
+                // Mismatched students (global — not filtered, so banner always accurate)
                 const mismatchedStudents = students.filter(student => {
                   const studentClass = classes.find(c => String(c.id) === String(student.current_class_id));
                   const studentStream = streams.find(s => String(s.id) === String(student.current_stream_id));
-                  
                   if (studentClass && studentStream) {
                     return String(studentStream.class_assigned) !== String(studentClass.id);
                   }
                   return false;
                 });
-                
+
                 // Apply filters
                 let filteredStudents = students.filter(student => {
                   if (!filters.grade_level) return true;
@@ -858,9 +857,23 @@ export const ClassManagementModule = () => {
                   );
                 }
 
-                if (mismatchedStudents.length > 0) {
-                  return (
-                    <div className="space-y-4">
+                // Group students by class and stream (students without a stream go into "No Stream")
+                const groupedStudents = filteredStudents.reduce((acc, student) => {
+                  const studentClass = classes.find(c => String(c.id) === String(student.current_class_id));
+                  if (!studentClass) return acc;
+                  const studentStream = streams.find(s => String(s.id) === String(student.current_stream_id));
+                  const classKey = studentClass.name;
+                  const streamKey = studentStream?.name || 'No Stream';
+                  if (!acc[classKey]) acc[classKey] = {};
+                  if (!acc[classKey][streamKey]) acc[classKey][streamKey] = [];
+                  acc[classKey][streamKey].push(student);
+                  return acc;
+                }, {} as Record<string, Record<string, any[]>>);
+
+                return (
+                  <div className="space-y-6">
+                    {/* Mismatch banner — shown above table, never replaces it */}
+                    {mismatchedStudents.length > 0 && (
                       <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 print:hidden">
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-start gap-3">
@@ -894,101 +907,62 @@ export const ClassManagementModule = () => {
                             {fixingAll ? 'Fixing…' : `Fix All (${mismatchedStudents.length})`}
                           </Button>
                         </div>
+                        <Table className="mt-3">
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Admission No.</TableHead>
+                              <TableHead>Student Name</TableHead>
+                              <TableHead>Assigned Class</TableHead>
+                              <TableHead>Assigned Stream</TableHead>
+                              <TableHead>Stream's Class</TableHead>
+                              <TableHead>Action</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {mismatchedStudents.map((student) => {
+                              const studentClass = classes.find(c => String(c.id) === String(student.current_class_id));
+                              const studentStream = streams.find(s => String(s.id) === String(student.current_stream_id));
+                              const isFixing = fixingStudentId === String(student.id);
+                              return (
+                                <TableRow key={student.id}>
+                                  <TableCell className="font-medium">{student.admission_number}</TableCell>
+                                  <TableCell>{student.full_name}</TableCell>
+                                  <TableCell>{studentClass?.name || 'N/A'}</TableCell>
+                                  <TableCell>{studentStream?.name || 'N/A'}</TableCell>
+                                  <TableCell>{studentStream?.class_name || 'N/A'}</TableCell>
+                                  <TableCell>
+                                    <div className="flex items-center gap-2">
+                                      <Badge variant="destructive">Mismatch</Badge>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-7 px-2 text-xs text-destructive hover:text-destructive hover:bg-red-50"
+                                        disabled={isFixing || fixingAll}
+                                        onClick={async () => {
+                                          setFixingStudentId(String(student.id));
+                                          try {
+                                            await clearStudentStream([student.id]);
+                                            await loadData();
+                                            toast({ title: 'Fixed', description: `Stream cleared for ${student.full_name}.` });
+                                          } catch {
+                                            toast({ title: 'Error', description: 'Failed to fix student.', variant: 'destructive' });
+                                          } finally {
+                                            setFixingStudentId(null);
+                                          }
+                                        }}
+                                      >
+                                        {isFixing ? 'Fixing…' : 'Clear Stream'}
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
                       </div>
+                    )}
 
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Admission No.</TableHead>
-                            <TableHead>Student Name</TableHead>
-                            <TableHead>Assigned Class</TableHead>
-                            <TableHead>Assigned Stream</TableHead>
-                            <TableHead>Stream's Class</TableHead>
-                            <TableHead className="print:hidden">Action</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {mismatchedStudents.map((student) => {
-                            const studentClass = classes.find(c => String(c.id) === String(student.current_class_id));
-                            const studentStream = streams.find(s => String(s.id) === String(student.current_stream_id));
-                            const isFixing = fixingStudentId === String(student.id);
-                            return (
-                              <TableRow key={student.id}>
-                                <TableCell className="font-medium">{student.admission_number}</TableCell>
-                                <TableCell>{student.full_name}</TableCell>
-                                <TableCell>{studentClass?.name || 'N/A'}</TableCell>
-                                <TableCell>{studentStream?.name || 'N/A'}</TableCell>
-                                <TableCell>{studentStream?.class_name || 'N/A'}</TableCell>
-                                <TableCell className="print:hidden">
-                                  <div className="flex items-center gap-2">
-                                    <Badge variant="destructive">Mismatch</Badge>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-7 px-2 text-xs text-destructive hover:text-destructive hover:bg-red-50"
-                                      disabled={isFixing || fixingAll}
-                                      onClick={async () => {
-                                        setFixingStudentId(String(student.id));
-                                        try {
-                                          await clearStudentStream([student.id]);
-                                          await loadData();
-                                          toast({ title: 'Fixed', description: `Stream cleared for ${student.full_name}.` });
-                                        } catch {
-                                          toast({ title: 'Error', description: 'Failed to fix student.', variant: 'destructive' });
-                                        } finally {
-                                          setFixingStudentId(null);
-                                        }
-                                      }}
-                                    >
-                                      {isFixing ? 'Fixing…' : 'Clear Stream'}
-                                    </Button>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  );
-                }
-
-                if (filteredStudents.length === 0) {
-                  return (
-                    <div className="text-center py-8">
-                      <Users className="mx-auto h-12 w-12 text-muted-foreground" />
-                      <h3 className="mt-4 text-lg font-semibold">No Students Found</h3>
-                      <p className="text-muted-foreground">
-                        {allocationStreamFilter !== 'all' 
-                          ? 'No students found for the selected stream'
-                          : filters.grade_level 
-                            ? `No students found for Grade ${filters.grade_level}`
-                            : 'No students found'
-                        }
-                      </p>
-                    </div>
-                  );
-                }
-
-                // Group students by class and stream
-                const groupedStudents = filteredStudents.reduce((acc, student) => {
-                  const studentClass = classes.find(c => String(c.id) === String(student.current_class_id));
-                  const studentStream = streams.find(s => String(s.id) === String(student.current_stream_id));
-                  
-                  if (!studentClass || !studentStream) return acc;
-                  
-                  const classKey = studentClass.name;
-                  const streamKey = studentStream.name;
-                  
-                  if (!acc[classKey]) acc[classKey] = {};
-                  if (!acc[classKey][streamKey]) acc[classKey][streamKey] = [];
-                  
-                  acc[classKey][streamKey].push(student);
-                  return acc;
-                }, {} as Record<string, Record<string, any[]>>);
-
-                return (
-                  <div className="space-y-6">
                     {/* Print Header */}
                     <div className="hidden print:block mb-6">
                       <h2 className="text-2xl font-bold text-center">Student Allocation List</h2>
@@ -1001,46 +975,59 @@ export const ClassManagementModule = () => {
                       </p>
                     </div>
 
-                    {Object.entries(groupedStudents).map(([className, streamGroups]) => (
-                      <div key={className} className="space-y-4">
-                        <h3 className="text-xl font-semibold border-b pb-2">{className}</h3>
-                        
-                        {Object.entries(streamGroups).map(([streamName, streamStudents]) => (
-                          <div key={streamName} className="mb-6 page-break-inside-avoid">
-                            <div className="flex items-center justify-between mb-2">
-                              <h4 className="text-lg font-medium text-muted-foreground">
-                                {streamName} ({streamStudents.length} student{streamStudents.length !== 1 ? 's' : ''})
-                              </h4>
-                            </div>
-                            
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead className="w-12">#</TableHead>
-                                  <TableHead>Admission No.</TableHead>
-                                  <TableHead>Student Name</TableHead>
-                                  <TableHead>Gender</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {streamStudents
-                                  .sort((a, b) => a.admission_number.localeCompare(b.admission_number))
-                                  .map((student, index) => (
-                                    <TableRow key={student.id}>
-                                      <TableCell className="font-medium">{index + 1}</TableCell>
-                                      <TableCell>{student.admission_number}</TableCell>
-                                      <TableCell>{student.full_name}</TableCell>
-                                      <TableCell>
-                                        <Badge variant="outline">{student.gender}</Badge>
-                                      </TableCell>
-                                    </TableRow>
-                                  ))}
-                              </TableBody>
-                            </Table>
-                          </div>
-                        ))}
+                    {filteredStudents.length === 0 ? (
+                      <div className="text-center py-8">
+                        <Users className="mx-auto h-12 w-12 text-muted-foreground" />
+                        <h3 className="mt-4 text-lg font-semibold">No Students Found</h3>
+                        <p className="text-muted-foreground">
+                          {allocationStreamFilter !== 'all'
+                            ? 'No students found for the selected stream'
+                            : filters.grade_level
+                              ? `No students found for Grade ${filters.grade_level}`
+                              : 'No students found'
+                          }
+                        </p>
                       </div>
-                    ))}
+                    ) : (
+                      Object.entries(groupedStudents).map(([className, streamGroups]) => (
+                        <div key={className} className="space-y-4">
+                          <h3 className="text-xl font-semibold border-b pb-2">{className}</h3>
+                          {Object.entries(streamGroups).map(([streamName, streamStudents]) => (
+                            <div key={streamName} className="mb-6 page-break-inside-avoid">
+                              <div className="flex items-center justify-between mb-2">
+                                <h4 className="text-lg font-medium text-muted-foreground">
+                                  {streamName} ({streamStudents.length} student{streamStudents.length !== 1 ? 's' : ''})
+                                </h4>
+                              </div>
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead className="w-12">#</TableHead>
+                                    <TableHead>Admission No.</TableHead>
+                                    <TableHead>Student Name</TableHead>
+                                    <TableHead>Gender</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {streamStudents
+                                    .sort((a, b) => a.admission_number.localeCompare(b.admission_number))
+                                    .map((student, index) => (
+                                      <TableRow key={student.id}>
+                                        <TableCell className="font-medium">{index + 1}</TableCell>
+                                        <TableCell>{student.admission_number}</TableCell>
+                                        <TableCell>{student.full_name}</TableCell>
+                                        <TableCell>
+                                          <Badge variant="outline">{student.gender}</Badge>
+                                        </TableCell>
+                                      </TableRow>
+                                    ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          ))}
+                        </div>
+                      ))
+                    )}
                   </div>
                 );
               })()}
