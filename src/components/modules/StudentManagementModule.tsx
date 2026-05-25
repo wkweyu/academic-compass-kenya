@@ -35,6 +35,9 @@ import {
   ChevronDown,
   ChevronRight,
   MoreVertical,
+  LayoutGrid,
+  List,
+  X,
 } from 'lucide-react';
 import { 
   getStudents, 
@@ -55,6 +58,12 @@ import AdmissionFormPrint from '@/components/AdmissionFormPrint';
 import { Student, StudentFilters, STUDENT_STATUS_OPTIONS, GENDER_OPTIONS } from '@/types/student';
 import { supabase } from '@/integrations/supabase/client';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { differenceInYears, parseISO } from 'date-fns';
 
 
 const StudentManagementModule = () => {
@@ -83,8 +92,15 @@ const StudentManagementModule = () => {
   const [exportFilters, setExportFilters] = useState<StudentFilters>({});
   const [defaultApplied, setDefaultApplied] = useState(false);
   const [collapseAllGroups, setCollapseAllGroups] = useState(false);
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const queryClient = useQueryClient();
+
+  // Reset selection when filters change
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [filters.class_id, filters.stream_id]);
 
   // Fetch students
   const { data: students = [], isLoading, error } = useQuery({
@@ -517,6 +533,18 @@ const StudentManagementModule = () => {
   const isExpanded = (name: string) =>
     collapseAllGroups ? collapsedClasses.has(name) : !collapsedClasses.has(name);
 
+  // Helper to calculate age precisely
+  const calculateAge = (dobString: string) => {
+    try {
+      if (!dobString) return '—';
+      const birthDate = parseISO(dobString);
+      const today = new Date(2026, 4, 25); // May 25, 2026
+      return `${differenceInYears(today, birthDate)}y`;
+    } catch {
+      return '—';
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -551,207 +579,339 @@ const StudentManagementModule = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Student Management</h1>
-          <p className="text-muted-foreground">Manage student records, enrollment, and academic information</p>
+          <h1 className="text-2xl font-bold">Students</h1>
+          <p className="text-muted-foreground text-sm">ERP Student Information System</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handleDownloadTemplate}>
-            <Download className="h-4 w-4 mr-2" />
-            Template
-          </Button>
-          <Button variant="outline" onClick={() => setIsImportDialogOpen(true)}>
-            <Upload className="h-4 w-4 mr-2" />
-            Import
-          </Button>
-          <Button variant="outline" onClick={handlePrintList}>
-            <Printer className="h-4 w-4 mr-2" />
-            Print List
-          </Button>
-          <Button variant="outline" onClick={handleOpenExportDialog}>
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
+        <div className="flex items-center gap-2">
+          <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as 'table' | 'cards')} className="mr-2">
+            <ToggleGroupItem value="table" className="h-9 w-9 p-0" aria-label="Table View">
+              <List className="h-4 w-4" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="cards" className="h-9 w-9 p-0" aria-label="Card View">
+              <LayoutGrid className="h-4 w-4" />
+            </ToggleGroupItem>
+          </ToggleGroup>
+          
           <Button onClick={() => setIsCreateDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Student
           </Button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                Actions <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setIsImportDialogOpen(true)}>
+                <Upload className="h-4 w-4 mr-2" /> Import
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleDownloadTemplate}>
+                <Download className="h-4 w-4 mr-2" /> Template
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handlePrintList}>
+                <Printer className="h-4 w-4 mr-2" /> Print List
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleOpenExportDialog}>
+                <Download className="h-4 w-4 mr-2" /> Export
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
-      {/* Statistics Cards */}
-      {statsLoading ? (
-        <div className="text-muted-foreground">Loading student stats...</div>
-      ) : statsError ? (
-        <div className="text-destructive">Error loading student stats.</div>
-      ) : stats &&
-        stats.total_students === 0 &&
-        stats.active_students === 0 &&
-        stats.male_students === 0 &&
-        stats.female_students === 0 ? (
-        <div className="text-muted-foreground">No students yet. Add your first student to see stats.</div>
-      ) : stats ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
-          <Card className="min-w-0">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Students</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.total_students}</div>
-            </CardContent>
-          </Card>
-          <Card className="min-w-0">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Students</CardTitle>
-              <UserCheck className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">{stats.active_students}</div>
-            </CardContent>
-          </Card>
-          <Card className="min-w-0">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Male Students</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{stats.male_students}</div>
-            </CardContent>
-          </Card>
-          <Card className="min-w-0">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Female Students</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-pink-600">{stats.female_students}</div>
-            </CardContent>
-          </Card>
-          <Card className="min-w-0">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Transferred</CardTitle>
-              <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-amber-600">{stats.students_by_status?.transferred ?? 0}</div>
-            </CardContent>
-          </Card>
-          <Card className="min-w-0">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Alumni</CardTitle>
-              <GraduationCap className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{stats.students_by_status?.graduated ?? 0}</div>
-            </CardContent>
-          </Card>
-        </div>
-      ) : null}
-
-      {/* Search and Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Search & Filter</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Row 1: Search, Class, Stream */}
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by name or admission number..."
-                value={filters.search || ''}
-                onChange={(e) => handleSearch(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Select
-              value={filters.class_id || 'all'}
-              onValueChange={(value) => handleFilterChange('class_id', value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Filter by class" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Classes (entire school)</SelectItem>
-                {(classes || []).map((cls: any) => (
-                  <SelectItem key={cls.id} value={cls.id.toString()}>{cls.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={filters.stream_id || 'all'}
-              onValueChange={(value) => handleFilterChange('stream_id', value)}
-              disabled={!filters.class_id || filterStreams.length === 0}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={
-                  !filters.class_id
-                    ? 'Select a class first'
-                    : filterStreams.length === 0
-                    ? 'No streams for this class'
-                    : 'All Streams'
-                } />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Streams</SelectItem>
-                {filterStreams.map((s: any) => (
-                  <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {/* Row 2: Status, Gender, Year */}
-            <Select
-              value={filters.status || 'all'}
-              onValueChange={(value) => handleFilterChange('status', value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                {STUDENT_STATUS_OPTIONS.map(option => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={filters.gender || 'all'}
-              onValueChange={(value) => handleFilterChange('gender', value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Filter by gender" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Genders</SelectItem>
-                {GENDER_OPTIONS.map(option => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={filters.academic_year?.toString() || 'all'}
-              onValueChange={(value) =>
-                setFilters(prev => ({ ...prev, academic_year: value === 'all' ? undefined : Number(value) }))
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Admission Year" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Years</SelectItem>
-                {academicYears.map(year => (
-                  <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      {/* Statistics Bar */}
+      {stats && (
+        <div className="flex flex-wrap items-center gap-y-2 gap-x-6 p-3 bg-muted/30 rounded-lg border text-xs font-medium">
+          <div className="flex items-center gap-2 pr-6 border-r">
+            <span className="text-muted-foreground uppercase tracking-wider">Total</span>
+            <span className="text-sm font-bold">{stats.total_students}</span>
           </div>
-        </CardContent>
-      </Card>
+          <div className="flex items-center gap-2 pr-6 border-r">
+            <span className="text-muted-foreground uppercase tracking-wider text-green-600">Active</span>
+            <span className="text-sm font-bold">{stats.active_students}</span>
+          </div>
+          <div className="flex items-center gap-2 pr-6 border-r">
+            <span className="text-muted-foreground uppercase tracking-wider text-blue-600">M / F</span>
+            <span className="text-sm font-bold">{stats.male_students} / {stats.female_students}</span>
+          </div>
+          <div className="flex items-center gap-2 pr-6 border-r">
+            <span className="text-muted-foreground uppercase tracking-wider text-amber-600">Transferred</span>
+            <span className="text-sm font-bold">{stats.students_by_status?.transferred ?? 0}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground uppercase tracking-wider text-purple-600">Alumni</span>
+            <span className="text-sm font-bold">{stats.students_by_status?.graduated ?? 0}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Combined Filter Bar */}
+      <div className="flex gap-2 items-center">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search students..."
+            value={filters.search || ''}
+            onChange={(e) => handleSearch(e.target.value)}
+            className="pl-9 h-10"
+          />
+        </div>
+        <Select
+          value={filters.class_id || 'all'}
+          onValueChange={(value) => handleFilterChange('class_id', value)}
+        >
+          <SelectTrigger className="w-[180px] h-10">
+            <SelectValue placeholder="Class" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Classes</SelectItem>
+            {(classes || []).map((cls: any) => (
+              <SelectItem key={cls.id} value={cls.id.toString()}>{cls.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={filters.stream_id || 'all'}
+          onValueChange={(value) => handleFilterChange('stream_id', value)}
+          disabled={!filters.class_id}
+        >
+          <SelectTrigger className="w-[180px] h-10">
+            <SelectValue placeholder="Stream" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Streams</SelectItem>
+            {filterStreams.map((s: any) => (
+              <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="h-10">
+              <Filter className="h-4 w-4 mr-2" />
+              More
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 p-4">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select value={filters.status || 'all'} onValueChange={(v) => handleFilterChange('status', v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    {STUDENT_STATUS_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Gender</Label>
+                <Select value={filters.gender || 'all'} onValueChange={(v) => handleFilterChange('gender', v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Genders</SelectItem>
+                    {GENDER_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Admission Year</Label>
+                <Select value={filters.academic_year?.toString() || 'all'} onValueChange={(v) => setFilters(prev => ({ ...prev, academic_year: v === 'all' ? undefined : Number(v) }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Years</SelectItem>
+                    {academicYears.map(y => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button variant="link" className="w-full text-xs h-auto p-0" onClick={() => setFilters({})}>Clear All Filters</Button>
+            </div>
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      {/* Floating Selection Toolbar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-primary text-primary-foreground px-4 py-3 rounded-full shadow-2xl flex items-center gap-4 animate-in fade-in slide-in-from-bottom-4">
+          <span className="text-sm font-bold border-r pr-4">{selectedIds.size} Selected</span>
+          <div className="flex gap-2">
+            <Button variant="ghost" size="sm" className="h-8 text-white hover:bg-white/20">Change Status</Button>
+            <Button variant="ghost" size="sm" className="h-8 text-white hover:bg-white/20">Transfer</Button>
+            <Button variant="ghost" size="sm" className="h-8 text-white hover:bg-destructive/80" onClick={() => {
+              if (confirm(`Delete ${selectedIds.size} students?`)) {
+                // Bulk delete logic would go here
+              }
+            }}>Delete</Button>
+          </div>
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-white" onClick={() => setSelectedIds(new Set())}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+
+      {/* Data View */}
+      {viewMode === 'table' ? (
+        <div className="border rounded-md">
+          <Table>
+            <TableHeader>
+              <TableRow className="h-10 hover:bg-transparent bg-muted/50">
+                <TableHead className="w-12 h-10 py-0">
+                  <Checkbox 
+                    checked={selectedIds.size === visibleStudents.length && visibleStudents.length > 0}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSelectedIds(new Set(visibleStudents.map(s => String(s.id))));
+                      } else {
+                        setSelectedIds(new Set());
+                      }
+                    }}
+                  />
+                </TableHead>
+                <TableHead className="h-10 py-0">Student</TableHead>
+                <TableHead className="h-10 py-0">Stream</TableHead>
+                <TableHead className="h-10 py-0">Demographics</TableHead>
+                <TableHead className="h-10 py-0">Phone</TableHead>
+                <TableHead className="h-10 py-0">Status</TableHead>
+                <TableHead className="w-[100px] h-10 py-0 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {visibleStudents.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                    No students found matching filters.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                visibleStudents.map((student) => (
+                  <TableRow key={student.id} className="h-10 hover:bg-muted/50 py-0">
+                    <TableCell className="w-12 h-10 py-0">
+                      <Checkbox 
+                        checked={selectedIds.has(String(student.id))}
+                        onCheckedChange={(checked) => {
+                          const next = new Set(selectedIds);
+                          if (checked) next.add(String(student.id));
+                          else next.delete(String(student.id));
+                          setSelectedIds(next);
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell className="h-10 py-0">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-7 w-7">
+                          <AvatarImage src={student.photo_url || ''} />
+                          <AvatarFallback className="text-[10px]">{student.full_name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex flex-col leading-tight">
+                          <span className="text-sm font-medium">{student.full_name}</span>
+                          <span className="text-[10px] text-muted-foreground">{student.admission_number}</span>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="h-10 py-0 text-sm">
+                      {student.current_stream_name || student.current_class_name || '—'}
+                    </TableCell>
+                    <TableCell className="h-10 py-0 text-sm">
+                      <span className="font-medium">{student.gender}</span>, {calculateAge(student.date_of_birth)}
+                    </TableCell>
+                    <TableCell className="h-10 py-0 text-sm text-muted-foreground">
+                      {student.guardian_phone || '—'}
+                    </TableCell>
+                    <TableCell className="h-10 py-0 text-sm">
+                      <Badge variant={student.status === 'active' ? 'default' : 'secondary'} className="h-5 px-1.5 text-[10px] uppercase font-bold">
+                        {student.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="h-10 py-0 text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleViewDetails(student)}>
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditStudent(student)}>
+                          <Edit className="h-3.5 w-3.5" />
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7">
+                              <MoreVertical className="h-3.5 w-3.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-40">
+                            <DropdownMenuItem onClick={() => handleOpenTransferDialog(student)}>
+                              <ArrowRightLeft className="h-3.5 w-3.5 mr-2" /> Transfer
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteStudent(Number(student.id))}>
+                              <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {sortedClassNames.map(className => (
+            <div key={className} className="border rounded-lg overflow-hidden bg-card">
+              <div 
+                className="bg-muted/50 px-4 py-2 flex items-center justify-between cursor-pointer"
+                onClick={() => setExpandedClasses(prev => ({ ...prev, [className]: !prev[className] }))}
+              >
+                <div className="flex items-center gap-2">
+                  {expandedClasses[className] !== false ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  <span className="font-semibold">{className}</span>
+                  <Badge variant="secondary" className="ml-2">{groupedStudents[className].length}</Badge>
+                </div>
+              </div>
+              
+              {(expandedClasses[className] !== false) && (
+                <div className="divide-y">
+                  {groupedStudents[className].map(student => {
+                    const dob = new Date(student.date_of_birth);
+                    const age = isNaN(dob.getTime()) ? '?' : differenceInYears(new Date(2026, 4, 25), dob);
+                    
+                    return (
+                      <div key={student.id} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors">
+                        <Avatar className="h-9 w-9 shrink-0 text-[10px]">
+                          <AvatarImage src={student.photo_url || ''} />
+                          <AvatarFallback>{student.full_name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">{student.full_name}</p>
+                          <p className="text-xs text-muted-foreground">{student.admission_number}</p>
+                        </div>
+                        <Badge variant="outline" className="hidden sm:inline-flex text-[10px]">
+                          {student.current_stream_name || '—'}
+                        </Badge>
+                        <span className="hidden md:inline text-xs text-muted-foreground w-16">
+                          {student.gender}, {age}y
+                        </span>
+                        <Badge className={`${student.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'} text-[10px] uppercase font-bold`}>
+                          {student.status}
+                        </Badge>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleViewDetails(student)}><Eye className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditStudent(student)}><Edit className="h-4 w-4" /></Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Existing Dialogs (unchanged) */}
 
       {/* Results summary */}
       {!isLoading && (
