@@ -47,7 +47,7 @@ export const getStudents = async (
     }
 
     if (params.academic_year) {
-      query = query.eq('academic_year', params.academic_year);
+      query = query.eq('admission_year', params.academic_year);
     }
 
     const { data, error } = await query.order('created_at', { ascending: false });
@@ -76,7 +76,7 @@ export const getStudents = async (
       current_class_name: item.classes?.name || '',
       current_stream_name: item.streams?.name || '',
       current_class_stream: `${item.classes?.name || ''} ${item.streams?.name || ''}`.trim(),
-      academic_year: item.academic_year || new Date().getFullYear(),
+      academic_year: item.admission_year || new Date().getFullYear(),
       enrollment_date: item.admission_date,
       admission_year: item.admission_year || new Date().getFullYear(),
       term: item.term || 1,
