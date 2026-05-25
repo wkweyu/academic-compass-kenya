@@ -149,25 +149,16 @@ const StudentManagementModule = () => {
   // Streams for the filter bar — derived from students actually in this class/year
   // so the IDs in the dropdown are guaranteed to match students' current_stream_id
   const { data: filterStreams = [] } = useQuery({
-    queryKey: ['filter-streams', filters.class_id, filters.academic_year],
+    queryKey: ['filter-streams', filters.class_id],
     queryFn: async () => {
       if (!filters.class_id) return [];
-      let query = supabase
-        .from('students')
-        .select('current_stream_id, streams:current_stream_id(id, name)')
-        .eq('current_class_id', filters.class_id)
-        .not('current_stream_id', 'is', null);
-      if (filters.academic_year) {
-        query = query.eq('admission_year', filters.academic_year);
-      }
-      const { data, error } = await query;
+      const { data, error } = await supabase
+        .from('streams')
+        .select('id, name')
+        .eq('class_assigned_id', filters.class_id)
+        .order('name');
       if (error) throw error;
-      // Deduplicate by stream ID and sort by name
-      const seen = new Set<number>();
-      return (data || [])
-        .map((row: any) => row.streams)
-        .filter((s: any) => s && !seen.has(s.id) && seen.add(s.id))
-        .sort((a: any, b: any) => a.name.localeCompare(b.name));
+      return data || [];
     },
     enabled: !!filters.class_id
   });
