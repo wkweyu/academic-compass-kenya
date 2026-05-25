@@ -821,6 +821,16 @@ export const ClassManagementModule = () => {
               </div>
 
               {(() => {
+                // Helper: infer stream name from class name when current_stream_id is absent.
+                // e.g. "Primary Grade 6 Blue" → "Blue" given streams [{name:"Blue",...}]
+                const inferStreamFromClassName = (className: string, classStreams: any[]): string | null => {
+                  for (const s of classStreams) {
+                    const regex = new RegExp(`\\b${s.name}\\b`, 'i');
+                    if (regex.test(className)) return s.name;
+                  }
+                  return null;
+                };
+
                 // Mismatched students (global — not filtered, so banner always accurate)
                 const mismatchedStudents = students.filter(student => {
                   const studentClass = classes.find(c => String(c.id) === String(student.current_class_id));
@@ -831,18 +841,27 @@ export const ClassManagementModule = () => {
                   return false;
                 });
 
-                // Apply filters
+                // Apply grade level filter
                 let filteredStudents = students.filter(student => {
                   if (!filters.grade_level) return true;
                   const studentClass = classes.find(c => String(c.id) === String(student.current_class_id));
                   return studentClass?.grade_level === filters.grade_level;
                 });
 
-                // Apply stream filter
+                // Apply stream filter — match on stream_id OR inferred stream name from class name
                 if (allocationStreamFilter !== 'all') {
-                  filteredStudents = filteredStudents.filter(student => 
-                    String(student.current_stream_id) === String(allocationStreamFilter)
-                  );
+                  const selectedStream = streams.find(s => String(s.id) === String(allocationStreamFilter));
+                  filteredStudents = filteredStudents.filter(student => {
+                    if (String(student.current_stream_id) === String(allocationStreamFilter)) return true;
+                    if (selectedStream) {
+                      const studentClass = classes.find(c => String(c.id) === String(student.current_class_id));
+                      if (studentClass) {
+                        const classStreams = streams.filter(s => String(s.class_assigned) === String(studentClass.id));
+                        return inferStreamFromClassName(studentClass.name, classStreams) === selectedStream.name;
+                      }
+                    }
+                    return false;
+                  });
                 }
 
                 if (students.length === 0) {
@@ -857,13 +876,20 @@ export const ClassManagementModule = () => {
                   );
                 }
 
-                // Group students by class and stream (students without a stream go into "No Stream")
+                // Group by class then stream.
+                // Priority: explicit current_stream_id → infer from class name → "No Stream"
                 const groupedStudents = filteredStudents.reduce((acc, student) => {
                   const studentClass = classes.find(c => String(c.id) === String(student.current_class_id));
                   if (!studentClass) return acc;
                   const studentStream = streams.find(s => String(s.id) === String(student.current_stream_id));
                   const classKey = studentClass.name;
-                  const streamKey = studentStream?.name || 'No Stream';
+                  let streamKey: string;
+                  if (studentStream) {
+                    streamKey = studentStream.name;
+                  } else {
+                    const classStreams = streams.filter(s => String(s.class_assigned) === String(studentClass.id));
+                    streamKey = inferStreamFromClassName(studentClass.name, classStreams) || 'No Stream';
+                  }
                   if (!acc[classKey]) acc[classKey] = {};
                   if (!acc[classKey][streamKey]) acc[classKey][streamKey] = [];
                   acc[classKey][streamKey].push(student);
