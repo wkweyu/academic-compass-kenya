@@ -869,10 +869,10 @@ const StudentManagementModule = () => {
                       </TableCell>
                       <TableCell className="h-10 py-0 text-right pr-2">
                         <div className="flex justify-end items-center gap-0.5">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleViewDetails(student)}>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleViewStudent(student.id)}>
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditStudent(student)}>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditStudent(student.id)}>
                             <Edit className="h-3.5 w-3.5" />
                           </Button>
                           <DropdownMenu>
@@ -882,10 +882,10 @@ const StudentManagementModule = () => {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-40">
-                              <DropdownMenuItem onClick={() => handleOpenTransferDialog(student)}>
+                              <DropdownMenuItem onClick={() => handleTransferStudent(student)}>
                                 <ArrowRightLeft className="h-3.5 w-3.5 mr-2" /> Transfer
                               </DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteStudent(Number(student.id))}>
+                              <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteStudent(student.id)}>
                                 <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
                               </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -957,10 +957,10 @@ const StudentManagementModule = () => {
                   <div className="pt-2 border-t flex items-center justify-between">
                     <span className="text-[10px] text-muted-foreground">{student.guardian_phone || 'No phone'}</span>
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); handleViewDetails(student); }}>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); handleViewStudent(student.id); }}>
                         <Eye className="h-3.5 w-3.5" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); handleEditStudent(student); }}>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); handleEditStudent(student.id); }}>
                         <Edit className="h-3.5 w-3.5" />
                       </Button>
                     </div>
