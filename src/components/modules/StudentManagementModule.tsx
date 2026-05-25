@@ -854,9 +854,11 @@ const StudentManagementModule = () => {
                           <p className="text-xs text-muted-foreground">{student.admission_number}</p>
                         </div>
 
-                        {/* Stream badge */}
+                        {/* Stream / Class badge */}
                         <Badge variant="outline" className="hidden sm:flex text-xs shrink-0">
-                          {student.current_stream_name || student.current_class_name}
+                          {filters.class_id
+                            ? (student.current_stream_name || '—')
+                            : (student.current_stream_name || student.current_class_name)}
                         </Badge>
 
                         {/* Gender · Age */}
