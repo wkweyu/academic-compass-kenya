@@ -30,7 +30,8 @@ export const getStudents = async (
       query = query.or(orClause);
     }
     
-    if (params.class_id) {
+    // When search is active, query globally — class and year are irrelevant context
+    if (params.class_id && !params.search) {
       query = query.eq('current_class_id', params.class_id);
     }
     
@@ -47,7 +48,7 @@ export const getStudents = async (
       // to avoid PostgREST FK column type-coercion issues
     }
 
-    if (params.academic_year) {
+    if (params.academic_year && !params.search) {
       query = query.eq('admission_year', params.academic_year);
     }
 

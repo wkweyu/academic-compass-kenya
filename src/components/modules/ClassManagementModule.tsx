@@ -37,6 +37,8 @@ export const ClassManagementModule = () => {
   const [students, setStudents] = useState<any[]>([]);
   const [allocations, setAllocations] = useState<any[]>([]);
   const [allocationStreamFilter, setAllocationStreamFilter] = useState<string>('all');
+  const [fixingAll, setFixingAll] = useState(false);
+  const [fixingStudentId, setFixingStudentId] = useState<string | null>(null);
 
   // Form states
   const [classForm, setClassForm] = useState({
@@ -98,6 +100,15 @@ export const ClassManagementModule = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Clear stream assignment for mismatched students
+  const clearStudentStream = async (studentIds: (string | number)[]) => {
+    const { error } = await supabase
+      .from('students')
+      .update({ current_stream_id: null })
+      .in('id', studentIds);
+    if (error) throw error;
   };
 
   const handleCreateClass = async () => {
@@ -766,15 +777,37 @@ export const ClassManagementModule = () => {
                   return (
                     <div className="space-y-4">
                       <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 print:hidden">
-                        <div className="flex items-start gap-3">
-                          <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-500 mt-0.5" />
-                          <div>
-                            <h4 className="font-semibold text-yellow-900 dark:text-yellow-100">Data Mismatch Detected</h4>
-                            <p className="text-sm text-yellow-800 dark:text-yellow-200 mt-1">
-                              {mismatchedStudents.length} student(s) are assigned to streams that belong to different classes. 
-                              Please reassign these students to correct streams via the Students page.
-                            </p>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-start gap-3">
+                            <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-500 mt-0.5 shrink-0" />
+                            <div>
+                              <h4 className="font-semibold text-yellow-900 dark:text-yellow-100">Data Mismatch Detected</h4>
+                              <p className="text-sm text-yellow-800 dark:text-yellow-200 mt-1">
+                                {mismatchedStudents.length} student(s) are assigned to streams that belong to different classes.
+                                Clearing the stream assignment lets you reassign them correctly.
+                              </p>
+                            </div>
                           </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="shrink-0 border-yellow-500 text-yellow-800 hover:bg-yellow-100"
+                            disabled={fixingAll}
+                            onClick={async () => {
+                              setFixingAll(true);
+                              try {
+                                await clearStudentStream(mismatchedStudents.map(s => s.id));
+                                await loadData();
+                                toast({ title: 'Fixed', description: `Stream cleared for ${mismatchedStudents.length} student(s).` });
+                              } catch {
+                                toast({ title: 'Error', description: 'Failed to fix mismatches.', variant: 'destructive' });
+                              } finally {
+                                setFixingAll(false);
+                              }
+                            }}
+                          >
+                            {fixingAll ? 'Fixing…' : `Fix All (${mismatchedStudents.length})`}
+                          </Button>
                         </div>
                       </div>
 
@@ -786,13 +819,14 @@ export const ClassManagementModule = () => {
                             <TableHead>Assigned Class</TableHead>
                             <TableHead>Assigned Stream</TableHead>
                             <TableHead>Stream's Class</TableHead>
-                            <TableHead className="print:hidden">Issue</TableHead>
+                            <TableHead className="print:hidden">Action</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {mismatchedStudents.map((student) => {
                             const studentClass = classes.find(c => String(c.id) === String(student.current_class_id));
                             const studentStream = streams.find(s => String(s.id) === String(student.current_stream_id));
+                            const isFixing = fixingStudentId === String(student.id);
                             return (
                               <TableRow key={student.id}>
                                 <TableCell className="font-medium">{student.admission_number}</TableCell>
@@ -801,7 +835,29 @@ export const ClassManagementModule = () => {
                                 <TableCell>{studentStream?.name || 'N/A'}</TableCell>
                                 <TableCell>{studentStream?.class_name || 'N/A'}</TableCell>
                                 <TableCell className="print:hidden">
-                                  <Badge variant="destructive">Mismatch</Badge>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="destructive">Mismatch</Badge>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-7 px-2 text-xs text-destructive hover:text-destructive hover:bg-red-50"
+                                      disabled={isFixing || fixingAll}
+                                      onClick={async () => {
+                                        setFixingStudentId(String(student.id));
+                                        try {
+                                          await clearStudentStream([student.id]);
+                                          await loadData();
+                                          toast({ title: 'Fixed', description: `Stream cleared for ${student.full_name}.` });
+                                        } catch {
+                                          toast({ title: 'Error', description: 'Failed to fix student.', variant: 'destructive' });
+                                        } finally {
+                                          setFixingStudentId(null);
+                                        }
+                                      }}
+                                    >
+                                      {isFixing ? 'Fixing…' : 'Clear Stream'}
+                                    </Button>
+                                  </div>
                                 </TableCell>
                               </TableRow>
                             );
