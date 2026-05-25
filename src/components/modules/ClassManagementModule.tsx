@@ -30,6 +30,8 @@ export const ClassManagementModule = () => {
   const [streamFilters, setStreamFilters] = useState<StreamFilters>({});
   const [isCreateClassOpen, setIsCreateClassOpen] = useState(false);
   const [isCreateStreamOpen, setIsCreateStreamOpen] = useState(false);
+  const [isEditClassOpen, setIsEditClassOpen] = useState(false);
+  const [editClassForm, setEditClassForm] = useState({ name: '', grade_level: 1, description: '', capacity: 40 });
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
   const [isAssignTeacherOpen, setIsAssignTeacherOpen] = useState(false);
   const [selectedStream, setSelectedStream] = useState<Stream | null>(null);
@@ -184,6 +186,33 @@ export const ClassManagementModule = () => {
         title: "Error",
         description: error.message || "Failed to create stream",
         variant: "destructive",
+      });
+    }
+  };
+
+  const handleOpenEditClass = (cls: Class) => {
+    setSelectedClass(cls);
+    setEditClassForm({
+      name: cls.name || '',
+      grade_level: cls.grade_level || 1,
+      description: cls.description || '',
+      capacity: cls.capacity || 40,
+    });
+    setIsEditClassOpen(true);
+  };
+
+  const handleUpdateClass = async () => {
+    if (!selectedClass) return;
+    try {
+      await classService.updateClass(selectedClass.id, editClassForm);
+      toast({ title: 'Success', description: 'Class updated successfully' });
+      setIsEditClassOpen(false);
+      loadData();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to update class',
+        variant: 'destructive',
       });
     }
   };
@@ -413,6 +442,62 @@ export const ClassManagementModule = () => {
               </div>
             </DialogContent>
           </Dialog>
+
+          {/* Edit Class Dialog */}
+          <Dialog open={isEditClassOpen} onOpenChange={setIsEditClassOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Edit Class</DialogTitle>
+                <DialogDescription>
+                  Update the details for {selectedClass?.name}.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-class-name">Class Name</Label>
+                  <Input
+                    id="edit-class-name"
+                    value={editClassForm.name}
+                    onChange={(e) => setEditClassForm(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="e.g., Grade 1, Form 2"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-grade-level">Grade Level</Label>
+                  <Input
+                    id="edit-grade-level"
+                    type="number"
+                    min="1"
+                    max="12"
+                    value={editClassForm.grade_level}
+                    onChange={(e) => setEditClassForm(prev => ({ ...prev, grade_level: parseInt(e.target.value) }))}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-capacity">Capacity</Label>
+                  <Input
+                    id="edit-capacity"
+                    type="number"
+                    min="1"
+                    value={editClassForm.capacity}
+                    onChange={(e) => setEditClassForm(prev => ({ ...prev, capacity: parseInt(e.target.value) }))}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-class-description">Description</Label>
+                  <Textarea
+                    id="edit-class-description"
+                    value={editClassForm.description}
+                    onChange={(e) => setEditClassForm(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Optional description"
+                  />
+                </div>
+                <Button onClick={handleUpdateClass} className="w-full">
+                  Save Changes
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -552,7 +637,7 @@ export const ClassManagementModule = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" onClick={() => handleOpenEditClass(cls)}>
                             <Settings className="h-4 w-4" />
                           </Button>
                           <Button 

@@ -59,7 +59,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 
 const StudentManagementModule = () => {
   const navigate = useNavigate();
-  const [filters, setFilters] = useState<StudentFilters>({ academic_year: new Date().getFullYear() });
+  const [filters, setFilters] = useState<StudentFilters>({});
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
@@ -749,7 +749,7 @@ const StudentManagementModule = () => {
               }
             >
               <SelectTrigger>
-                <SelectValue placeholder="Academic year" />
+                <SelectValue placeholder="Admission Year" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Years</SelectItem>
