@@ -1,11 +1,5 @@
 -- Backfill admission_year for students where it is NULL
--- Priority 1: derive from enrollment_date if available
-UPDATE students
-SET admission_year = EXTRACT(YEAR FROM enrollment_date::date)::integer
-WHERE admission_year IS NULL
-  AND enrollment_date IS NOT NULL;
-
--- Priority 2: derive from created_at for any remaining NULL rows
+-- students table has no admission_date/enrollment_date; use created_at as proxy
 UPDATE students
 SET admission_year = EXTRACT(YEAR FROM created_at)::integer
 WHERE admission_year IS NULL;
