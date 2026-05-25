@@ -486,6 +486,26 @@ const StudentManagementModule = () => {
     return isNaN(d.getTime()) ? 'N/A' : d.toLocaleDateString();
   };
 
+  // Helper to extract stream information from student data
+  const getStreamInfo = (student: Student) => {
+    const knownStreams = ['Blue', 'Green', 'Red', 'Yellow', 'Purple', 'Orange'];
+    const explicitStream = student.current_stream_name || student.stream;
+    if (explicitStream && explicitStream.trim()) {
+      return { displayText: explicitStream, isInferred: false };
+    }
+    const className = student.current_class_name || '';
+    for (const streamWord of knownStreams) {
+      const regex = new RegExp(`\\b${streamWord}\\b`, 'i');
+      if (regex.test(className)) {
+        return { displayText: streamWord, isInferred: true };
+      }
+    }
+    if (className.trim()) {
+      return { displayText: className, isInferred: true };
+    }
+    return { displayText: '—', isInferred: true };
+  };
+
   // Client-side stream filter applied on top of server-fetched students
   // (avoids PostgREST FK type-coercion issues with current_stream_id)
   const visibleStudents = useMemo(() => {
@@ -560,33 +580,6 @@ const StudentManagementModule = () => {
     } catch {
       return '—';
     }
-  };
-
-  // Helper to extract stream information from student data
-  const getStreamInfo = (student: Student) => {
-    const knownStreams = ['Blue', 'Green', 'Red', 'Yellow', 'Purple', 'Orange'];
-    
-    // Priority 1: Explicit stream name
-    const explicitStream = student.current_stream_name || student.stream;
-    if (explicitStream && explicitStream.trim()) {
-      return { displayText: explicitStream, isInferred: false };
-    }
-
-    // Priority 2: Extract from class name using whole-word matching
-    const className = student.current_class_name || '';
-    for (const streamWord of knownStreams) {
-      const regex = new RegExp(`\\b${streamWord}\\b`, 'i');
-      if (regex.test(className)) {
-        return { displayText: streamWord, isInferred: true };
-      }
-    }
-
-    // Priority 3: Fallback to class name or placeholder
-    if (className.trim()) {
-      return { displayText: className, isInferred: true };
-    }
-
-    return { displayText: "—", isInferred: true };
   };
 
   if (isLoading) {
