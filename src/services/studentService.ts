@@ -42,6 +42,14 @@ export const getStudents = async (
       query = query.eq('gender', params.gender);
     }
 
+    if (params.stream_id) {
+      query = query.eq('current_stream_id', params.stream_id);
+    }
+
+    if (params.academic_year) {
+      query = query.eq('academic_year', params.academic_year);
+    }
+
     const { data, error } = await query.order('created_at', { ascending: false });
     
     if (error) {

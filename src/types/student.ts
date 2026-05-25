@@ -117,6 +117,7 @@ export interface StudentFilters {
   class?: string;
   class_id?: string; // Add Supabase field
   stream?: string;
+  stream_id?: string; // Supabase FK — filters by current_stream_id
   status?: string;
   academic_year?: number;
   gender?: 'M' | 'F';

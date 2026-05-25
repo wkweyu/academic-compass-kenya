@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { escapeHtml } from '@/utils/escapeHtml';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -81,7 +81,9 @@ const StudentManagementModule = () => {
   const [printStudentData, setPrintStudentData] = useState<Omit<Student, 'id' | 'admission_number' | 'created_at' | 'updated_at'> | null>(null);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [exportFilters, setExportFilters] = useState<StudentFilters>({});
-  
+  const [defaultApplied, setDefaultApplied] = useState(false);
+  const [collapseAllGroups, setCollapseAllGroups] = useState(false);
+
   const queryClient = useQueryClient();
 
   // Fetch students
@@ -143,7 +145,37 @@ const StudentManagementModule = () => {
       return data || [];
     }
   });
-  
+
+  // Streams for the filter bar — scoped to the currently selected class
+  const { data: filterStreams = [] } = useQuery({
+    queryKey: ['filter-streams', filters.class_id],
+    queryFn: async () => {
+      if (!filters.class_id) return [];
+      const { data, error } = await supabase
+        .from('streams')
+        .select('id, name')
+        .eq('class_assigned_id', filters.class_id)
+        .order('name');
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!filters.class_id
+  });
+
+  // Academic year range: 2020 → current year, descending
+  const academicYears = useMemo(() => {
+    const current = new Date().getFullYear();
+    return Array.from({ length: current - 2019 }, (_, i) => current - i);
+  }, []);
+
+  // Default to the first (lowest-grade) class on initial load
+  useEffect(() => {
+    if (!defaultApplied && classes && classes.length > 0 && !filters.class_id && !filters.search) {
+      setFilters(prev => ({ ...prev, class_id: classes[0].id.toString() }));
+      setDefaultApplied(true);
+    }
+  }, [classes, defaultApplied, filters.class_id, filters.search]);
+
   // Create student mutation
   const createMutation = useMutation({
     mutationFn: createStudent,
@@ -261,9 +293,20 @@ const StudentManagementModule = () => {
   };
 
   const handleFilterChange = (key: keyof StudentFilters, value: string) => {
-    setFilters(prev => ({ 
-      ...prev, 
-      [key]: value === 'all' ? undefined : value 
+    if (key === 'class_id') {
+      // Changing class resets stream and collapse state
+      setFilters(prev => ({
+        ...prev,
+        class_id: value === 'all' ? undefined : value,
+        stream_id: undefined,
+      }));
+      setCollapseAllGroups(value === 'all');
+      setCollapsedClasses(new Set());
+      return;
+    }
+    setFilters(prev => ({
+      ...prev,
+      [key]: value === 'all' ? undefined : value,
     }));
   };
 
@@ -461,7 +504,10 @@ const StudentManagementModule = () => {
       return next;
     });
   };
-  const isExpanded = (name: string) => !collapsedClasses.has(name);
+  // When collapseAllGroups is true (all-classes view), groups start collapsed;
+  // user can individually expand them. Inverted logic when single class is selected.
+  const isExpanded = (name: string) =>
+    collapseAllGroups ? collapsedClasses.has(name) : !collapsedClasses.has(name);
 
   if (isLoading) {
     return (
@@ -600,7 +646,8 @@ const StudentManagementModule = () => {
           <CardTitle className="text-lg">Search & Filter</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Row 1: Search, Class, Stream */}
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
@@ -618,12 +665,34 @@ const StudentManagementModule = () => {
                 <SelectValue placeholder="Filter by class" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Classes</SelectItem>
+                <SelectItem value="all">All Classes (entire school)</SelectItem>
                 {(classes || []).map((cls: any) => (
                   <SelectItem key={cls.id} value={cls.id.toString()}>{cls.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            <Select
+              value={filters.stream_id || 'all'}
+              onValueChange={(value) => handleFilterChange('stream_id', value)}
+              disabled={!filters.class_id || filterStreams.length === 0}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={
+                  !filters.class_id
+                    ? 'Select a class first'
+                    : filterStreams.length === 0
+                    ? 'No streams for this class'
+                    : 'All Streams'
+                } />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Streams</SelectItem>
+                {filterStreams.map((s: any) => (
+                  <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {/* Row 2: Status, Gender, Year */}
             <Select
               value={filters.status || 'all'}
               onValueChange={(value) => handleFilterChange('status', value)}
@@ -656,9 +725,56 @@ const StudentManagementModule = () => {
                 ))}
               </SelectContent>
             </Select>
+            <Select
+              value={filters.academic_year?.toString() || 'all'}
+              onValueChange={(value) =>
+                setFilters(prev => ({ ...prev, academic_year: value === 'all' ? undefined : Number(value) }))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Academic year" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Years</SelectItem>
+                {academicYears.map(year => (
+                  <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
+
+      {/* Results summary */}
+      {!isLoading && (
+        <div className={`flex items-center gap-2 text-sm px-1 ${
+          !filters.class_id && students.length > 100
+            ? 'text-amber-600'
+            : 'text-muted-foreground'
+        }`}>
+          <span>
+            {filters.class_id ? (
+              <>
+                <span className="font-medium">{students.length}</span>
+                {' student'}{students.length !== 1 ? 's' : ''}
+                {filters.stream_id && filterStreams.length > 0 && (() => {
+                  const s = filterStreams.find((f: any) => f.id.toString() === filters.stream_id);
+                  return s ? <> in <span className="font-medium">{s.name}</span> stream</> : null;
+                })()}
+              </>
+            ) : (
+              <>
+                <span className="font-medium">{students.length}</span>
+                {' student'}{students.length !== 1 ? 's' : ''}
+                {' across '}
+                <span className="font-medium">{sortedClassNames.length}</span>
+                {' class'}{sortedClassNames.length !== 1 ? 'es' : ''}
+                {students.length > 100 && ' · select a class for better performance'}
+              </>
+            )}
+          </span>
+        </div>
+      )}
 
       {/* Students by Class */}
       {students.length === 0 ? (
