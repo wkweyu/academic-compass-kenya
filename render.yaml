@@ -38,6 +38,25 @@ services:
         value: "true"
       - key: DB_SSL_REQUIRE
         value: "true"
+      # Payment integration
+      - key: MPESA_BASE_URL
+        value: "https://api.safaricom.co.ke"
+      - key: MPESA_CONSUMER_KEY
+        sync: false
+      - key: MPESA_CONSUMER_SECRET
+        sync: false
+      - key: KCB_BUNI_BASE_URL
+        value: "https://uat.buni.kcbgroup.com"
+      - key: KCB_BUNI_CLIENT_ID
+        sync: false
+      - key: KCB_BUNI_CLIENT_SECRET
+        sync: false
+      - key: KCB_BUNI_WEBHOOK_SECRET
+        sync: false
+      - key: BASE_URL
+        value: "https://academic-compass-api.onrender.com"
+      - key: PAYMENT_SMS_ENABLED
+        value: "true"
 
   - type: static
     name: academic-compass-web

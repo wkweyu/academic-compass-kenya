@@ -133,6 +133,9 @@ urlpatterns = [
     # Dashboard API
     path('api/dashboard/', include('apps.dashboard.urls')),
 
+    # Payment integration (MPESA, KCB Buni) — must be before catch-all
+    path('api/payments/', include('apps.payments.urls')),
+
     # Catch-all redirect to frontend (MUST BE LAST)
     path('<path:path>', root_view),
 ]

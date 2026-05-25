@@ -76,6 +76,7 @@ LOCAL_APPS = [
     'apps.iga.apps.IgaConfig',
     'apps.core.apps.CoreConfig',
     'apps.attendance.apps.AttendanceConfig',
+    'apps.payments.apps.PaymentsConfig',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -276,3 +277,23 @@ IMPORT_EXPORT_USE_TRANSACTIONS = True
 TWILIO_ACCOUNT_SID = config('TWILIO_ACCOUNT_SID', default='your_twilio_account_sid')
 TWILIO_AUTH_TOKEN = config('TWILIO_AUTH_TOKEN', default='your_twilio_auth_token')
 TWILIO_PHONE_NUMBER = config('TWILIO_PHONE_NUMBER', default='your_twilio_phone_number')
+
+# ── MPESA Daraja (Safaricom) ──────────────────────────────────────────────────
+# Use sandbox URL for testing; switch to https://api.safaricom.co.ke in prod.
+MPESA_BASE_URL = config('MPESA_BASE_URL', default='https://sandbox.safaricom.co.ke')
+MPESA_CONSUMER_KEY = config('MPESA_CONSUMER_KEY', default='')
+MPESA_CONSUMER_SECRET = config('MPESA_CONSUMER_SECRET', default='')
+
+# ── KCB Buni ─────────────────────────────────────────────────────────────────
+# Use UAT URL for testing; switch to production URL when ready.
+KCB_BUNI_BASE_URL = config('KCB_BUNI_BASE_URL', default='https://uat.buni.kcbgroup.com')
+KCB_BUNI_CLIENT_ID = config('KCB_BUNI_CLIENT_ID', default='')
+KCB_BUNI_CLIENT_SECRET = config('KCB_BUNI_CLIENT_SECRET', default='')
+# HMAC-SHA256 secret — must be set in production or all KCB webhooks are rejected.
+KCB_BUNI_WEBHOOK_SECRET = config('KCB_BUNI_WEBHOOK_SECRET', default='')
+
+# ── Payment integration settings ──────────────────────────────────────────────
+PAYMENT_SMS_ENABLED = config('PAYMENT_SMS_ENABLED', default=True, cast=bool)
+PAYMENT_SYSTEM_VERSION = '1.0.0'
+# Public base URL used when registering webhook URLs with providers via admin.
+BASE_URL = config('BASE_URL', default='https://yourdomain.com')
