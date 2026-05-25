@@ -479,15 +479,22 @@ const StudentManagementModule = () => {
     return isNaN(d.getTime()) ? 'N/A' : d.toLocaleDateString();
   };
 
+  // Client-side stream filter applied on top of server-fetched students
+  // (avoids PostgREST FK type-coercion issues with current_stream_id)
+  const visibleStudents = useMemo(() => {
+    if (!filters.stream_id) return students;
+    return students.filter(s => s.current_stream === filters.stream_id);
+  }, [students, filters.stream_id]);
+
   // Group students by class name with stable numeric ordering
   const groupedStudents = useMemo(() => {
     const grouped: Record<string, Student[]> = {};
-    for (const student of students) {
+    for (const student of visibleStudents) {
       const key = student.current_class_name || 'Unassigned';
       (grouped[key] ||= []).push(student);
     }
     return grouped;
-  }, [students]);
+  }, [visibleStudents]);
 
   const sortedClassNames = useMemo(
     () => Object.keys(groupedStudents).sort((a, b) =>
@@ -765,8 +772,8 @@ const StudentManagementModule = () => {
           <span>
             {filters.class_id ? (
               <>
-                <span className="font-medium">{students.length}</span>
-                {' student'}{students.length !== 1 ? 's' : ''}
+                <span className="font-medium">{visibleStudents.length}</span>
+                {' student'}{visibleStudents.length !== 1 ? 's' : ''}
                 {filters.stream_id && filterStreams.length > 0 && (() => {
                   const s = filterStreams.find((f: any) => f.id.toString() === filters.stream_id);
                   return s ? <> in <span className="font-medium">{s.name}</span> stream</> : null;
@@ -774,8 +781,8 @@ const StudentManagementModule = () => {
               </>
             ) : (
               <>
-                <span className="font-medium">{students.length}</span>
-                {' student'}{students.length !== 1 ? 's' : ''}
+                <span className="font-medium">{visibleStudents.length}</span>
+                {' student'}{visibleStudents.length !== 1 ? 's' : ''}
                 {' across '}
                 <span className="font-medium">{sortedClassNames.length}</span>
                 {' class'}{sortedClassNames.length !== 1 ? 'es' : ''}
@@ -787,7 +794,7 @@ const StudentManagementModule = () => {
       )}
 
       {/* Students by Class */}
-      {students.length === 0 ? (
+      {visibleStudents.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12">
           <Users className="h-12 w-12 text-muted-foreground mb-4" />
           <h3 className="text-lg font-medium mb-2">No students found</h3>

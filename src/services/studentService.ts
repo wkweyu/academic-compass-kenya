@@ -43,7 +43,8 @@ export const getStudents = async (
     }
 
     if (params.stream_id) {
-      query = query.eq('current_stream_id', params.stream_id);
+      // Stream filtering is handled client-side in the list view
+      // to avoid PostgREST FK column type-coercion issues
     }
 
     if (params.academic_year) {
