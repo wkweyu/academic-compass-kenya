@@ -489,9 +489,26 @@ const StudentManagementModule = () => {
   // Client-side stream filter applied on top of server-fetched students
   // (avoids PostgREST FK type-coercion issues with current_stream_id)
   const visibleStudents = useMemo(() => {
-    if (!filters.stream_id) return students;
-    return students.filter(s => s.current_stream === filters.stream_id);
-  }, [students, filters.stream_id]);
+    if (!filters.stream_id || filters.stream_id === 'all') return students;
+    
+    // Find the name of the selected stream for fuzzy/name matching
+    const selectedStreamName = filterStreams.find(
+      s => String(s.id) === String(filters.stream_id)
+    )?.name;
+
+    return students.filter(s => {
+      // 1. Direct ID match
+      if (String(s.current_stream) === String(filters.stream_id)) return true;
+      
+      // 2. Name-based match (including inferred streams)
+      if (selectedStreamName) {
+        const info = getStreamInfo(s);
+        return info.displayText.toLowerCase() === selectedStreamName.toLowerCase();
+      }
+      
+      return false;
+    });
+  }, [students, filters.stream_id, filterStreams]);
 
   // Group students by class name with stable numeric ordering
   const groupedStudents = useMemo(() => {
@@ -543,6 +560,33 @@ const StudentManagementModule = () => {
     } catch {
       return '—';
     }
+  };
+
+  // Helper to extract stream information from student data
+  const getStreamInfo = (student: Student) => {
+    const knownStreams = ['Blue', 'Green', 'Red', 'Yellow', 'Purple', 'Orange'];
+    
+    // Priority 1: Explicit stream name
+    const explicitStream = student.current_stream_name || student.stream;
+    if (explicitStream && explicitStream.trim()) {
+      return { displayText: explicitStream, isInferred: false };
+    }
+
+    // Priority 2: Extract from class name using whole-word matching
+    const className = student.current_class_name || '';
+    for (const streamWord of knownStreams) {
+      const regex = new RegExp(`\\b${streamWord}\\b`, 'i');
+      if (regex.test(className)) {
+        return { displayText: streamWord, isInferred: true };
+      }
+    }
+
+    // Priority 3: Fallback to class name or placeholder
+    if (className.trim()) {
+      return { displayText: className, isInferred: true };
+    }
+
+    return { displayText: "—", isInferred: true };
   };
 
   if (isLoading) {
@@ -755,11 +799,11 @@ const StudentManagementModule = () => {
 
       {/* Data View */}
       {viewMode === 'table' ? (
-        <div className="border rounded-md">
-          <Table>
+        <div className="border rounded-md overflow-hidden bg-card">
+          <Table className="table-fixed w-full">
             <TableHeader>
-              <TableRow className="h-10 hover:bg-transparent bg-muted/50">
-                <TableHead className="w-12 h-10 py-0">
+              <TableRow className="h-10 hover:bg-transparent bg-muted/50 border-b">
+                <TableHead className="w-12 h-10 py-0 text-center">
                   <Checkbox 
                     checked={selectedIds.size === visibleStudents.length && visibleStudents.length > 0}
                     onCheckedChange={(checked) => {
@@ -771,12 +815,12 @@ const StudentManagementModule = () => {
                     }}
                   />
                 </TableHead>
-                <TableHead className="h-10 py-0">Student</TableHead>
-                <TableHead className="h-10 py-0">Stream</TableHead>
-                <TableHead className="h-10 py-0">Demographics</TableHead>
-                <TableHead className="h-10 py-0">Phone</TableHead>
-                <TableHead className="h-10 py-0">Status</TableHead>
-                <TableHead className="w-[100px] h-10 py-0 text-right">Actions</TableHead>
+                <TableHead className="h-10 py-0 w-[30%] font-semibold">Student</TableHead>
+                <TableHead className="h-10 py-0 w-[15%] font-semibold">Stream</TableHead>
+                <TableHead className="h-10 py-0 w-[15%] font-semibold">Demographics</TableHead>
+                <TableHead className="h-10 py-0 w-[15%] font-semibold">Phone</TableHead>
+                <TableHead className="h-10 py-0 w-[12%] font-semibold">Status</TableHead>
+                <TableHead className="h-10 py-0 w-[13%] text-right font-semibold pr-4">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -787,9 +831,99 @@ const StudentManagementModule = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                visibleStudents.map((student) => (
-                  <TableRow key={student.id} className="h-10 hover:bg-muted/50 py-0">
-                    <TableCell className="w-12 h-10 py-0">
+                visibleStudents.map((student) => {
+                  const streamInfo = getStreamInfo(student);
+                  return (
+                    <TableRow key={student.id} className="h-10 hover:bg-muted/50 py-0 border-b last:border-0 relative">
+                      <TableCell className="w-12 h-10 py-0 text-center">
+                        <Checkbox 
+                          checked={selectedIds.has(String(student.id))}
+                          onCheckedChange={(checked) => {
+                            const next = new Set(selectedIds);
+                            if (checked) next.add(String(student.id));
+                            else next.delete(String(student.id));
+                            setSelectedIds(next);
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell className="h-10 py-0 overflow-hidden">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-7 w-7 shrink-0 border">
+                            <AvatarImage src={student.photo_url || ''} />
+                            <AvatarFallback className="text-[10px] bg-muted">{student.full_name.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                          <div className="flex flex-col leading-tight truncate">
+                            <span className="text-sm font-medium truncate">{student.full_name}</span>
+                            <span className="text-[10px] text-muted-foreground">{student.admission_number}</span>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="h-10 py-0 text-xs">
+                        <span className={`block truncate ${streamInfo.isInferred ? "text-muted-foreground/70 italic text-[11px]" : ""}`}>
+                          {streamInfo.displayText}
+                        </span>
+                      </TableCell>
+                      <TableCell className="h-10 py-0 text-sm whitespace-nowrap">
+                        <span className="font-medium">{student.gender}</span>, {calculateAge(student.date_of_birth)}
+                      </TableCell>
+                      <TableCell className="h-10 py-0 text-sm text-muted-foreground truncate">
+                        {student.guardian_phone || '—'}
+                      </TableCell>
+                      <TableCell className="h-10 py-0">
+                        <Badge variant={student.status === 'active' ? 'default' : 'secondary'} className="h-5 px-1.5 text-[9px] uppercase font-bold tracking-wider shrink-0">
+                          {student.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="h-10 py-0 text-right pr-2">
+                        <div className="flex justify-end items-center gap-0.5">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleViewDetails(student)}>
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditStudent(student)}>
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7">
+                                <MoreVertical className="h-3.5 w-3.5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-40">
+                              <DropdownMenuItem onClick={() => handleOpenTransferDialog(student)}>
+                                <ArrowRightLeft className="h-3.5 w-3.5 mr-2" /> Transfer
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteStudent(Number(student.id))}>
+                                <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
+          {visibleStudents.map((student) => {
+            const streamInfo = getStreamInfo(student);
+            return (
+              <Card 
+                key={student.id} 
+                className={`overflow-hidden hover:shadow-md transition-shadow cursor-pointer border ${selectedIds.has(String(student.id)) ? 'ring-1 ring-primary border-primary bg-primary/5' : ''}`}
+                onClick={() => {
+                  const next = new Set(selectedIds);
+                  if (next.has(String(student.id))) next.delete(String(student.id));
+                  else next.add(String(student.id));
+                  setSelectedIds(next);
+                }}
+              >
+                <div className="p-3 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
                       <Checkbox 
                         checked={selectedIds.has(String(student.id))}
                         onCheckedChange={(checked) => {
@@ -798,116 +932,50 @@ const StudentManagementModule = () => {
                           else next.delete(String(student.id));
                           setSelectedIds(next);
                         }}
+                        onClick={(e) => e.stopPropagation()}
                       />
-                    </TableCell>
-                    <TableCell className="h-10 py-0">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-7 w-7">
-                          <AvatarImage src={student.photo_url || ''} />
-                          <AvatarFallback className="text-[10px]">{student.full_name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <div className="flex flex-col leading-tight">
-                          <span className="text-sm font-medium">{student.full_name}</span>
-                          <span className="text-[10px] text-muted-foreground">{student.admission_number}</span>
-                        </div>
+                      <Avatar className="h-8 w-8 shrink-0 border">
+                        <AvatarImage src={student.photo_url || ''} />
+                        <AvatarFallback className="text-[10px] bg-muted">{student.full_name.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col min-w-0 leading-tight">
+                        <span className="text-sm font-semibold truncate">{student.full_name}</span>
+                        <span className="text-[10px] text-muted-foreground">{student.admission_number}</span>
                       </div>
-                    </TableCell>
-                    <TableCell className="h-10 py-0 text-sm">
-                      {student.current_stream_name || student.current_class_name || '—'}
-                    </TableCell>
-                    <TableCell className="h-10 py-0 text-sm">
-                      <span className="font-medium">{student.gender}</span>, {calculateAge(student.date_of_birth)}
-                    </TableCell>
-                    <TableCell className="h-10 py-0 text-sm text-muted-foreground">
-                      {student.guardian_phone || '—'}
-                    </TableCell>
-                    <TableCell className="h-10 py-0 text-sm">
-                      <Badge variant={student.status === 'active' ? 'default' : 'secondary'} className="h-5 px-1.5 text-[10px] uppercase font-bold">
-                        {student.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="h-10 py-0 text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleViewDetails(student)}>
-                          <Eye className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditStudent(student)}>
-                          <Edit className="h-3.5 w-3.5" />
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7">
-                              <MoreVertical className="h-3.5 w-3.5" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-40">
-                            <DropdownMenuItem onClick={() => handleOpenTransferDialog(student)}>
-                              <ArrowRightLeft className="h-3.5 w-3.5 mr-2" /> Transfer
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteStudent(Number(student.id))}>
-                              <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {sortedClassNames.map(className => (
-            <div key={className} className="border rounded-lg overflow-hidden bg-card">
-              <div 
-                className="bg-muted/50 px-4 py-2 flex items-center justify-between cursor-pointer"
-                onClick={() => setExpandedClasses(prev => ({ ...prev, [className]: !prev[className] }))}
-              >
-                <div className="flex items-center gap-2">
-                  {expandedClasses[className] !== false ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                  <span className="font-semibold">{className}</span>
-                  <Badge variant="secondary" className="ml-2">{groupedStudents[className].length}</Badge>
+                    </div>
+                    <Badge variant={student.status === 'active' ? 'default' : 'secondary'} className="h-4 px-1 text-[8px] uppercase shrink-0">
+                      {student.status}
+                    </Badge>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    <div className="space-y-0.5">
+                      <span className="text-muted-foreground block">Stream</span>
+                      <span className={`font-medium truncate block ${streamInfo.isInferred ? "text-muted-foreground/70 italic text-[10px]" : ""}`}>
+                        {streamInfo.displayText}
+                      </span>
+                    </div>
+                    <div className="space-y-0.5">
+                      <span className="text-muted-foreground block">Demographics</span>
+                      <span className="font-medium">{student.gender}, {calculateAge(student.date_of_birth)}y</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t flex items-center justify-between">
+                    <span className="text-[10px] text-muted-foreground">{student.guardian_phone || 'No phone'}</span>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); handleViewDetails(student); }}>
+                        <Eye className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); handleEditStudent(student); }}>
+                        <Edit className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              
-              {(expandedClasses[className] !== false) && (
-                <div className="divide-y">
-                  {groupedStudents[className].map(student => {
-                    const dob = new Date(student.date_of_birth);
-                    const age = isNaN(dob.getTime()) ? '?' : differenceInYears(new Date(2026, 4, 25), dob);
-                    
-                    return (
-                      <div key={student.id} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors">
-                        <Avatar className="h-9 w-9 shrink-0 text-[10px]">
-                          <AvatarImage src={student.photo_url || ''} />
-                          <AvatarFallback>{student.full_name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate">{student.full_name}</p>
-                          <p className="text-xs text-muted-foreground">{student.admission_number}</p>
-                        </div>
-                        <Badge variant="outline" className="hidden sm:inline-flex text-[10px]">
-                          {student.current_stream_name || '—'}
-                        </Badge>
-                        <span className="hidden md:inline text-xs text-muted-foreground w-16">
-                          {student.gender}, {age}y
-                        </span>
-                        <Badge className={`${student.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'} text-[10px] uppercase font-bold`}>
-                          {student.status}
-                        </Badge>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleViewDetails(student)}><Eye className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditStudent(student)}><Edit className="h-4 w-4" /></Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       )}
 
