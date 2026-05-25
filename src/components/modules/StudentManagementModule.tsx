@@ -360,10 +360,8 @@ const StudentManagementModule = () => {
   };
 
   const handleTransferSubmit = () => {
-    if (!transferData.student) {
-      toast.error('Student is required');
-      return;
-    }
+    const isBulk = !transferData.student;
+    const bulkIds = isBulk ? Array.from(selectedIds) : [];
 
     // Must select at least a new class or a new stream
     if (!transferData.toClassId && !transferData.toStreamId) {
@@ -371,34 +369,48 @@ const StudentManagementModule = () => {
       return;
     }
 
-    const student = transferData.student;
-    
-    // If class is changing, stream is required
-    const isClassChanging = transferData.toClassId && transferData.toClassId !== student.current_class;
-    if (isClassChanging && !transferData.toStreamId) {
-      toast.error('Stream is required when changing class');
-      return;
-    }
-
-    // If only stream is changing (same class), use current class
-    const finalClassId = transferData.toClassId ? Number(transferData.toClassId) : Number(student.current_class);
-    const finalStreamId = transferData.toStreamId ? Number(transferData.toStreamId) : Number(student.current_stream);
-
-    const toClass = classes?.find(c => c.id === finalClassId);
-    const allAvailableStreams = transferData.toClassId ? streams : allStreams;
-    const toStream = allAvailableStreams?.find(s => s.id.toString() === transferData.toStreamId);
-    
-    const confirmMessage = isClassChanging 
-      ? `Transfer ${student.full_name} to ${toClass?.name} - ${toStream?.name}?`
-      : `Move ${student.full_name} to stream ${toStream?.name} within the same class?`;
-    
-    if (window.confirm(confirmMessage)) {
-      transferMutation.mutate({
-        studentId: Number(student.id),
-        toClassId: finalClassId,
-        toStreamId: finalStreamId,
-        notes: transferData.notes
-      });
+    if (!isBulk) {
+      // Single student transfer (existing logic)
+      const student = transferData.student!;
+      const isClassChanging = transferData.toClassId && transferData.toClassId !== student.current_class;
+      if (isClassChanging && !transferData.toStreamId) {
+        toast.error('Stream is required when changing class');
+        return;
+      }
+      const finalClassId = transferData.toClassId ? Number(transferData.toClassId) : Number(student.current_class);
+      const finalStreamId = transferData.toStreamId ? Number(transferData.toStreamId) : Number(student.current_stream);
+      const toClass = classes?.find(c => c.id === finalClassId);
+      const allAvailableStreams = transferData.toClassId ? streams : allStreams;
+      const toStream = allAvailableStreams?.find(s => s.id.toString() === transferData.toStreamId);
+      const isClassChangingFinal = transferData.toClassId && transferData.toClassId !== student.current_class;
+      const confirmMessage = isClassChangingFinal
+        ? `Transfer ${student.full_name} to ${toClass?.name} - ${toStream?.name}?`
+        : `Move ${student.full_name} to stream ${toStream?.name} within the same class?`;
+      if (window.confirm(confirmMessage)) {
+        transferMutation.mutate({
+          studentId: Number(student.id),
+          toClassId: finalClassId,
+          toStreamId: finalStreamId,
+          notes: transferData.notes
+        });
+      }
+    } else {
+      // Bulk transfer
+      if (!transferData.toClassId || !transferData.toStreamId) {
+        toast.error('Both class and stream are required for bulk transfer');
+        return;
+      }
+      if (window.confirm(`Transfer ${bulkIds.length} selected students to the chosen class/stream?`)) {
+        bulkIds.forEach(id => {
+          transferMutation.mutate({
+            studentId: Number(id),
+            toClassId: Number(transferData.toClassId),
+            toStreamId: Number(transferData.toStreamId),
+            notes: transferData.notes
+          });
+        });
+        setSelectedIds(new Set());
+      }
     }
   };
 
@@ -776,13 +788,59 @@ const StudentManagementModule = () => {
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-primary text-primary-foreground px-4 py-3 rounded-full shadow-2xl flex items-center gap-4 animate-in fade-in slide-in-from-bottom-4">
           <span className="text-sm font-bold border-r pr-4">{selectedIds.size} Selected</span>
           <div className="flex gap-2">
-            <Button variant="ghost" size="sm" className="h-8 text-white hover:bg-white/20">Change Status</Button>
-            <Button variant="ghost" size="sm" className="h-8 text-white hover:bg-white/20">Transfer</Button>
-            <Button variant="ghost" size="sm" className="h-8 text-white hover:bg-destructive/80" onClick={() => {
-              if (confirm(`Delete ${selectedIds.size} students?`)) {
-                // Bulk delete logic would go here
-              }
-            }}>Delete</Button>
+            {/* Bulk Change Status */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 text-white hover:bg-white/20">Change Status</Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-44 p-1" side="top">
+                {STUDENT_STATUS_OPTIONS.map(opt => (
+                  <button
+                    key={opt.value}
+                    className="w-full text-left px-3 py-1.5 text-sm rounded hover:bg-muted transition-colors"
+                    onClick={async () => {
+                      const ids = Array.from(selectedIds);
+                      await Promise.all(ids.map(id => updateStudent(id, { status: opt.value as Student['status'] })));
+                      queryClient.invalidateQueries({ queryKey: ['students'] });
+                      setSelectedIds(new Set());
+                      toast.success(`${ids.length} student${ids.length !== 1 ? 's' : ''} marked as ${opt.label}`);
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </PopoverContent>
+            </Popover>
+
+            {/* Bulk Transfer */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 text-white hover:bg-white/20"
+              onClick={() => {
+                // Open transfer dialog in bulk mode (no specific student pre-selected)
+                setTransferData({ student: null, toClassId: '', toStreamId: '', notes: '' });
+                setIsTransferDialogOpen(true);
+              }}
+            >
+              Transfer
+            </Button>
+
+            {/* Bulk Delete */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 text-white hover:bg-destructive/80"
+              onClick={() => {
+                if (confirm(`Permanently delete ${selectedIds.size} student${selectedIds.size !== 1 ? 's' : ''}? This cannot be undone.`)) {
+                  const ids = Array.from(selectedIds);
+                  ids.forEach(id => deleteMutation.mutate(id));
+                  setSelectedIds(new Set());
+                }
+              }}
+            >
+              Delete
+            </Button>
           </div>
           <Button variant="ghost" size="icon" className="h-8 w-8 text-white" onClick={() => setSelectedIds(new Set())}>
             <X className="h-4 w-4" />
@@ -1275,26 +1333,29 @@ const StudentManagementModule = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ArrowRightLeft className="h-5 w-5" />
-              Transfer Student
+              {transferData.student ? 'Transfer Student' : `Bulk Transfer (${selectedIds.size} students)`}
             </DialogTitle>
             <DialogDescription>
-              Move {transferData.student?.full_name} to a different class or stream
+              {transferData.student
+                ? `Move ${transferData.student.full_name} to a different class or stream`
+                : `Move all ${selectedIds.size} selected students to a new class and stream`}
             </DialogDescription>
           </DialogHeader>
           
-          {transferData.student && (
-            <div className="space-y-4">
-              {/* Current Placement */}
+          <div className="space-y-4">
+            {/* Current Placement — single student only */}
+            {transferData.student && (
               <div className="p-3 bg-muted rounded-lg">
                 <Label className="text-sm font-medium">Current Placement</Label>
                 <p className="text-sm mt-1">
                   {transferData.student.current_class_stream || 'Unassigned'}
                 </p>
               </div>
+            )}
 
               {/* New Class Selection */}
               <div className="space-y-2">
-                <Label>New Class (Optional - leave empty to keep current)</Label>
+                <Label>{transferData.student ? 'New Class (Optional - leave empty to keep current)' : 'New Class *'}</Label>
                 <Select
                   value={transferData.toClassId}
                   onValueChange={(value) => {
@@ -1306,7 +1367,7 @@ const StudentManagementModule = () => {
                   }}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Keep current class" />
+                    <SelectValue placeholder={transferData.student ? 'Keep current class' : 'Select class'} />
                   </SelectTrigger>
                   <SelectContent>
                     {classes?.map(cls => (
@@ -1320,7 +1381,7 @@ const StudentManagementModule = () => {
 
               {/* Stream Selection */}
               <div className="space-y-2">
-                <Label>New Stream (Optional - leave empty to keep current)</Label>
+                <Label>{transferData.student ? 'New Stream (Optional - leave empty to keep current)' : 'New Stream *'}</Label>
                 <Select
                   value={transferData.toStreamId}
                   onValueChange={(value) => 
@@ -1328,7 +1389,7 @@ const StudentManagementModule = () => {
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Keep current stream" />
+                    <SelectValue placeholder={transferData.student ? 'Keep current stream' : 'Select stream'} />
                   </SelectTrigger>
                   <SelectContent>
                     {(transferData.toClassId ? streams : allStreams)?.map(stream => (
@@ -1353,7 +1414,6 @@ const StudentManagementModule = () => {
                 />
               </div>
             </div>
-          )}
 
           <DialogFooter>
             <Button
