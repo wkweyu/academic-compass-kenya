@@ -137,7 +137,7 @@ urlpatterns = [
     path('api/payments/', include('apps.payments.urls')),
 
     # Catch-all redirect to frontend (MUST BE LAST)
-    path('<path:path>', root_view),
+    # path('<path:path>', root_view),
 ]
 
 # Serve media/static during development
