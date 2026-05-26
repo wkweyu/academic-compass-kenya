@@ -20,11 +20,15 @@ class Command(BaseCommand):
                     f'{broken.count()} superuser(s) have NULL password. '
                     'Set ADMIN_EMAIL and ADMIN_PASSWORD env vars to fix them.'
                 ))
+                for u in broken:
+                    self.stdout.write(f'  - {u.email} (username={u.username})')
             else:
                 self.stdout.write(self.style.WARNING(
                     'ADMIN_EMAIL or ADMIN_PASSWORD not set — skipping admin creation.'
                 ))
             return
+
+        self.stdout.write(f'Looking for user with email={email} ...')
 
         # Look up by email (the USERNAME_FIELD), fall back to creating
         user = User.objects.filter(email=email).first()
