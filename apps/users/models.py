@@ -31,3 +31,9 @@ class User(AbstractUser):
     @property
     def full_name(self):
         return f"{self.first_name} {self.last_name}".strip()
+
+    def check_password(self, raw_password):
+        """Guard against NULL password field — return False instead of crashing."""
+        if self.password is None:
+            return False
+        return super().check_password(raw_password)
