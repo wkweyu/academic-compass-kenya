@@ -12,13 +12,11 @@ class SchoolContextMiddleware:
 
     def __call__(self, request):
         user = getattr(request, 'user', None)
+        school = None
         if user and user.is_authenticated:
-            # Set both thread-local and request attribute
-            _request_local.school = user.school
-            request.current_school = user.school  # Add this line
-        else:
-            _request_local.school = None
-            request.current_school = None  # Add this line
-        
+            school = getattr(user, 'school', None)
+        _request_local.school = school
+        request.current_school = school
+
         response = self.get_response(request)
         return response
