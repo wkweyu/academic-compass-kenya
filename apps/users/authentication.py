@@ -68,3 +68,52 @@ class SupabaseJWTAuthentication(authentication.BaseAuthentication):
             raise AuthenticationFailed('User account is inactive.')
 
         return (user, token)
+
+
+class SafeModelBackend:
+    """
+    Drop-in replacement for django.contrib.auth.backends.ModelBackend that
+    handles users whose password field is NULL (e.g. Supabase-only accounts
+    or accounts created without set_password). Returns None (auth failure)
+    instead of crashing with TypeError in identify_hasher.
+    """
+
+    def authenticate(self, request, username=None, password=None, **kwargs):
+        from django.contrib.auth import get_user_model
+        UserModel = get_user_model()
+
+        if username is None:
+            username = kwargs.get(UserModel.USERNAME_FIELD)
+        if username is None or password is None:
+            return None
+
+        try:
+            user = UserModel._default_manager.get_by_natural_key(username)
+        except UserModel.DoesNotExist:
+            # Run the hasher anyway to reduce timing differences
+            UserModel().set_password(password)
+            return None
+
+        if user.password is None:
+            return None  # NULL password — silently reject instead of crashing
+
+        try:
+            auth_ok = user.check_password(password)
+        except (ValueError, TypeError):
+            return None
+
+        if auth_ok and self.user_can_authenticate(user):
+            return user
+        return None
+
+    def user_can_authenticate(self, user):
+        return getattr(user, 'is_active', False)
+
+    def get_user(self, user_id):
+        from django.contrib.auth import get_user_model
+        UserModel = get_user_model()
+        try:
+            user = UserModel._default_manager.get(pk=user_id)
+        except UserModel.DoesNotExist:
+            return None
+        return user if self.user_can_authenticate(user) else None

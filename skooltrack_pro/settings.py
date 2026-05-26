@@ -186,7 +186,7 @@ LOGOUT_REDIRECT_URL = '/auth/login/'
 
 
 AUTHENTICATION_BACKENDS = [
-    'django.contrib.auth.backends.ModelBackend',
+    'apps.users.authentication.SafeModelBackend',
     'allauth.account.auth_backends.AuthenticationBackend',
 ]
 #Email login configuration
