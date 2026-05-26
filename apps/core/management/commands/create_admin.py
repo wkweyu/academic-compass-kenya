@@ -1,6 +1,7 @@
 import os
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
+from django.db import IntegrityError
 
 
 class Command(BaseCommand):
@@ -10,51 +11,47 @@ class Command(BaseCommand):
         User = get_user_model()
         password = os.environ.get('ADMIN_PASSWORD', '').strip()
         email = os.environ.get('ADMIN_EMAIL', '').strip()
-        username = os.environ.get('ADMIN_USERNAME', '').strip()
 
         if not password or not email:
-            # Also fix any existing superuser with NULL password
+            self.stdout.write(self.style.WARNING(
+                'ADMIN_EMAIL or ADMIN_PASSWORD not set — skipping.'
+            ))
             broken = User.objects.filter(is_superuser=True, password__isnull=True)
-            if broken.exists():
-                self.stdout.write(self.style.ERROR(
-                    f'{broken.count()} superuser(s) have NULL password. '
-                    'Set ADMIN_EMAIL and ADMIN_PASSWORD env vars to fix them.'
-                ))
-                for u in broken:
-                    self.stdout.write(f'  - {u.email} (username={u.username})')
-            else:
-                self.stdout.write(self.style.WARNING(
-                    'ADMIN_EMAIL or ADMIN_PASSWORD not set — skipping admin creation.'
-                ))
+            for u in broken:
+                self.stdout.write(f'  NULL-password account: email={u.email} username={u.username}')
             return
 
-        self.stdout.write(f'Looking for user with email={email} ...')
+        self.stdout.write(f'create_admin: looking for email={email}')
 
-        # Look up by email (the USERNAME_FIELD), fall back to creating
+        # Find target user: by email first, then any superuser with NULL password
         user = User.objects.filter(email=email).first()
-        if user is None:
-            # Try by username if provided
-            if username:
-                user = User.objects.filter(username=username).first()
-        if user is None:
-            # Also check for any superuser with NULL password to repair
+        if user:
+            self.stdout.write(f'  Found by email: username={user.username} password_is_null={user.password is None}')
+        else:
             user = User.objects.filter(is_superuser=True, password__isnull=True).first()
+            if user:
+                self.stdout.write(f'  Found by NULL-password superuser: username={user.username} email={user.email}')
 
         if user is None:
-            # Create fresh
-            uname = username or email.split('@')[0]
+            # Generate a guaranteed-unique username
+            base = email.split('@')[0]
+            uname = base
+            counter = 1
+            while User.objects.filter(username=uname).exists():
+                uname = f'{base}{counter}'
+                counter += 1
             user = User(username=uname, email=email)
-            created = True
-        else:
-            created = False
+            self.stdout.write(f'  Creating new user: username={uname}')
 
         user.set_password(password)
         user.is_superuser = True
         user.is_staff = True
-        user.email = email
-        if created and username:
-            user.username = username  # Only set username on creation, not update
-        user.save()
+        user.email = email  # ensure email is correct
 
-        action = 'Created' if created else 'Updated'
-        self.stdout.write(self.style.SUCCESS(f'{action} superuser: {user.email}'))
+        try:
+            user.save()
+            self.stdout.write(self.style.SUCCESS(f'create_admin: SUCCESS — {user.email} (username={user.username})'))
+        except IntegrityError as e:
+            self.stdout.write(self.style.ERROR(f'create_admin: FAILED to save — {e}'))
+            raise
+
