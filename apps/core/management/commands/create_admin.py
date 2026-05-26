@@ -52,8 +52,8 @@ class Command(BaseCommand):
         user.is_superuser = True
         user.is_staff = True
         user.email = email
-        if username:
-            user.username = username
+        if created and username:
+            user.username = username  # Only set username on creation, not update
         user.save()
 
         action = 'Created' if created else 'Updated'
