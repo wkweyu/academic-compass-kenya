@@ -134,7 +134,10 @@ const navGroups: { label: string; items: NavItem[] }[] = [
   {
     label: 'Finance',
     items: [
-      { id: 'fees', title: 'Fees', url: '/fees', icon: Receipt },
+      { id: 'payments', title: 'Payments', url: '/finance/payments', icon: Receipt },
+      { id: 'payments-unresolved', title: 'Unresolved Payments', url: '/finance/payments/unresolved', icon: FileText },
+      { id: 'payments-reports', title: 'Collections Reports', url: '/finance/payments/reports', icon: BarChart3 },
+      { id: 'student-statements', title: 'Student Statements', url: '/students', icon: FileText },
       { id: 'iga', title: 'IGA', url: '/iga', icon: Sprout },
       { id: 'payroll', title: 'Payroll', url: '/payroll', icon: DollarSign },
       { id: 'accounting', title: 'Accounting', url: '/accounting', icon: CreditCard },

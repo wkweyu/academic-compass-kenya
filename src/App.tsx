@@ -25,7 +25,10 @@ import { BiometricIntegration } from "./pages/Attendance/BiometricIntegration";
 import { SmsIntegration } from "./pages/Attendance/SmsIntegration";
 import ResultsPage from "./pages/ResultsPage";
 import TermReportsPage from "./pages/TermReportsPage";
-import FeesPage from "./pages/FeesPage";
+import PaymentsPage from "./pages/PaymentsPage";
+import UnresolvedPaymentsPage from "./pages/UnresolvedPaymentsPage";
+import PaymentReportsPage from "./pages/PaymentReportsPage";
+import StudentStatementPage from "./pages/StudentStatementPage";
 import PromotionsPage from "./pages/PromotionsPage";
 import ComingSoonPage from "./pages/ComingSoonPage";
 import TransportPage from "./pages/TransportPage";
@@ -66,6 +69,7 @@ const App = () => (
                 <Route path="/exams/reports" element={<ExamsPage />} />
                 <Route path="/students" element={<StudentsPage />} />
                 <Route path="/students/:id" element={<StudentProfilePage />} />
+                <Route path="/students/:id/statement" element={<StudentStatementPage />} />
                 <Route path="/classes" element={<ClassesPage />} />
                 <Route path="/teachers" element={<TeachersPage />} />
                 <Route path="/teachers/assignments" element={<TeachersPage />} />
@@ -83,7 +87,9 @@ const App = () => (
                 <Route path="/results" element={<ResultsPage />} />
                 <Route path="/term-reports" element={<TermReportsPage />} />
                 <Route path="/promotions" element={<PromotionsPage />} />
-                <Route path="/fees" element={<FeesPage />} />
+                <Route path="/finance/payments" element={<PaymentsPage />} />
+                <Route path="/finance/payments/unresolved" element={<UnresolvedPaymentsPage />} />
+                <Route path="/finance/payments/reports" element={<PaymentReportsPage />} />
                 <Route path="/attendance" element={<AttendancePage />} />
                 <Route path="/attendance/reports" element={<AttendanceReportsPage />} />
                 <Route path="/attendance/biometric" element={<BiometricIntegration />} />

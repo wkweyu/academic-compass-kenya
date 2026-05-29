@@ -26,7 +26,7 @@ class BiometricAttendanceAPITest(APITransactionTestCase):
             date_of_birth='2010-01-01',
             guardian_name='Test Guardian',
             guardian_phone='+254712345678',
-            level='PP1',
+            level='P1',  # Changed to 2-char value to match model constraint
             school=self.school
         )
         self.url = reverse('biometric_attendance')

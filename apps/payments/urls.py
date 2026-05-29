@@ -1,27 +1,20 @@
 from django.urls import path
-from rest_framework.generics import ListAPIView, RetrieveAPIView
-from rest_framework.permissions import IsAdminUser
-
-from .models import PaymentEvent
-from .serializers import PaymentEventSerializer
+from .views import (
+    DailyCollectionsReportView,
+    PaymentReportsExportCSVView,
+    PaymentDashboardView,
+    PaymentEventDetailView,
+    PaymentEventListView,
+    ProviderCollectionsReportView,
+    ReprocessPaymentEventView,
+    UnresolvedPaymentEventListView,
+    VoteheadCollectionsReportView,
+)
 from .webhooks.views import (
     KCBBuniWebhookView,
     MPESAConfirmationView,
     MPESAValidationView,
 )
-
-
-class PaymentEventListView(ListAPIView):
-    serializer_class = PaymentEventSerializer
-    permission_classes = [IsAdminUser]
-    # Unscoped: admin API shows all schools' events (RBAC enforced by IsAdminUser)
-    queryset = PaymentEvent.unscoped.all().order_by('-created_at')
-
-
-class PaymentEventDetailView(RetrieveAPIView):
-    serializer_class = PaymentEventSerializer
-    permission_classes = [IsAdminUser]
-    queryset = PaymentEvent.unscoped.all()
 
 
 urlpatterns = [
@@ -45,8 +38,43 @@ urlpatterns = [
     # ── Admin / reporting API ──────────────────────────────────────────────────
     path('events/', PaymentEventListView.as_view(), name='payment-events'),
     path(
+        'events/unresolved/',
+        UnresolvedPaymentEventListView.as_view(),
+        name='payment-events-unresolved',
+    ),
+    path(
+        'events/<uuid:pk>/reprocess/',
+        ReprocessPaymentEventView.as_view(),
+        name='payment-event-reprocess',
+    ),
+    path(
         'events/<uuid:pk>/',
         PaymentEventDetailView.as_view(),
         name='payment-event-detail',
+    ),
+    path(
+        'dashboard/',
+        PaymentDashboardView.as_view(),
+        name='payment-dashboard',
+    ),
+    path(
+        'reports/daily/',
+        DailyCollectionsReportView.as_view(),
+        name='payment-reports-daily',
+    ),
+    path(
+        'reports/providers/',
+        ProviderCollectionsReportView.as_view(),
+        name='payment-reports-providers',
+    ),
+    path(
+        'reports/voteheads/',
+        VoteheadCollectionsReportView.as_view(),
+        name='payment-reports-voteheads',
+    ),
+    path(
+        'reports/export/',
+        PaymentReportsExportCSVView.as_view(),
+        name='payment-reports-export-csv',
     ),
 ]

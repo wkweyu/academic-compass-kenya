@@ -3,6 +3,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
+from django.db.models import Sum
 from django.db.models import Q
 from django.core.paginator import Paginator
 from django.db import transaction
@@ -267,6 +268,11 @@ from rest_framework import viewsets, permissions, generics
 from .serializers import StudentSerializer, ClassSerializer, StreamSerializer
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from apps.schools.models import School
+from apps.fees.models import DebitTransaction, PaymentTransaction, FeeBalance
 
 # In views.py, update your API views:
 
@@ -375,3 +381,143 @@ class StudentViewSet(viewsets.ModelViewSet):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("No school profile found. Please create a school profile first.")
         serializer.save(school=school)
+
+
+class StudentStatementAPIView(APIView):
+    """Ledger-first student statement with deterministic ordering and running balance."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, student_id):
+        school = getattr(request.user, 'school', None) or School.objects.first()
+        if not school:
+            return Response({'detail': 'No school profile found.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        student = Student.objects.filter(id=student_id, school=school).first()
+        if not student:
+            return Response({'detail': 'Student not found for current school.'}, status=status.HTTP_404_NOT_FOUND)
+
+        year = request.query_params.get('year')
+        term = request.query_params.get('term')
+
+        debit_qs = DebitTransaction.objects.filter(school=school, student=student).select_related('vote_head')
+        payment_qs = PaymentTransaction.objects.filter(school=school, student=student)
+
+        if year:
+            debit_qs = debit_qs.filter(year=year)
+            payment_qs = payment_qs.filter(date__year=year)
+        if term:
+            debit_qs = debit_qs.filter(term=term)
+
+        entries = []
+
+        # Optional brought-forward lines for a specific term/year view.
+        if year and term:
+            opening_total = (
+                FeeBalance.objects.filter(
+                    school=school,
+                    student=student,
+                    year=year,
+                    term=term,
+                ).aggregate(total=Sum('opening_balance')).get('total')
+                or 0
+            )
+            if opening_total > 0:
+                entries.append(
+                    {
+                        'id': 0,
+                        'entry_type': 'BROUGHT_FORWARD_ARREARS',
+                        'transaction_date': f'{year}-01-01T00:00:00',
+                        'created_at': f'{year}-01-01T00:00:00',
+                        'description': f'Arrears B/F (Term {term} {year})',
+                        'debit': float(opening_total),
+                        'credit': 0.0,
+                        'reference': '',
+                        'source_model': 'FeeBalance',
+                        'source_id': None,
+                        'vote_head': 'Arrears',
+                    }
+                )
+            elif opening_total < 0:
+                entries.append(
+                    {
+                        'id': 0,
+                        'entry_type': 'BROUGHT_FORWARD_PREPAYMENT',
+                        'transaction_date': f'{year}-01-01T00:00:00',
+                        'created_at': f'{year}-01-01T00:00:00',
+                        'description': f'Prepayment B/F (Term {term} {year})',
+                        'debit': 0.0,
+                        'credit': abs(float(opening_total)),
+                        'reference': '',
+                        'source_model': 'FeeBalance',
+                        'source_id': None,
+                        'vote_head': 'Prepayment',
+                    }
+                )
+
+        for debit in debit_qs:
+            entries.append(
+                {
+                    'id': debit.id,
+                    'entry_type': 'DEBIT',
+                    'transaction_date': debit.date.isoformat(),
+                    'created_at': debit.date.isoformat(),
+                    'description': debit.remarks or f'Debit - {debit.vote_head.name}',
+                    'debit': float(debit.amount),
+                    'credit': 0.0,
+                    'reference': debit.invoice_number,
+                    'source_model': 'DebitTransaction',
+                    'source_id': debit.id,
+                    'vote_head': debit.vote_head.name,
+                }
+            )
+
+        for payment in payment_qs:
+            entries.append(
+                {
+                    'id': payment.id,
+                    'entry_type': 'CREDIT',
+                    'transaction_date': payment.date.isoformat(),
+                    'created_at': payment.date.isoformat(),
+                    'description': payment.remarks or f'Payment ({payment.get_mode_display()})',
+                    'debit': 0.0,
+                    'credit': float(payment.amount),
+                    'reference': payment.transaction_code,
+                    'source_model': 'PaymentTransaction',
+                    'source_id': payment.id,
+                    'vote_head': None,
+                }
+            )
+
+        # Deterministic ordering: transaction_date, created_at, id
+        entries.sort(key=lambda x: (x['transaction_date'], x['created_at'], x['id']))
+
+        running_balance = 0.0
+        total_debit = 0.0
+        total_credit = 0.0
+        for row in entries:
+            total_debit += row['debit']
+            total_credit += row['credit']
+            running_balance += row['debit'] - row['credit']
+            row['balance'] = running_balance
+
+        return Response(
+            {
+                'student': {
+                    'id': student.id,
+                    'full_name': student.full_name,
+                    'admission_number': student.admission_number,
+                    'class_name': student.current_class.name if student.current_class else None,
+                },
+                'filters': {
+                    'year': int(year) if year else None,
+                    'term': int(term) if term else None,
+                },
+                'totals': {
+                    'debit': round(total_debit, 2),
+                    'credit': round(total_credit, 2),
+                    'balance': round(running_balance, 2),
+                },
+                'entries': entries,
+            }
+        )

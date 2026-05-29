@@ -18,6 +18,13 @@ PAYMENT_EVENT_STATUS = [
     ('RECONCILED', 'Reconciled'),
 ]
 
+SMS_DELIVERY_STATUS = [
+    ('PENDING', 'Pending'),
+    ('SENT', 'Sent'),
+    ('FAILED', 'Failed'),
+    ('SKIPPED', 'Skipped'),
+]
+
 
 class PaymentIngressLog(models.Model):
     """
@@ -180,6 +187,8 @@ class PaymentEvent(SchoolScopedModel):
     # Audit trail
     retry_count = models.PositiveSmallIntegerField(default=0)
     processed_at = models.DateTimeField(null=True, blank=True)
+    sms_status = models.CharField(max_length=12, choices=SMS_DELIVERY_STATUS, default='PENDING', db_index=True)
+    sms_sent_at = models.DateTimeField(null=True, blank=True)
     system_version = models.CharField(max_length=20, default='1.0.0')
 
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)

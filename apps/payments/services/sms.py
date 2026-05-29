@@ -4,6 +4,7 @@ from decimal import Decimal
 import requests
 from django.conf import settings
 from django.db.models import Sum
+from django.utils.timezone import now
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,9 @@ class PaymentSMSService:
         try:
             PaymentSMSService._send(event_id)
         except Exception as exc:
+            from apps.payments.models import PaymentEvent
+
+            PaymentEvent.unscoped.filter(id=event_id).update(sms_status='FAILED')
             logger.error(
                 'Payment SMS failed for event_id=%s: %s',
                 event_id,
@@ -49,14 +53,22 @@ class PaymentSMSService:
             .get(id=event_id)
         )
 
+        def mark_sms_status(status: str, mark_sent_at: bool = False):
+            updates = {'sms_status': status}
+            if mark_sent_at:
+                updates['sms_sent_at'] = now()
+            PaymentEvent.unscoped.filter(id=event.id).update(**updates)
+
         # ── Guard checks ──────────────────────────────────────────────────────
         student = event.student
         if not student:
+            mark_sms_status('SKIPPED')
             logger.info('SMS skipped: no student linked to event %s', event_id)
             return
 
         guardian_phone = getattr(student, 'guardian_phone', None)
         if not guardian_phone:
+            mark_sms_status('SKIPPED')
             logger.info(
                 'SMS skipped: no guardian_phone for student %s',
                 student.admission_number,
@@ -65,6 +77,7 @@ class PaymentSMSService:
 
         config = event.payment_config
         if not config.sms_enabled:
+            mark_sms_status('SKIPPED')
             logger.info('SMS skipped: sms_enabled=False on config %s', config.id)
             return
 
@@ -102,6 +115,8 @@ class PaymentSMSService:
                 to=guardian_phone,
                 message=message,
             )
+
+        mark_sms_status('SENT', mark_sent_at=True)
 
     @staticmethod
     def _send_via_http(

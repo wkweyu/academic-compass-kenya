@@ -13,7 +13,7 @@ class Migration(migrations.Migration):
     dependencies = [
         ('fees', '0002_initial'),
         ('schools', '0004_phase4_communications'),
-        ('students', '0005_alter_student_admission_number_db_default'),
+        ('students', '0006_alter_student_admission_number_db_default'),
     ]
 
     operations = [

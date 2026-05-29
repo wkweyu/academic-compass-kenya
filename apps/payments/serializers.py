@@ -28,6 +28,9 @@ class PaymentEventSerializer(serializers.ModelSerializer):
     school_name = serializers.SerializerMethodField()
     provider_display = serializers.CharField(source='get_provider_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    sms_status_display = serializers.CharField(source='get_sms_status_display', read_only=True)
+    ingress_received_at = serializers.DateTimeField(source='ingress_log.received_at', read_only=True)
+    routed_at = serializers.DateTimeField(source='created_at', read_only=True)
 
     class Meta:
         model = PaymentEvent
@@ -50,6 +53,11 @@ class PaymentEventSerializer(serializers.ModelSerializer):
             'payment_transaction',
             'retry_count',
             'processed_at',
+            'sms_status',
+            'sms_status_display',
+            'sms_sent_at',
+            'ingress_received_at',
+            'routed_at',
             'system_version',
             'created_at',
             'updated_at',

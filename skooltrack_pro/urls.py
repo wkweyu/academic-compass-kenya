@@ -123,6 +123,7 @@ urlpatterns = [
     path('api/schools/', include('apps.schools.urls')),
     path('api/users/', include('apps.users.urls')),
     path('api/fees/', include('apps.fees.urls')),
+    path('api/finance/', include('apps.fees.finance_urls')),
     path('api/transport/', include('apps.transport.urls')),
     path('api/procurement/', include('apps.procurement.urls')),
     path('api/iga/', include('apps.iga.urls')),

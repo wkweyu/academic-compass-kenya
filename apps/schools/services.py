@@ -1266,7 +1266,8 @@ def get_follow_up_list(*, school_id=None, assigned_to_id=None, status=None, due_
 def snooze_follow_up(*, follow_up_id, actor_id, days):
     actor = _get_active_user(actor_id)
     try:
-        follow_up = FollowUp.objects.select_for_update().select_related('school', 'lead', 'onboarding_progress', 'task').get(pk=follow_up_id)
+        follow_up = FollowUp.objects.select_for_update().get(pk=follow_up_id)
+        follow_up = FollowUp.objects.select_related('school', 'lead', 'onboarding_progress', 'task').get(pk=follow_up.pk)
     except FollowUp.DoesNotExist as exc:
         raise ValidationError({'follow_up_id': 'Follow-up was not found.'}) from exc
 
@@ -1293,7 +1294,8 @@ def snooze_follow_up(*, follow_up_id, actor_id, days):
 def complete_follow_up(*, follow_up_id, actor_id, notes=''):
     actor = _get_active_user(actor_id)
     try:
-        follow_up = FollowUp.objects.select_for_update().select_related('school', 'lead', 'onboarding_progress', 'task').get(pk=follow_up_id)
+        follow_up = FollowUp.objects.select_for_update().get(pk=follow_up_id)
+        follow_up = FollowUp.objects.select_related('school', 'lead', 'onboarding_progress', 'task').get(pk=follow_up.pk)
     except FollowUp.DoesNotExist as exc:
         raise ValidationError({'follow_up_id': 'Follow-up was not found.'}) from exc
 
@@ -3061,7 +3063,8 @@ def process_onboarding_step(*, school_id, staff_id, step, step_data=None):
 def update_school_task_status(*, school_id, task_id, staff_id, status, blocked_reason=''):
     staff = _get_active_user(staff_id)
     try:
-        task = SchoolTask.objects.select_for_update().select_related('school', 'onboarding_progress').get(pk=task_id, school_id=school_id)
+        task = SchoolTask.objects.select_for_update().get(pk=task_id, school_id=school_id)
+        task = SchoolTask.objects.select_related('school', 'onboarding_progress').get(pk=task.pk)
     except SchoolTask.DoesNotExist as exc:
         raise ValidationError({'task_id': 'Task was not found for this school.'}) from exc
 

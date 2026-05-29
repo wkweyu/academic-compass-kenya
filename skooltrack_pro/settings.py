@@ -1,5 +1,6 @@
 """Django settings for skooltrack_pro Student Exam Management System."""
 
+
 import os
 import sys
 from datetime import timedelta
@@ -118,9 +119,10 @@ WSGI_APPLICATION = 'skooltrack_pro.wsgi.application'
 
 # Database (Postgres/Supabase)
 DB_SSL_REQUIRE = config('DB_SSL_REQUIRE', default=not DEBUG, cast=bool)
+FORCE_PG_TEST = config('FORCE_PG_TEST', default=False, cast=bool)
 
-# Use SQLite for testing or in CI/sandbox environment
-if 'test' in sys.argv or config('CI', default=False, cast=bool):
+# Use SQLite for testing or in CI/sandbox environment unless FORCE_PG_TEST is set
+if (('test' in sys.argv or config('CI', default=False, cast=bool)) and not FORCE_PG_TEST):
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
@@ -297,3 +299,6 @@ PAYMENT_SMS_ENABLED = config('PAYMENT_SMS_ENABLED', default=True, cast=bool)
 PAYMENT_SYSTEM_VERSION = '1.0.0'
 # Public base URL used when registering webhook URLs with providers via admin.
 BASE_URL = config('BASE_URL', default='https://yourdomain.com')
+
+# Use custom test runner when running tests
+import sys

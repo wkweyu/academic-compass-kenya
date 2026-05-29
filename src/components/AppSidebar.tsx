@@ -108,7 +108,10 @@ const academicNavigation = [
 ];
 
 const financeNavigation = [
-  { id: 'fees', title: 'Fees Management', url: '/fees', icon: Receipt },
+  { id: 'payments', title: 'Payments', url: '/finance/payments', icon: Receipt },
+  { id: 'payments-unresolved', title: 'Unresolved Payments', url: '/finance/payments/unresolved', icon: FileClock },
+  { id: 'payments-reports', title: 'Collections Reports', url: '/finance/payments/reports', icon: FileCheck },
+  { id: 'student-statements', title: 'Student Statements', url: '/students', icon: FileText },
   { id: 'transport', title: 'Transport', url: '/transport', icon: Truck },
   { id: 'procurement', title: 'Procurement', url: '/procurement', icon: ShoppingCart },
   { id: 'iga', title: 'IGA Management', url: '/iga', icon: Sprout },
