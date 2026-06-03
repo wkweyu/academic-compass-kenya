@@ -1329,7 +1329,7 @@ def process_due_follow_ups(*, actor_id=None):
     processed_ids = []
     escalated_ids = []
 
-    due_follow_ups = FollowUp.objects.select_for_update().select_related('school', 'assigned_to', 'lead', 'onboarding_progress', 'task').exclude(
+    due_follow_ups = FollowUp.objects.select_for_update(of=('self',)).select_related('school', 'assigned_to', 'lead', 'onboarding_progress', 'task').exclude(
         status__in=[FollowUpStatus.COMPLETE, FollowUpStatus.CANCELED]
     ).filter(due_at__lte=now)
 

@@ -1,4 +1,4 @@
-from apps.fees.models.finance_activity_log import FinanceActivityLog
+from apps.fees.models import FinanceActivityLog
 from django.utils import timezone
 
 def log_finance_activity(school, user, action, object_id=None, details=None, result=None, message=None):

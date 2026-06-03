@@ -46,7 +46,7 @@ class BiometricAttendanceAPITest(APITransactionTestCase):
         self.assertEqual(response.data['message'], 'Check-in processed')
         self.assertEqual(response.data['event_type'], 'check_in')
 
-        attendance = Attendance.objects.get(student=self.student, date='2026-03-25')
+        attendance = Attendance._base_manager.get(student=self.student, date='2026-03-25')
         self.assertEqual(attendance.status, AttendanceStatus.PRESENT)
         self.assertIsNotNone(attendance.time_in)
 
@@ -62,7 +62,7 @@ class BiometricAttendanceAPITest(APITransactionTestCase):
         self.assertEqual(response.data['message'], 'Check-out processed')
         self.assertEqual(response.data['event_type'], 'check_out')
 
-        attendance = Attendance.objects.get(student=self.student, date='2026-03-25')
+        attendance = Attendance._base_manager.get(student=self.student, date='2026-03-25')
         self.assertIsNotNone(attendance.time_out)
 
     def test_duplicate_scan_is_ignored(self):

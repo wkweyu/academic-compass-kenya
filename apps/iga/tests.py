@@ -332,6 +332,7 @@ class IGAModuleTests(TestCase):
             expense_category='feed',
             description='Animal feed purchase',
             amount=Decimal('5000.00'),
+            expense_date='2026-02-15',
             recorded_by=self.accountant,
             status=ExpenseStatus.APPROVED,
             approved_by=self.admin_user,

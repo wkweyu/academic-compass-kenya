@@ -18,8 +18,9 @@ from apps.fees.models import (
     TermCloseConversionDetail,
     TermClosePeriod,
     VoteHead,
+    FinanceActivityLog,
 )
-from apps.fees.services.activity_log import log_finance_activity
+from apps.fees.services import log_finance_activity
 
 
 class FinanceAccessPermission(permissions.BasePermission):
@@ -816,25 +817,25 @@ class FinanceActivityLogAPIView(APIView):
         limit = int(request.query_params.get('limit', 50) or 50)
         limit = max(1, min(limit, 200))
 
-        queryset = ActivityLog.objects.filter(school=school).select_related('actor')
+        queryset = FinanceActivityLog.objects.filter(school=school).select_related('user')
         if action:
             queryset = queryset.filter(action=action)
         if start_date:
-            queryset = queryset.filter(created_at__date__gte=start_date)
+            queryset = queryset.filter(timestamp__date__gte=start_date)
         if end_date:
-            queryset = queryset.filter(created_at__date__lte=end_date)
+            queryset = queryset.filter(timestamp__date__lte=end_date)
 
         rows = [
             {
                 'id': item.id,
                 'action': item.action,
-                'description': item.description,
-                'actor_id': item.actor_id,
-                'actor_name': item.actor.full_name if item.actor else None,
-                'metadata': item.metadata or {},
-                'created_at': item.created_at.isoformat(),
+                'description': item.message,
+                'actor_id': item.user_id,
+                'actor_name': item.user.full_name if item.user else None,
+                'metadata': item.details or {},
+                'created_at': item.timestamp.isoformat(),
             }
-            for item in queryset.order_by('-created_at')[:limit]
+            for item in queryset.order_by('-timestamp')[:limit]
         ]
         return Response({'count': len(rows), 'results': rows})
 
@@ -1219,7 +1220,7 @@ class ScheduledExportJobDownloadAPIView(APIView):
             _log_finance_activity(
                 school=school,
                 actor=request.user,
-                action='FINANCE_SCHEDULED_EXPORT_DOWNLOADED',
+                action='FINANCE_EXPORT_DOWNLOADED',
                 description=f'Downloaded scheduled {job.report} export.',
                 metadata={
                     'scheduled_export_id': job.id,
@@ -1254,7 +1255,7 @@ class ScheduledExportJobCancelAPIView(APIView):
         _log_finance_activity(
             school=school,
             actor=request.user,
-            action='FINANCE_SCHEDULED_EXPORT_CANCELLED',
+            action='FINANCE_EXPORT_CANCELLED',
             description=f'Cancelled scheduled {job.report} export.',
             metadata={'scheduled_export_id': job.id, 'report': job.report},
         )
