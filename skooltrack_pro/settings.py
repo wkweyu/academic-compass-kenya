@@ -134,8 +134,8 @@ else:
     SUPABASE_URL = config('SUPABASE_DB_URL', default=None)
     if SUPABASE_URL:
         DATABASES = {
-            'default': dj_database_url.config(
-                default=SUPABASE_URL,
+            'default': dj_database_url.parse(
+                SUPABASE_URL,
                 conn_max_age=600,
                 ssl_require=DB_SSL_REQUIRE,
             )
