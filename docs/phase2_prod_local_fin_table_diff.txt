@@ -1,0 +1,9 @@
+=>	fees_scheduled_export_job
+=>	fees_term_close_conversion_detail
+=>	fees_term_close_period
+<=	fees_allocation
+<=	fees_ledger_entry
+<=	fees_receipt
+<=	fees_structure_group
+<=	fees_structure_item
+<=	fees_student_ledger

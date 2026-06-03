@@ -5,8 +5,8 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.fees.models import FeeBalance, ScheduledExportJob, TermCloseConversionDetail, TermClosePeriod, VoteHead
-from apps.schools.models import ActivityLog, School
+from apps.fees.models import FeeBalance, ScheduledExportJob, TermCloseConversionDetail, TermClosePeriod, VoteHead, FinanceActivityLog
+from apps.schools.models import School
 from apps.students.models import Student
 from apps.users.models import User
 
@@ -142,6 +142,71 @@ class TermCloseFinanceAPITests(APITestCase):
 		self.assertEqual(second.status_code, status.HTTP_409_CONFLICT)
 		self.assertIn('already closed', second.data['detail'].lower())
 
+	def test_force_rerun_repairs_incomplete_closed_period(self):
+		self._seed_source_balances()
+
+		period = TermClosePeriod.objects.create(
+			school=self.school,
+			year=2026,
+			term=1,
+			target_year=2026,
+			target_term=2,
+			status='CLOSED',
+			started_by=self.user,
+			closed_by=self.user,
+			rows_processed=1,
+		)
+		TermCloseConversionDetail.objects.create(
+			period=period,
+			school=self.school,
+			student=self.student,
+			source_year=2026,
+			source_term=1,
+			target_year=2026,
+			target_term=2,
+			source_vote_head=self.tuition,
+			source_closing_balance=Decimal('2000.00'),
+			target_type='ARREARS',
+			target_amount=Decimal('2000.00'),
+		)
+
+		response = self.client.post(
+			'/api/finance/term-close/rollover/',
+			{'year': 2026, 'term': 1, 'force': True},
+			format='json',
+		)
+
+		self.assertEqual(response.status_code, status.HTTP_200_OK)
+		period.refresh_from_db()
+		self.assertEqual(period.status, 'CLOSED')
+		self.assertEqual(period.rows_processed, 1)
+
+		arrears_votehead = VoteHead.objects.get(school=self.school, name='Arrears')
+		prepayment_votehead = VoteHead.objects.get(school=self.school, name='Prepayment')
+
+		arrears_balance = FeeBalance.objects.get(
+			school=self.school,
+			student=self.student,
+			vote_head=arrears_votehead,
+			year=2026,
+			term=2,
+		)
+		prepayment_balance = FeeBalance.objects.get(
+			school=self.school,
+			student=self.student,
+			vote_head=prepayment_votehead,
+			year=2026,
+			term=2,
+		)
+
+		self.assertEqual(arrears_balance.opening_balance, Decimal('2000.00'))
+		self.assertEqual(prepayment_balance.opening_balance, Decimal('-500.00'))
+
+		details = TermCloseConversionDetail.objects.filter(period=period).order_by('target_type', 'source_vote_head__name')
+		self.assertEqual(details.count(), 2)
+		self.assertEqual(sum(d.source_closing_balance for d in details if d.target_type == 'ARREARS'), Decimal('2000.00'))
+		self.assertEqual(sum(d.source_closing_balance for d in details if d.target_type == 'PREPAYMENT'), Decimal('-500.00'))
+
 	def test_conversion_report_is_school_scoped(self):
 		self._seed_source_balances()
 		self.client.post('/api/finance/term-close/rollover/', {'year': 2026, 'term': 1}, format='json')
@@ -233,7 +298,7 @@ class TermCloseFinanceAPITests(APITestCase):
 
 		self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 		self.assertTrue(
-			ActivityLog.objects.filter(
+			FinanceActivityLog.objects.filter(
 				school=self.school,
 				action='FINANCE_REPORT_EXPORT',
 			).exists()
@@ -287,26 +352,26 @@ class TermCloseFinanceAPITests(APITestCase):
 		self.assertIn(response.data['results'][0]['risk_band'], ['LOW', 'MEDIUM', 'HIGH'])
 
 	def test_activity_log_list_is_scoped_and_filterable(self):
-		ActivityLog.objects.create(
+		FinanceActivityLog.objects.create(
 			school=self.school,
-			actor=self.user,
+			user=self.user,
 			action='FINANCE_REPORT_EXPORT',
-			description='Exported daily report',
-			metadata={'type': 'daily'},
+			message='Exported daily report',
+			details={'type': 'daily'},
 		)
-		ActivityLog.objects.create(
+		FinanceActivityLog.objects.create(
 			school=self.school,
-			actor=self.user,
+			user=self.user,
 			action='FINANCE_TERM_CLOSE_COMPLETED',
-			description='Closed term',
-			metadata={'term': 1},
+			message='Closed term',
+			details={'term': 1},
 		)
-		ActivityLog.objects.create(
+		FinanceActivityLog.objects.create(
 			school=self.other_school,
-			actor=self.user,
+			user=self.user,
 			action='FINANCE_REPORT_EXPORT',
-			description='Other school export',
-			metadata={'type': 'other'},
+			message='Other school export',
+			details={'type': 'other'},
 		)
 
 		response = self.client.get('/api/finance/activity-log/', {'action': 'FINANCE_REPORT_EXPORT', 'limit': 10})

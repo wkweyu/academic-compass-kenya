@@ -1,0 +1,11 @@
+fees_debittransaction
+fees_feebalance
+fees_feestructure
+fees_paymenttransaction
+fees_scheduled_export_job
+fees_term_close_conversion_detail
+fees_term_close_period
+fees_votehead
+payments_paymentevent
+payments_paymentingresslog
+payments_schoolpaymentconfig

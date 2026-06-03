@@ -1,0 +1,380 @@
+# Production Finance Index Extract
+
+-- Table: fees_allocation, Index: fees_allocation_pkey
+CREATE UNIQUE INDEX fees_allocation_pkey ON public.fees_allocation USING btree (id);
+
+-- Table: fees_allocation, Index: idx_fees_allocation_receipt
+CREATE INDEX idx_fees_allocation_receipt ON public.fees_allocation USING btree (receipt_id);
+
+-- Table: fees_allocation, Index: idx_fees_allocation_votehead
+CREATE INDEX idx_fees_allocation_votehead ON public.fees_allocation USING btree (vote_head_id);
+
+-- Table: fees_debittransaction, Index: fees_debittransaction_pkey
+CREATE UNIQUE INDEX fees_debittransaction_pkey ON public.fees_debittransaction USING btree (id);
+
+-- Table: fees_debittransaction, Index: fees_debittransaction_school_id_059a6c7a
+CREATE INDEX fees_debittransaction_school_id_059a6c7a ON public.fees_debittransaction USING btree (school_id);
+
+-- Table: fees_debittransaction, Index: fees_debittransaction_school_id_student_id_vot_e0964016_uniq
+CREATE UNIQUE INDEX fees_debittransaction_school_id_student_id_vot_e0964016_uniq ON public.fees_debittransaction USING btree (school_id, student_id, vote_head_id, year, term);
+
+-- Table: fees_debittransaction, Index: fees_debittransaction_student_id_05535c8b
+CREATE INDEX fees_debittransaction_student_id_05535c8b ON public.fees_debittransaction USING btree (student_id);
+
+-- Table: fees_debittransaction, Index: fees_debittransaction_vote_head_id_bc2c0005
+CREATE INDEX fees_debittransaction_vote_head_id_bc2c0005 ON public.fees_debittransaction USING btree (vote_head_id);
+
+-- Table: fees_feebalance, Index: fees_feebalance_pkey
+CREATE UNIQUE INDEX fees_feebalance_pkey ON public.fees_feebalance USING btree (id);
+
+-- Table: fees_feebalance, Index: fees_feebalance_school_id_ddea2f81
+CREATE INDEX fees_feebalance_school_id_ddea2f81 ON public.fees_feebalance USING btree (school_id);
+
+-- Table: fees_feebalance, Index: fees_feebalance_school_id_student_id_vot_0de0c61f_uniq
+CREATE UNIQUE INDEX fees_feebalance_school_id_student_id_vot_0de0c61f_uniq ON public.fees_feebalance USING btree (school_id, student_id, vote_head_id, year, term);
+
+-- Table: fees_feebalance, Index: fees_feebalance_student_id_ac2ec66d
+CREATE INDEX fees_feebalance_student_id_ac2ec66d ON public.fees_feebalance USING btree (student_id);
+
+-- Table: fees_feebalance, Index: fees_feebalance_vote_head_id_db2c4b02
+CREATE INDEX fees_feebalance_vote_head_id_db2c4b02 ON public.fees_feebalance USING btree (vote_head_id);
+
+-- Table: fees_feestructure, Index: fees_feestructure_pkey
+CREATE UNIQUE INDEX fees_feestructure_pkey ON public.fees_feestructure USING btree (id);
+
+-- Table: fees_feestructure, Index: fees_feestructure_school_id_60d48166
+CREATE INDEX fees_feestructure_school_id_60d48166 ON public.fees_feestructure USING btree (school_id);
+
+-- Table: fees_feestructure, Index: fees_feestructure_school_id_year_term_vote_df6963e9_uniq
+CREATE UNIQUE INDEX fees_feestructure_school_id_year_term_vote_df6963e9_uniq ON public.fees_feestructure USING btree (school_id, year, term, vote_head_id);
+
+-- Table: fees_feestructure, Index: fees_feestructure_vote_head_id_71e5bae3
+CREATE INDEX fees_feestructure_vote_head_id_71e5bae3 ON public.fees_feestructure USING btree (vote_head_id);
+
+-- Table: fees_ledger_entry, Index: fees_ledger_entry_pkey
+CREATE UNIQUE INDEX fees_ledger_entry_pkey ON public.fees_ledger_entry USING btree (id);
+
+-- Table: fees_ledger_entry, Index: idx_fees_ledger_entry_date
+CREATE INDEX idx_fees_ledger_entry_date ON public.fees_ledger_entry USING btree (entry_date);
+
+-- Table: fees_ledger_entry, Index: idx_fees_ledger_entry_school
+CREATE INDEX idx_fees_ledger_entry_school ON public.fees_ledger_entry USING btree (school_id);
+
+-- Table: fees_ledger_entry, Index: idx_fees_ledger_entry_student
+CREATE INDEX idx_fees_ledger_entry_student ON public.fees_ledger_entry USING btree (student_id);
+
+-- Table: fees_paymenttransaction, Index: fees_paymenttransaction_pkey
+CREATE UNIQUE INDEX fees_paymenttransaction_pkey ON public.fees_paymenttransaction USING btree (id);
+
+-- Table: fees_paymenttransaction, Index: fees_paymenttransaction_school_id_d8e21a32
+CREATE INDEX fees_paymenttransaction_school_id_d8e21a32 ON public.fees_paymenttransaction USING btree (school_id);
+
+-- Table: fees_paymenttransaction, Index: fees_paymenttransaction_student_id_87a8fde4
+CREATE INDEX fees_paymenttransaction_student_id_87a8fde4 ON public.fees_paymenttransaction USING btree (student_id);
+
+-- Table: fees_receipt, Index: fees_receipt_pkey
+CREATE UNIQUE INDEX fees_receipt_pkey ON public.fees_receipt USING btree (id);
+
+-- Table: fees_receipt, Index: fees_receipt_school_id_receipt_no_key
+CREATE UNIQUE INDEX fees_receipt_school_id_receipt_no_key ON public.fees_receipt USING btree (school_id, receipt_no);
+
+-- Table: fees_receipt, Index: idx_fees_receipt_date
+CREATE INDEX idx_fees_receipt_date ON public.fees_receipt USING btree (created_at);
+
+-- Table: fees_receipt, Index: idx_fees_receipt_school
+CREATE INDEX idx_fees_receipt_school ON public.fees_receipt USING btree (school_id);
+
+-- Table: fees_receipt, Index: idx_fees_receipt_student
+CREATE INDEX idx_fees_receipt_student ON public.fees_receipt USING btree (student_id);
+
+-- Table: fees_structure_group, Index: fees_structure_group_pkey
+CREATE UNIQUE INDEX fees_structure_group_pkey ON public.fees_structure_group USING btree (id);
+
+-- Table: fees_structure_group, Index: fees_structure_group_school_id_name_academic_year_term_key
+CREATE UNIQUE INDEX fees_structure_group_school_id_name_academic_year_term_key ON public.fees_structure_group USING btree (school_id, name, academic_year, term);
+
+-- Table: fees_structure_group, Index: idx_fees_structure_group_school
+CREATE INDEX idx_fees_structure_group_school ON public.fees_structure_group USING btree (school_id);
+
+-- Table: fees_structure_item, Index: fees_structure_item_pkey
+CREATE UNIQUE INDEX fees_structure_item_pkey ON public.fees_structure_item USING btree (id);
+
+-- Table: fees_structure_item, Index: fees_structure_item_structure_group_id_vote_head_id_key
+CREATE UNIQUE INDEX fees_structure_item_structure_group_id_vote_head_id_key ON public.fees_structure_item USING btree (structure_group_id, vote_head_id);
+
+-- Table: fees_structure_item, Index: idx_fees_structure_item_group
+CREATE INDEX idx_fees_structure_item_group ON public.fees_structure_item USING btree (structure_group_id);
+
+-- Table: fees_student_ledger, Index: fees_student_ledger_pkey
+CREATE UNIQUE INDEX fees_student_ledger_pkey ON public.fees_student_ledger USING btree (id);
+
+-- Table: fees_student_ledger, Index: fees_student_ledger_school_id_student_id_key
+CREATE UNIQUE INDEX fees_student_ledger_school_id_student_id_key ON public.fees_student_ledger USING btree (school_id, student_id);
+
+-- Table: fees_student_ledger, Index: idx_fees_student_ledger_school
+CREATE INDEX idx_fees_student_ledger_school ON public.fees_student_ledger USING btree (school_id);
+
+-- Table: fees_student_ledger, Index: idx_fees_student_ledger_student
+CREATE INDEX idx_fees_student_ledger_student ON public.fees_student_ledger USING btree (student_id);
+
+-- Table: fees_votehead, Index: fees_votehead_pkey
+CREATE UNIQUE INDEX fees_votehead_pkey ON public.fees_votehead USING btree (id);
+
+-- Table: fees_votehead, Index: fees_votehead_school_id_e9528e3f
+CREATE INDEX fees_votehead_school_id_e9528e3f ON public.fees_votehead USING btree (school_id);
+
+-- Table: payments_paymentevent, Index: payments_paymentevent_idempotency_key_key
+CREATE UNIQUE INDEX payments_paymentevent_idempotency_key_key ON public.payments_paymentevent USING btree (idempotency_key);
+
+-- Table: payments_paymentevent, Index: payments_paymentevent_ingress_log_id_key
+CREATE UNIQUE INDEX payments_paymentevent_ingress_log_id_key ON public.payments_paymentevent USING btree (ingress_log_id);
+
+-- Table: payments_paymentevent, Index: payments_paymentevent_payment_transaction_id_key
+CREATE UNIQUE INDEX payments_paymentevent_payment_transaction_id_key ON public.payments_paymentevent USING btree (payment_transaction_id);
+
+-- Table: payments_paymentevent, Index: payments_paymentevent_pkey
+CREATE UNIQUE INDEX payments_paymentevent_pkey ON public.payments_paymentevent USING btree (id);
+
+-- Table: payments_paymentevent, Index: payments_pe_config_id_idx
+CREATE INDEX payments_pe_config_id_idx ON public.payments_paymentevent USING btree (payment_config_id);
+
+-- Table: payments_paymentevent, Index: payments_pe_created_at_idx
+CREATE INDEX payments_pe_created_at_idx ON public.payments_paymentevent USING btree (created_at);
+
+-- Table: payments_paymentevent, Index: payments_pe_idempotency_idx
+CREATE INDEX payments_pe_idempotency_idx ON public.payments_paymentevent USING btree (idempotency_key);
+
+-- Table: payments_paymentevent, Index: payments_pe_provider_idx
+CREATE INDEX payments_pe_provider_idx ON public.payments_paymentevent USING btree (provider);
+
+-- Table: payments_paymentevent, Index: payments_pe_school_id_idx
+CREATE INDEX payments_pe_school_id_idx ON public.payments_paymentevent USING btree (school_id);
+
+-- Table: payments_paymentevent, Index: payments_pe_status_idx
+CREATE INDEX payments_pe_status_idx ON public.payments_paymentevent USING btree (status);
+
+-- Table: payments_paymentevent, Index: payments_pe_student_id_idx
+CREATE INDEX payments_pe_student_id_idx ON public.payments_paymentevent USING btree (student_id);
+
+-- Table: payments_paymentingresslog, Index: payments_paymentingresslog_pkey
+CREATE UNIQUE INDEX payments_paymentingresslog_pkey ON public.payments_paymentingresslog USING btree (id);
+
+-- Table: payments_paymentingresslog, Index: payments_pil_provider_idx
+CREATE INDEX payments_pil_provider_idx ON public.payments_paymentingresslog USING btree (provider);
+
+-- Table: payments_paymentingresslog, Index: payments_pil_received_at_idx
+CREATE INDEX payments_pil_received_at_idx ON public.payments_paymentingresslog USING btree (received_at);
+
+-- Table: payments_paymentingresslog, Index: payments_pil_school_id_idx
+CREATE INDEX payments_pil_school_id_idx ON public.payments_paymentingresslog USING btree (resolved_school_id);
+
+-- Table: payments_schoolpaymentconfig, Index: payments_schoolpaymentconfig_pkey
+CREATE UNIQUE INDEX payments_schoolpaymentconfig_pkey ON public.payments_schoolpaymentconfig USING btree (id);
+
+-- Table: payments_schoolpaymentconfig, Index: payments_spc_is_active_idx
+CREATE INDEX payments_spc_is_active_idx ON public.payments_schoolpaymentconfig USING btree (is_active);
+
+-- Table: payments_schoolpaymentconfig, Index: payments_spc_provider_idx
+CREATE INDEX payments_spc_provider_idx ON public.payments_schoolpaymentconfig USING btree (provider);
+
+-- Table: payments_schoolpaymentconfig, Index: payments_spc_provider_short_code_uniq
+CREATE UNIQUE INDEX payments_spc_provider_short_code_uniq ON public.payments_schoolpaymentconfig USING btree (provider, short_code);
+
+-- Table: payments_schoolpaymentconfig, Index: payments_spc_school_id_idx
+CREATE INDEX payments_spc_school_id_idx ON public.payments_schoolpaymentconfig USING btree (school_id);
+
+
+# Production Finance Constraint Extract
+
+-- Table: fees_allocation, Constraint: fees_allocation_pkey
+ALTER TABLE public.fees_allocation ADD CONSTRAINT fees_allocation_pkey PRIMARY KEY (id);
+
+-- Table: fees_allocation, Constraint: fees_allocation_receipt_id_fkey
+ALTER TABLE public.fees_allocation ADD CONSTRAINT fees_allocation_receipt_id_fkey FOREIGN KEY (receipt_id) REFERENCES fees_receipt(id) ON DELETE CASCADE;
+
+-- Table: fees_allocation, Constraint: fees_allocation_school_id_fkey
+ALTER TABLE public.fees_allocation ADD CONSTRAINT fees_allocation_school_id_fkey FOREIGN KEY (school_id) REFERENCES schools_school(id) ON DELETE CASCADE;
+
+-- Table: fees_allocation, Constraint: fees_allocation_vote_head_id_fkey
+ALTER TABLE public.fees_allocation ADD CONSTRAINT fees_allocation_vote_head_id_fkey FOREIGN KEY (vote_head_id) REFERENCES fees_votehead(id) ON DELETE CASCADE;
+
+-- Table: fees_debittransaction, Constraint: fees_debittransaction_pkey
+ALTER TABLE public.fees_debittransaction ADD CONSTRAINT fees_debittransaction_pkey PRIMARY KEY (id);
+
+-- Table: fees_debittransaction, Constraint: fees_debittransaction_school_id_059a6c7a_fk_schools_school_id
+ALTER TABLE public.fees_debittransaction ADD CONSTRAINT fees_debittransaction_school_id_059a6c7a_fk_schools_school_id FOREIGN KEY (school_id) REFERENCES schools_school(id) DEFERRABLE INITIALLY DEFERRED;
+
+-- Table: fees_debittransaction, Constraint: fees_debittransaction_school_id_student_id_vot_e0964016_uniq
+ALTER TABLE public.fees_debittransaction ADD CONSTRAINT fees_debittransaction_school_id_student_id_vot_e0964016_uniq UNIQUE (school_id, student_id, vote_head_id, year, term);
+
+-- Table: fees_debittransaction, Constraint: fees_debittransaction_student_id_05535c8b_fk_students_id
+ALTER TABLE public.fees_debittransaction ADD CONSTRAINT fees_debittransaction_student_id_05535c8b_fk_students_id FOREIGN KEY (student_id) REFERENCES students(id) DEFERRABLE INITIALLY DEFERRED;
+
+-- Table: fees_debittransaction, Constraint: fees_debittransaction_term_check
+ALTER TABLE public.fees_debittransaction ADD CONSTRAINT fees_debittransaction_term_check CHECK ((term >= 0));
+
+-- Table: fees_debittransaction, Constraint: fees_debittransaction_vote_head_id_bc2c0005_fk_fees_votehead_id
+ALTER TABLE public.fees_debittransaction ADD CONSTRAINT fees_debittransaction_vote_head_id_bc2c0005_fk_fees_votehead_id FOREIGN KEY (vote_head_id) REFERENCES fees_votehead(id) DEFERRABLE INITIALLY DEFERRED;
+
+-- Table: fees_debittransaction, Constraint: fees_debittransaction_year_check
+ALTER TABLE public.fees_debittransaction ADD CONSTRAINT fees_debittransaction_year_check CHECK ((year >= 0));
+
+-- Table: fees_feebalance, Constraint: fees_feebalance_pkey
+ALTER TABLE public.fees_feebalance ADD CONSTRAINT fees_feebalance_pkey PRIMARY KEY (id);
+
+-- Table: fees_feebalance, Constraint: fees_feebalance_school_id_ddea2f81_fk_schools_school_id
+ALTER TABLE public.fees_feebalance ADD CONSTRAINT fees_feebalance_school_id_ddea2f81_fk_schools_school_id FOREIGN KEY (school_id) REFERENCES schools_school(id) DEFERRABLE INITIALLY DEFERRED;
+
+-- Table: fees_feebalance, Constraint: fees_feebalance_school_id_student_id_vot_0de0c61f_uniq
+ALTER TABLE public.fees_feebalance ADD CONSTRAINT fees_feebalance_school_id_student_id_vot_0de0c61f_uniq UNIQUE (school_id, student_id, vote_head_id, year, term);
+
+-- Table: fees_feebalance, Constraint: fees_feebalance_student_id_ac2ec66d_fk_students_id
+ALTER TABLE public.fees_feebalance ADD CONSTRAINT fees_feebalance_student_id_ac2ec66d_fk_students_id FOREIGN KEY (student_id) REFERENCES students(id) DEFERRABLE INITIALLY DEFERRED;
+
+-- Table: fees_feebalance, Constraint: fees_feebalance_term_check
+ALTER TABLE public.fees_feebalance ADD CONSTRAINT fees_feebalance_term_check CHECK ((term >= 0));
+
+-- Table: fees_feebalance, Constraint: fees_feebalance_vote_head_id_db2c4b02_fk_fees_votehead_id
+ALTER TABLE public.fees_feebalance ADD CONSTRAINT fees_feebalance_vote_head_id_db2c4b02_fk_fees_votehead_id FOREIGN KEY (vote_head_id) REFERENCES fees_votehead(id) DEFERRABLE INITIALLY DEFERRED;
+
+-- Table: fees_feebalance, Constraint: fees_feebalance_year_check
+ALTER TABLE public.fees_feebalance ADD CONSTRAINT fees_feebalance_year_check CHECK ((year >= 0));
+
+-- Table: fees_feestructure, Constraint: fees_feestructure_pkey
+ALTER TABLE public.fees_feestructure ADD CONSTRAINT fees_feestructure_pkey PRIMARY KEY (id);
+
+-- Table: fees_feestructure, Constraint: fees_feestructure_school_id_60d48166_fk_schools_school_id
+ALTER TABLE public.fees_feestructure ADD CONSTRAINT fees_feestructure_school_id_60d48166_fk_schools_school_id FOREIGN KEY (school_id) REFERENCES schools_school(id) DEFERRABLE INITIALLY DEFERRED;
+
+-- Table: fees_feestructure, Constraint: fees_feestructure_school_id_year_term_vote_df6963e9_uniq
+ALTER TABLE public.fees_feestructure ADD CONSTRAINT fees_feestructure_school_id_year_term_vote_df6963e9_uniq UNIQUE (school_id, year, term, vote_head_id);
+
+-- Table: fees_feestructure, Constraint: fees_feestructure_term_check
+ALTER TABLE public.fees_feestructure ADD CONSTRAINT fees_feestructure_term_check CHECK ((term >= 0));
+
+-- Table: fees_feestructure, Constraint: fees_feestructure_vote_head_id_71e5bae3_fk_fees_votehead_id
+ALTER TABLE public.fees_feestructure ADD CONSTRAINT fees_feestructure_vote_head_id_71e5bae3_fk_fees_votehead_id FOREIGN KEY (vote_head_id) REFERENCES fees_votehead(id) DEFERRABLE INITIALLY DEFERRED;
+
+-- Table: fees_feestructure, Constraint: fees_feestructure_year_check
+ALTER TABLE public.fees_feestructure ADD CONSTRAINT fees_feestructure_year_check CHECK ((year >= 0));
+
+-- Table: fees_ledger_entry, Constraint: fees_ledger_entry_pkey
+ALTER TABLE public.fees_ledger_entry ADD CONSTRAINT fees_ledger_entry_pkey PRIMARY KEY (id);
+
+-- Table: fees_ledger_entry, Constraint: fees_ledger_entry_receipt_id_fkey
+ALTER TABLE public.fees_ledger_entry ADD CONSTRAINT fees_ledger_entry_receipt_id_fkey FOREIGN KEY (receipt_id) REFERENCES fees_receipt(id);
+
+-- Table: fees_ledger_entry, Constraint: fees_ledger_entry_school_id_fkey
+ALTER TABLE public.fees_ledger_entry ADD CONSTRAINT fees_ledger_entry_school_id_fkey FOREIGN KEY (school_id) REFERENCES schools_school(id) ON DELETE CASCADE;
+
+-- Table: fees_ledger_entry, Constraint: fees_ledger_entry_student_id_fkey
+ALTER TABLE public.fees_ledger_entry ADD CONSTRAINT fees_ledger_entry_student_id_fkey FOREIGN KEY (student_id) REFERENCES students(id);
+
+-- Table: fees_paymenttransaction, Constraint: fees_paymenttransaction_pkey
+ALTER TABLE public.fees_paymenttransaction ADD CONSTRAINT fees_paymenttransaction_pkey PRIMARY KEY (id);
+
+-- Table: fees_paymenttransaction, Constraint: fees_paymenttransaction_school_id_d8e21a32_fk_schools_school_id
+ALTER TABLE public.fees_paymenttransaction ADD CONSTRAINT fees_paymenttransaction_school_id_d8e21a32_fk_schools_school_id FOREIGN KEY (school_id) REFERENCES schools_school(id) DEFERRABLE INITIALLY DEFERRED;
+
+-- Table: fees_paymenttransaction, Constraint: fees_paymenttransaction_student_id_87a8fde4_fk_students_id
+ALTER TABLE public.fees_paymenttransaction ADD CONSTRAINT fees_paymenttransaction_student_id_87a8fde4_fk_students_id FOREIGN KEY (student_id) REFERENCES students(id) DEFERRABLE INITIALLY DEFERRED;
+
+-- Table: fees_receipt, Constraint: fees_receipt_pkey
+ALTER TABLE public.fees_receipt ADD CONSTRAINT fees_receipt_pkey PRIMARY KEY (id);
+
+-- Table: fees_receipt, Constraint: fees_receipt_posted_by_fkey
+ALTER TABLE public.fees_receipt ADD CONSTRAINT fees_receipt_posted_by_fkey FOREIGN KEY (posted_by) REFERENCES users(id);
+
+-- Table: fees_receipt, Constraint: fees_receipt_school_id_fkey
+ALTER TABLE public.fees_receipt ADD CONSTRAINT fees_receipt_school_id_fkey FOREIGN KEY (school_id) REFERENCES schools_school(id) ON DELETE CASCADE;
+
+-- Table: fees_receipt, Constraint: fees_receipt_school_id_receipt_no_key
+ALTER TABLE public.fees_receipt ADD CONSTRAINT fees_receipt_school_id_receipt_no_key UNIQUE (school_id, receipt_no);
+
+-- Table: fees_receipt, Constraint: fees_receipt_student_id_fkey
+ALTER TABLE public.fees_receipt ADD CONSTRAINT fees_receipt_student_id_fkey FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE;
+
+-- Table: fees_structure_group, Constraint: fees_structure_group_pkey
+ALTER TABLE public.fees_structure_group ADD CONSTRAINT fees_structure_group_pkey PRIMARY KEY (id);
+
+-- Table: fees_structure_group, Constraint: fees_structure_group_school_id_fkey
+ALTER TABLE public.fees_structure_group ADD CONSTRAINT fees_structure_group_school_id_fkey FOREIGN KEY (school_id) REFERENCES schools_school(id) ON DELETE CASCADE;
+
+-- Table: fees_structure_group, Constraint: fees_structure_group_school_id_name_academic_year_term_key
+ALTER TABLE public.fees_structure_group ADD CONSTRAINT fees_structure_group_school_id_name_academic_year_term_key UNIQUE (school_id, name, academic_year, term);
+
+-- Table: fees_structure_item, Constraint: fees_structure_item_pkey
+ALTER TABLE public.fees_structure_item ADD CONSTRAINT fees_structure_item_pkey PRIMARY KEY (id);
+
+-- Table: fees_structure_item, Constraint: fees_structure_item_structure_group_id_fkey
+ALTER TABLE public.fees_structure_item ADD CONSTRAINT fees_structure_item_structure_group_id_fkey FOREIGN KEY (structure_group_id) REFERENCES fees_structure_group(id) ON DELETE CASCADE;
+
+-- Table: fees_structure_item, Constraint: fees_structure_item_structure_group_id_vote_head_id_key
+ALTER TABLE public.fees_structure_item ADD CONSTRAINT fees_structure_item_structure_group_id_vote_head_id_key UNIQUE (structure_group_id, vote_head_id);
+
+-- Table: fees_structure_item, Constraint: fees_structure_item_vote_head_id_fkey
+ALTER TABLE public.fees_structure_item ADD CONSTRAINT fees_structure_item_vote_head_id_fkey FOREIGN KEY (vote_head_id) REFERENCES fees_votehead(id) ON DELETE CASCADE;
+
+-- Table: fees_student_ledger, Constraint: fees_student_ledger_pkey
+ALTER TABLE public.fees_student_ledger ADD CONSTRAINT fees_student_ledger_pkey PRIMARY KEY (id);
+
+-- Table: fees_student_ledger, Constraint: fees_student_ledger_school_id_fkey
+ALTER TABLE public.fees_student_ledger ADD CONSTRAINT fees_student_ledger_school_id_fkey FOREIGN KEY (school_id) REFERENCES schools_school(id) ON DELETE CASCADE;
+
+-- Table: fees_student_ledger, Constraint: fees_student_ledger_school_id_student_id_key
+ALTER TABLE public.fees_student_ledger ADD CONSTRAINT fees_student_ledger_school_id_student_id_key UNIQUE (school_id, student_id);
+
+-- Table: fees_student_ledger, Constraint: fees_student_ledger_student_id_fkey
+ALTER TABLE public.fees_student_ledger ADD CONSTRAINT fees_student_ledger_student_id_fkey FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE;
+
+-- Table: fees_votehead, Constraint: fees_votehead_pkey
+ALTER TABLE public.fees_votehead ADD CONSTRAINT fees_votehead_pkey PRIMARY KEY (id);
+
+-- Table: fees_votehead, Constraint: fees_votehead_priority_check
+ALTER TABLE public.fees_votehead ADD CONSTRAINT fees_votehead_priority_check CHECK ((priority >= 0));
+
+-- Table: fees_votehead, Constraint: fees_votehead_school_id_e9528e3f_fk_schools_school_id
+ALTER TABLE public.fees_votehead ADD CONSTRAINT fees_votehead_school_id_e9528e3f_fk_schools_school_id FOREIGN KEY (school_id) REFERENCES schools_school(id) DEFERRABLE INITIALLY DEFERRED;
+
+-- Table: payments_paymentevent, Constraint: payments_paymentevent_idempotency_key_key
+ALTER TABLE public.payments_paymentevent ADD CONSTRAINT payments_paymentevent_idempotency_key_key UNIQUE (idempotency_key);
+
+-- Table: payments_paymentevent, Constraint: payments_paymentevent_ingress_log_id_key
+ALTER TABLE public.payments_paymentevent ADD CONSTRAINT payments_paymentevent_ingress_log_id_key UNIQUE (ingress_log_id);
+
+-- Table: payments_paymentevent, Constraint: payments_paymentevent_payment_transaction_id_key
+ALTER TABLE public.payments_paymentevent ADD CONSTRAINT payments_paymentevent_payment_transaction_id_key UNIQUE (payment_transaction_id);
+
+-- Table: payments_paymentevent, Constraint: payments_paymentevent_pkey
+ALTER TABLE public.payments_paymentevent ADD CONSTRAINT payments_paymentevent_pkey PRIMARY KEY (id);
+
+-- Table: payments_paymentevent, Constraint: payments_pe_config_fk
+ALTER TABLE public.payments_paymentevent ADD CONSTRAINT payments_pe_config_fk FOREIGN KEY (payment_config_id) REFERENCES payments_schoolpaymentconfig(id) DEFERRABLE INITIALLY DEFERRED;
+
+-- Table: payments_paymentevent, Constraint: payments_pe_ingress_fk
+ALTER TABLE public.payments_paymentevent ADD CONSTRAINT payments_pe_ingress_fk FOREIGN KEY (ingress_log_id) REFERENCES payments_paymentingresslog(id) DEFERRABLE INITIALLY DEFERRED;
+
+-- Table: payments_paymentevent, Constraint: payments_pe_school_fk
+ALTER TABLE public.payments_paymentevent ADD CONSTRAINT payments_pe_school_fk FOREIGN KEY (school_id) REFERENCES schools_school(id) DEFERRABLE INITIALLY DEFERRED;
+
+-- Table: payments_paymentevent, Constraint: payments_pe_student_fk
+ALTER TABLE public.payments_paymentevent ADD CONSTRAINT payments_pe_student_fk FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED;
+
+-- Table: payments_paymentevent, Constraint: payments_pe_tx_fk
+ALTER TABLE public.payments_paymentevent ADD CONSTRAINT payments_pe_tx_fk FOREIGN KEY (payment_transaction_id) REFERENCES fees_paymenttransaction(id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED;
+
+-- Table: payments_paymentingresslog, Constraint: payments_paymentingresslog_pkey
+ALTER TABLE public.payments_paymentingresslog ADD CONSTRAINT payments_paymentingresslog_pkey PRIMARY KEY (id);
+
+-- Table: payments_paymentingresslog, Constraint: payments_pil_resolved_school_fk
+ALTER TABLE public.payments_paymentingresslog ADD CONSTRAINT payments_pil_resolved_school_fk FOREIGN KEY (resolved_school_id) REFERENCES schools_school(id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED;
+
+-- Table: payments_schoolpaymentconfig, Constraint: payments_schoolpaymentconfig_pkey
+ALTER TABLE public.payments_schoolpaymentconfig ADD CONSTRAINT payments_schoolpaymentconfig_pkey PRIMARY KEY (id);
+
+-- Table: payments_schoolpaymentconfig, Constraint: payments_spc_provider_short_code_uniq
+ALTER TABLE public.payments_schoolpaymentconfig ADD CONSTRAINT payments_spc_provider_short_code_uniq UNIQUE (provider, short_code);
+
+-- Table: payments_schoolpaymentconfig, Constraint: payments_spc_school_fk
+ALTER TABLE public.payments_schoolpaymentconfig ADD CONSTRAINT payments_spc_school_fk FOREIGN KEY (school_id) REFERENCES schools_school(id) DEFERRABLE INITIALLY DEFERRED;
+

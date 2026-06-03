@@ -1,0 +1,275 @@
+# Local Finance Index Extract
+
+CREATE INDEX fees_debittransaction_school_id_059a6c7a ON public.fees_debittransaction USING btree (school_id);
+CREATE INDEX fees_debittransaction_student_id_05535c8b ON public.fees_debittransaction USING btree (student_id);
+CREATE INDEX fees_debittransaction_vote_head_id_bc2c0005 ON public.fees_debittransaction USING btree (vote_head_id);
+CREATE INDEX fees_feebalance_school_id_ddea2f81 ON public.fees_feebalance USING btree (school_id);
+CREATE INDEX fees_feebalance_student_id_ac2ec66d ON public.fees_feebalance USING btree (student_id);
+CREATE INDEX fees_feebalance_vote_head_id_db2c4b02 ON public.fees_feebalance USING btree (vote_head_id);
+CREATE INDEX fees_feestructure_school_id_60d48166 ON public.fees_feestructure USING btree (school_id);
+CREATE INDEX fees_feestructure_vote_head_id_71e5bae3 ON public.fees_feestructure USING btree (vote_head_id);
+CREATE INDEX fees_paymenttransaction_school_id_d8e21a32 ON public.fees_paymenttransaction USING btree (school_id);
+CREATE INDEX fees_paymenttransaction_student_id_87a8fde4 ON public.fees_paymenttransaction USING btree (student_id);
+CREATE INDEX fees_scheduled_export_job_created_by_id_f1ef72aa ON public.fees_scheduled_export_job USING btree (created_by_id);
+CREATE INDEX fees_scheduled_export_job_school_id_64a99035 ON public.fees_scheduled_export_job USING btree (school_id);
+CREATE UNIQUE INDEX fees_single_closed_period_lock ON public.fees_term_close_period USING btree (school_id, year, term) WHERE ((status)::text = 'CLOSED'::text);
+CREATE INDEX fees_term_close_conversion_detail_period_id_a707c9fa ON public.fees_term_close_conversion_detail USING btree (period_id);
+CREATE INDEX fees_term_close_conversion_detail_school_id_c7d254bb ON public.fees_term_close_conversion_detail USING btree (school_id);
+CREATE INDEX fees_term_close_conversion_detail_source_vote_head_id_c0777ed0 ON public.fees_term_close_conversion_detail USING btree (source_vote_head_id);
+CREATE INDEX fees_term_close_conversion_detail_student_id_446b3440 ON public.fees_term_close_conversion_detail USING btree (student_id);
+CREATE INDEX fees_term_close_period_closed_by_id_4bd352fa ON public.fees_term_close_period USING btree (closed_by_id);
+CREATE INDEX fees_term_close_period_school_id_3eb17281 ON public.fees_term_close_period USING btree (school_id);
+CREATE INDEX fees_term_close_period_started_by_id_06f7ca83 ON public.fees_term_close_period USING btree (started_by_id);
+CREATE INDEX fees_votehead_school_id_e9528e3f ON public.fees_votehead USING btree (school_id);
+CREATE INDEX payments_paymentevent_created_at_d13851bc ON public.payments_paymentevent USING btree (created_at);
+CREATE INDEX payments_paymentevent_idempotency_key_1742177b_like ON public.payments_paymentevent USING btree (idempotency_key varchar_pattern_ops);
+CREATE INDEX payments_paymentevent_payment_config_id_5c28c289 ON public.payments_paymentevent USING btree (payment_config_id);
+CREATE INDEX payments_paymentevent_provider_55ccdab0 ON public.payments_paymentevent USING btree (provider);
+CREATE INDEX payments_paymentevent_provider_55ccdab0_like ON public.payments_paymentevent USING btree (provider varchar_pattern_ops);
+CREATE INDEX payments_paymentevent_school_id_729247cc ON public.payments_paymentevent USING btree (school_id);
+CREATE INDEX payments_paymentevent_sms_status_6c926477 ON public.payments_paymentevent USING btree (sms_status);
+CREATE INDEX payments_paymentevent_sms_status_6c926477_like ON public.payments_paymentevent USING btree (sms_status varchar_pattern_ops);
+CREATE INDEX payments_paymentevent_status_9b1150d8 ON public.payments_paymentevent USING btree (status);
+CREATE INDEX payments_paymentevent_status_9b1150d8_like ON public.payments_paymentevent USING btree (status varchar_pattern_ops);
+CREATE INDEX payments_paymentevent_student_id_61f01595 ON public.payments_paymentevent USING btree (student_id);
+CREATE INDEX payments_paymentingresslog_provider_b88f6caa ON public.payments_paymentingresslog USING btree (provider);
+CREATE INDEX payments_paymentingresslog_provider_b88f6caa_like ON public.payments_paymentingresslog USING btree (provider varchar_pattern_ops);
+CREATE INDEX payments_paymentingresslog_received_at_bb0f2765 ON public.payments_paymentingresslog USING btree (received_at);
+CREATE INDEX payments_paymentingresslog_resolved_school_id_ea52ac5e ON public.payments_paymentingresslog USING btree (resolved_school_id);
+CREATE INDEX payments_schoolpaymentconfig_is_active_09caefb9 ON public.payments_schoolpaymentconfig USING btree (is_active);
+CREATE INDEX payments_schoolpaymentconfig_provider_7af3e77f ON public.payments_schoolpaymentconfig USING btree (provider);
+CREATE INDEX payments_schoolpaymentconfig_provider_7af3e77f_like ON public.payments_schoolpaymentconfig USING btree (provider varchar_pattern_ops);
+CREATE INDEX payments_schoolpaymentconfig_school_id_bfba1c34 ON public.payments_schoolpaymentconfig USING btree (school_id);
+
+# Local Finance Constraint Extract
+
+> D:\Software development\academic-compass-kenya-main\db_output.txt:3122:ALTER TABLE ONLY public.fees_debittransaction
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3123:    ADD CONSTRAINT fees_debittransaction_pkey PRIMARY KEY (id);
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3124:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3125:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3126:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:3130:ALTER TABLE ONLY public.fees_debittransaction
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3131:    ADD CONSTRAINT fees_debittransaction_school_id_student_id_vot_e0964016_uniq UNIQUE (school_id, student_id, vote_head_id, year, term);
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3132:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3133:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3134:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:3138:ALTER TABLE ONLY public.fees_feebalance
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3139:    ADD CONSTRAINT fees_feebalance_pkey PRIMARY KEY (id);
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3140:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3141:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3142:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:3146:ALTER TABLE ONLY public.fees_feebalance
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3147:    ADD CONSTRAINT fees_feebalance_school_id_student_id_vot_0de0c61f_uniq UNIQUE (school_id, student_id, vote_head_id, year, term);
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3148:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3149:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3150:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:3154:ALTER TABLE ONLY public.fees_feestructure
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3155:    ADD CONSTRAINT fees_feestructure_pkey PRIMARY KEY (id);
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3156:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3157:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3158:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:3162:ALTER TABLE ONLY public.fees_feestructure
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3163:    ADD CONSTRAINT fees_feestructure_school_id_year_term_vote_df6963e9_uniq UNIQUE (school_id, year, term, vote_head_id);
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3164:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3165:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3166:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:3170:ALTER TABLE ONLY public.fees_paymenttransaction
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3171:    ADD CONSTRAINT fees_paymenttransaction_pkey PRIMARY KEY (id);
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3172:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3173:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3174:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:3178:ALTER TABLE ONLY public.fees_scheduled_export_job
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3179:    ADD CONSTRAINT fees_scheduled_export_job_pkey PRIMARY KEY (id);
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3180:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3181:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3182:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:3186:ALTER TABLE ONLY public.fees_term_close_conversion_detail
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3187:    ADD CONSTRAINT fees_term_close_conversion_detail_pkey PRIMARY KEY (id);
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3188:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3189:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3190:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:3194:ALTER TABLE ONLY public.fees_term_close_period
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3195:    ADD CONSTRAINT fees_term_close_period_pkey PRIMARY KEY (id);
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3196:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3197:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3198:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:3202:ALTER TABLE ONLY public.fees_term_close_period
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3203:    ADD CONSTRAINT fees_term_close_period_school_id_year_term_cecf98a5_uniq UNIQUE (school_id, year, term);
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3204:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3205:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3206:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:3210:ALTER TABLE ONLY public.fees_votehead
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3211:    ADD CONSTRAINT fees_votehead_pkey PRIMARY KEY (id);
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3212:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3213:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3214:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:3330:ALTER TABLE ONLY public.payments_paymentevent
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3331:    ADD CONSTRAINT payments_paymentevent_idempotency_key_key UNIQUE (idempotency_key);
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3332:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3333:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3334:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:3338:ALTER TABLE ONLY public.payments_paymentevent
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3339:    ADD CONSTRAINT payments_paymentevent_ingress_log_id_key UNIQUE (ingress_log_id);
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3340:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3341:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3342:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:3346:ALTER TABLE ONLY public.payments_paymentevent
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3347:    ADD CONSTRAINT payments_paymentevent_payment_transaction_id_key UNIQUE (payment_transaction_id);
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3348:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3349:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3350:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:3354:ALTER TABLE ONLY public.payments_paymentevent
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3355:    ADD CONSTRAINT payments_paymentevent_pkey PRIMARY KEY (id);
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3356:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3357:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3358:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:3362:ALTER TABLE ONLY public.payments_paymentingresslog
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3363:    ADD CONSTRAINT payments_paymentingresslog_pkey PRIMARY KEY (id);
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3364:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3365:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3366:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:3370:ALTER TABLE ONLY public.payments_schoolpaymentconfig
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3371:    ADD CONSTRAINT payments_schoolpaymentconfig_pkey PRIMARY KEY (id);
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3372:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3373:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3374:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:3378:ALTER TABLE ONLY public.payments_schoolpaymentconfig
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3379:    ADD CONSTRAINT payments_schoolpaymentconfig_provider_short_code_3e2d2eec_uniq UNIQUE (provider, short_code);
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3380:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3381:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:3382:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:5987:ALTER TABLE ONLY public.fees_debittransaction
+  D:\Software development\academic-compass-kenya-main\db_output.txt:5988:    ADD CONSTRAINT fees_debittransaction_school_id_059a6c7a_fk_schools_school_id FOREIGN KEY (school_id) REFERENCES public.schools_school(id) DEFERRABLE INITIALLY DEFERRED;
+  D:\Software development\academic-compass-kenya-main\db_output.txt:5989:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:5990:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:5991:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:5995:ALTER TABLE ONLY public.fees_debittransaction
+  D:\Software development\academic-compass-kenya-main\db_output.txt:5996:    ADD CONSTRAINT fees_debittransaction_student_id_05535c8b_fk_students_id FOREIGN KEY (student_id) REFERENCES public.students(id) DEFERRABLE INITIALLY DEFERRED;
+  D:\Software development\academic-compass-kenya-main\db_output.txt:5997:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:5998:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:5999:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:6003:ALTER TABLE ONLY public.fees_debittransaction
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6004:    ADD CONSTRAINT fees_debittransaction_vote_head_id_bc2c0005_fk_fees_votehead_id FOREIGN KEY (vote_head_id) REFERENCES public.fees_votehead(id) DEFERRABLE INITIALLY DEFERRED;
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6005:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6006:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6007:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:6011:ALTER TABLE ONLY public.fees_feebalance
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6012:    ADD CONSTRAINT fees_feebalance_school_id_ddea2f81_fk_schools_school_id FOREIGN KEY (school_id) REFERENCES public.schools_school(id) DEFERRABLE INITIALLY DEFERRED;
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6013:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6014:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6015:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:6019:ALTER TABLE ONLY public.fees_feebalance
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6020:    ADD CONSTRAINT fees_feebalance_student_id_ac2ec66d_fk_students_id FOREIGN KEY (student_id) REFERENCES public.students(id) DEFERRABLE INITIALLY DEFERRED;
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6021:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6022:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6023:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:6027:ALTER TABLE ONLY public.fees_feebalance
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6028:    ADD CONSTRAINT fees_feebalance_vote_head_id_db2c4b02_fk_fees_votehead_id FOREIGN KEY (vote_head_id) REFERENCES public.fees_votehead(id) DEFERRABLE INITIALLY DEFERRED;
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6029:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6030:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6031:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:6035:ALTER TABLE ONLY public.fees_feestructure
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6036:    ADD CONSTRAINT fees_feestructure_school_id_60d48166_fk_schools_school_id FOREIGN KEY (school_id) REFERENCES public.schools_school(id) DEFERRABLE INITIALLY DEFERRED;
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6037:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6038:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6039:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:6043:ALTER TABLE ONLY public.fees_feestructure
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6044:    ADD CONSTRAINT fees_feestructure_vote_head_id_71e5bae3_fk_fees_votehead_id FOREIGN KEY (vote_head_id) REFERENCES public.fees_votehead(id) DEFERRABLE INITIALLY DEFERRED;
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6045:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6046:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6047:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:6051:ALTER TABLE ONLY public.fees_paymenttransaction
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6052:    ADD CONSTRAINT fees_paymenttransaction_school_id_d8e21a32_fk_schools_school_id FOREIGN KEY (school_id) REFERENCES public.schools_school(id) DEFERRABLE INITIALLY DEFERRED;
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6053:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6054:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6055:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:6059:ALTER TABLE ONLY public.fees_paymenttransaction
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6060:    ADD CONSTRAINT fees_paymenttransaction_student_id_87a8fde4_fk_students_id FOREIGN KEY (student_id) REFERENCES public.students(id) DEFERRABLE INITIALLY DEFERRED;
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6061:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6062:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6063:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:6067:ALTER TABLE ONLY public.fees_scheduled_export_job
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6068:    ADD CONSTRAINT fees_scheduled_expor_school_id_64a99035_fk_schools_s FOREIGN KEY (school_id) REFERENCES public.schools_school(id) DEFERRABLE INITIALLY DEFERRED;
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6069:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6070:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6071:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:6075:ALTER TABLE ONLY public.fees_scheduled_export_job
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6076:    ADD CONSTRAINT fees_scheduled_export_job_created_by_id_f1ef72aa_fk_users_id FOREIGN KEY (created_by_id) REFERENCES public.users(id) DEFERRABLE INITIALLY DEFERRED;
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6077:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6078:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6079:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:6083:ALTER TABLE ONLY public.fees_term_close_conversion_detail
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6084:    ADD CONSTRAINT fees_term_close_conv_period_id_a707c9fa_fk_fees_term FOREIGN KEY (period_id) REFERENCES public.fees_term_close_period(id) DEFERRABLE INITIALLY DEFERRED;
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6085:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6086:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6087:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:6091:ALTER TABLE ONLY public.fees_term_close_conversion_detail
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6092:    ADD CONSTRAINT fees_term_close_conv_school_id_c7d254bb_fk_schools_s FOREIGN KEY (school_id) REFERENCES public.schools_school(id) DEFERRABLE INITIALLY DEFERRED;
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6093:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6094:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6095:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:6099:ALTER TABLE ONLY public.fees_term_close_conversion_detail
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6100:    ADD CONSTRAINT fees_term_close_conv_source_vote_head_id_c0777ed0_fk_fees_vote FOREIGN KEY (source_vote_head_id) REFERENCES public.fees_votehead(id) DEFERRABLE INITIALLY DEFERRED;
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6101:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6102:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6103:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:6107:ALTER TABLE ONLY public.fees_term_close_conversion_detail
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6108:    ADD CONSTRAINT fees_term_close_conv_student_id_446b3440_fk_students_ FOREIGN KEY (student_id) REFERENCES public.students(id) DEFERRABLE INITIALLY DEFERRED;
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6109:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6110:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6111:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:6115:ALTER TABLE ONLY public.fees_term_close_period
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6116:    ADD CONSTRAINT fees_term_close_period_closed_by_id_4bd352fa_fk_users_id FOREIGN KEY (closed_by_id) REFERENCES public.users(id) DEFERRABLE INITIALLY DEFERRED;
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6117:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6118:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6119:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:6123:ALTER TABLE ONLY public.fees_term_close_period
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6124:    ADD CONSTRAINT fees_term_close_period_school_id_3eb17281_fk_schools_school_id FOREIGN KEY (school_id) REFERENCES public.schools_school(id) DEFERRABLE INITIALLY DEFERRED;
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6125:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6126:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6127:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:6131:ALTER TABLE ONLY public.fees_term_close_period
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6132:    ADD CONSTRAINT fees_term_close_period_started_by_id_06f7ca83_fk_users_id FOREIGN KEY (started_by_id) REFERENCES public.users(id) DEFERRABLE INITIALLY DEFERRED;
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6133:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6134:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6135:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:6139:ALTER TABLE ONLY public.fees_votehead
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6140:    ADD CONSTRAINT fees_votehead_school_id_e9528e3f_fk_schools_school_id FOREIGN KEY (school_id) REFERENCES public.schools_school(id) DEFERRABLE INITIALLY DEFERRED;
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6141:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6142:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6143:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:6339:ALTER TABLE ONLY public.payments_paymentevent
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6340:    ADD CONSTRAINT payments_paymenteven_ingress_log_id_00fcde67_fk_payments_ FOREIGN KEY (ingress_log_id) REFERENCES public.payments_paymentingresslog(id) DEFERRABLE INITIALLY DEFERRED;
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6341:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6342:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6343:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:6347:ALTER TABLE ONLY public.payments_paymentevent
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6348:    ADD CONSTRAINT payments_paymenteven_payment_config_id_5c28c289_fk_payments_ FOREIGN KEY (payment_config_id) REFERENCES public.payments_schoolpaymentconfig(id) DEFERRABLE INITIALLY DEFERRED;
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6349:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6350:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6351:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:6355:ALTER TABLE ONLY public.payments_paymentevent
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6356:    ADD CONSTRAINT payments_paymenteven_payment_transaction__c26936cb_fk_fees_paym FOREIGN KEY (payment_transaction_id) REFERENCES public.fees_paymenttransaction(id) DEFERRABLE INITIALLY DEFERRED;
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6357:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6358:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6359:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:6363:ALTER TABLE ONLY public.payments_paymentevent
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6364:    ADD CONSTRAINT payments_paymentevent_school_id_729247cc_fk_schools_school_id FOREIGN KEY (school_id) REFERENCES public.schools_school(id) DEFERRABLE INITIALLY DEFERRED;
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6365:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6366:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6367:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:6371:ALTER TABLE ONLY public.payments_paymentevent
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6372:    ADD CONSTRAINT payments_paymentevent_student_id_61f01595_fk_students_id FOREIGN KEY (student_id) REFERENCES public.students(id) DEFERRABLE INITIALLY DEFERRED;
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6373:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6374:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6375:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:6379:ALTER TABLE ONLY public.payments_paymentingresslog
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6380:    ADD CONSTRAINT payments_paymentingr_resolved_school_id_ea52ac5e_fk_schools_s FOREIGN KEY (resolved_school_id) REFERENCES public.schools_school(id) DEFERRABLE INITIALLY DEFERRED;
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6381:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6382:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6383:--
+> D:\Software development\academic-compass-kenya-main\db_output.txt:6387:ALTER TABLE ONLY public.payments_schoolpaymentconfig
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6388:    ADD CONSTRAINT payments_schoolpayme_school_id_bfba1c34_fk_schools_s FOREIGN KEY (school_id) REFERENCES public.schools_school(id) DEFERRABLE INITIALLY DEFERRED;
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6389:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6390:
+  D:\Software development\academic-compass-kenya-main\db_output.txt:6391:--

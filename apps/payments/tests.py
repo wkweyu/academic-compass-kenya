@@ -6,9 +6,9 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.fees.models import PaymentTransaction
+from apps.fees.models import PaymentTransaction, FinanceActivityLog, VoteHead, FeeBalance
 from apps.payments.models import PaymentEvent, PaymentIngressLog, SchoolPaymentConfig
-from apps.schools.models import ActivityLog, School
+from apps.schools.models import School
 from apps.students.models import Student
 from apps.users.models import User
 
@@ -206,9 +206,9 @@ class PaymentReportsAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(
-            ActivityLog.objects.filter(
+            FinanceActivityLog.objects.filter(
                 school=self.school,
-                action='FINANCE_PAYMENT_REPROCESS',
+                action='REPROCESS',
             ).exists()
         )
 
@@ -287,3 +287,390 @@ class PaymentReportsAPITests(APITestCase):
         self.assertEqual(response['Content-Type'], 'text/csv')
         stream_bytes = b''.join(response.streaming_content)
         self.assertIn('Date,Transactions,Amount', stream_bytes.decode('utf-8'))
+
+
+class FinanceIntegrityandSandboxTests(APITestCase):
+    def setUp(self):
+        # Create isolated schools
+        self.school_alpha = School.objects.create(name='Alpha School', code='ALPHA', email='alpha@example.com')
+        self.school_beta = School.objects.create(name='Beta School', code='BETA', email='beta@example.com')
+
+        # Create localized users
+        self.user_alpha = User.objects.create_user(
+            email='finance.alpha@example.com',
+            username='fin-alpha',
+            first_name='Finance',
+            last_name='Alpha',
+            password='Password123!',
+            role='finance',
+            school=self.school_alpha,
+        )
+        self.user_beta = User.objects.create_user(
+            email='finance.beta@example.com',
+            username='fin-beta',
+            first_name='Finance',
+            last_name='Beta',
+            password='Password123!',
+            role='finance',
+            school=self.school_beta,
+        )
+
+        # Create students in respective schools
+        self.student_alpha = Student.objects.create(
+            school=self.school_alpha,
+            admission_number='ADM-ALPHA-001',
+            level='LP',
+            full_name='Jane Alpha',
+            gender='F',
+            date_of_birth=date(2014, 5, 10),
+            guardian_name='Parent Alpha',
+            guardian_phone='0712345678',
+            admission_year=2026,
+        )
+        self.student_beta = Student.objects.create(
+            school=self.school_beta,
+            admission_number='ADM-BETA-001',
+            level='LP',
+            full_name='John Beta',
+            gender='M',
+            date_of_birth=date(2014, 8, 20),
+            guardian_name='Parent Beta',
+            guardian_phone='0712345679',
+            admission_year=2026,
+        )
+
+        # Voteheads
+        self.tuition_alpha = VoteHead.objects.create(school=self.school_alpha, name='Tuition', priority=1)
+        self.transport_alpha = VoteHead.objects.create(school=self.school_alpha, name='Transport', priority=2)
+        
+        self.tuition_beta = VoteHead.objects.create(school=self.school_beta, name='Tuition', priority=1)
+
+        # Payment Configs
+        self.config_alpha = SchoolPaymentConfig.objects.create(
+            school=self.school_alpha,
+            provider='mpesa',
+            short_code='654321',
+            account_name='Alpha Pay',
+            is_active=True
+        )
+        self.config_beta = SchoolPaymentConfig.objects.create(
+            school=self.school_beta,
+            provider='kcb_buni',
+            short_code='987654',
+            account_name='Beta Pay',
+            is_active=True
+        )
+
+    def test_cross_tenant_query_isolation(self):
+        """
+        Verify that an authenticated user from School Alpha cannot retrieve
+        any events, logs, or reports from School Beta.
+        """
+        # Create a private event for School Beta
+        ingress_beta = PaymentIngressLog.objects.create(
+            provider='kcb_buni',
+            short_code='987654',
+            raw_payload={'txn': 'B1'},
+            resolved_school=self.school_beta,
+        )
+        event_beta = PaymentEvent.objects.create(
+            school=self.school_beta,
+            ingress_log=ingress_beta,
+            idempotency_key='kcb_buni:B1',
+            provider='kcb_buni',
+            transaction_code='B1',
+            amount=Decimal('3000.00'),
+            reference='ADM-BETA-001',
+            payment_config=self.config_beta,
+            student=self.student_beta,
+            status='RECONCILED',
+        )
+
+        # Authenticate User Alpha
+        self.client.force_authenticate(self.user_alpha)
+
+        # 1. Fetching Beta's event details directly must return 404
+        response = self.client.get(f'/api/payments/events/{event_beta.id}/')
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+        # 2. Querying all events lists must NOT leak Beta's event
+        response = self.client.get('/api/payments/events/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        if isinstance(response.data, list):
+            results = response.data
+        else:
+            results = response.data.get('results', [])
+            
+        ids = [str(row['id']) for row in results]
+        self.assertNotIn(str(event_beta.id), ids)
+
+    def test_global_and_per_student_ledger_invariants(self):
+        """
+        Verify the Global & Per-student ledger invariants.
+        For any payment, sum(apportionments) == transaction.amount.
+        FeeBalance.closing_balance + amount_paid == opening_balance + amount_invoiced.
+        """
+        # Set up a target fee balance for Tuition and Transport
+        FeeBalance.objects.create(
+            school=self.school_alpha,
+            student=self.student_alpha,
+            vote_head=self.tuition_alpha,
+            year=2026,
+            term=1,
+            opening_balance=Decimal('0.00'),
+            amount_invoiced=Decimal('10000.00'),
+            amount_paid=Decimal('0.00'),
+            closing_balance=Decimal('10000.00'),
+        )
+        FeeBalance.objects.create(
+            school=self.school_alpha,
+            student=self.student_alpha,
+            vote_head=self.transport_alpha,
+            year=2026,
+            term=1,
+            opening_balance=Decimal('0.00'),
+            amount_invoiced=Decimal('5000.00'),
+            amount_paid=Decimal('0.00'),
+            closing_balance=Decimal('5000.00'),
+        )
+
+        from apps.payments.providers.base import PaymentEventData
+        from apps.payments.services.reconciliation import ReconciliationService
+
+        ingress = PaymentIngressLog.objects.create(
+            provider='mpesa',
+            short_code='654321',
+            raw_payload={'TransID': 'TX123'},
+            resolved_school=self.school_alpha
+        )
+        data = PaymentEventData(
+            provider='mpesa',
+            transaction_code='TX123',
+            amount=Decimal('12000.00'),
+            phone_number='0712345678',
+            reference='ADM-ALPHA-001',
+            short_code='654321',
+            raw_payload={'TransID': 'TX123'}
+        )
+
+        # Run reconciliation
+        event = ReconciliationService.reconcile(data, self.config_alpha, ingress)
+        self.assertEqual(event.status, 'RECONCILED')
+
+        # Prove Global Ledger Invariant: sum(apportion_log['allocations']) == amount
+        tx = event.payment_transaction
+        allocations = tx.apportion_log['allocations']
+        sum_allocated = sum(Decimal(str(item['amount'])) for item in allocations)
+        self.assertEqual(sum_allocated, tx.amount)
+
+        # Prove Per-Student Ledger Invariant:
+        # For each FeeBalance record, opening_balance + amount_invoiced - amount_paid == closing_balance
+        balances = FeeBalance.objects.filter(school=self.school_alpha, student=self.student_alpha)
+        self.assertEqual(balances.count(), 2)
+        for fb in balances:
+            self.assertEqual(
+                fb.opening_balance + fb.amount_invoiced - fb.amount_paid,
+                fb.closing_balance
+            )
+
+    def test_apportionment_skips_negative_balance_voteheads(self):
+        from apps.fees.services import apportion_payment
+
+        FeeBalance.objects.create(
+            school=self.school_alpha,
+            student=self.student_alpha,
+            vote_head=self.tuition_alpha,
+            year=2026,
+            term=1,
+            opening_balance=Decimal('0.00'),
+            amount_invoiced=Decimal('5000.00'),
+            amount_paid=Decimal('0.00'),
+            closing_balance=Decimal('5000.00'),
+        )
+        FeeBalance.objects.create(
+            school=self.school_alpha,
+            student=self.student_alpha,
+            vote_head=self.transport_alpha,
+            year=2026,
+            term=1,
+            opening_balance=Decimal('0.00'),
+            amount_invoiced=Decimal('5000.00'),
+            amount_paid=Decimal('8000.00'),
+            closing_balance=Decimal('-3000.00'),
+        )
+
+        allocations = apportion_payment(
+            self.school_alpha,
+            self.student_alpha,
+            Decimal('12000.00'),
+            year=2026,
+            term=1,
+        )
+
+        self.assertEqual(allocations, [{'vote_head': 'Tuition', 'amount': Decimal('12000.00')}])
+
+    def test_idempotency_replay_guards(self):
+        """
+        Verify that replay attempts on the same transaction key
+        raise an error or are rejected so double posting is impossible.
+        """
+        from apps.payments.providers.base import PaymentEventData
+        from apps.payments.services.reconciliation import ReconciliationService
+
+        ingress = PaymentIngressLog.objects.create(
+            provider='mpesa',
+            short_code='654321',
+            raw_payload={'TransID': 'TX999'},
+            resolved_school=self.school_alpha
+        )
+        data = PaymentEventData(
+            provider='mpesa',
+            transaction_code='TX999',
+            amount=Decimal('500.00'),
+            phone_number='0712345678',
+            reference='ADM-ALPHA-001',
+            short_code='654321',
+            raw_payload={'TransID': 'TX999'}
+        )
+
+        # First run succeeds
+        event1 = ReconciliationService.reconcile(data, self.config_alpha, ingress)
+        self.assertEqual(event1.status, 'RECONCILED')
+
+        # Second run should trigger DB unique constraint (idempotency_key) if run directly,
+        # or be blocked in business logic.
+        from django.db import IntegrityError
+        with self.assertRaises(IntegrityError):
+            # Attempt to create duplicate event with same idempotency key
+            PaymentEvent.objects.create(
+                school=self.school_alpha,
+                ingress_log=ingress,
+                idempotency_key=f'mpesa:TX999',
+                provider='mpesa',
+                transaction_code='TX999',
+                amount=Decimal('500.00'),
+                reference='ADM-ALPHA-001',
+                payment_config=self.config_alpha,
+                status='RECEIVED'
+            )
+
+    def test_unresolved_student_routing(self):
+        """
+        Validate that an unknown admission reference resolves to UNRESOLVED_STUDENT,
+        keeps the ingress log, but does NOT create any Fee PaymentTransaction or FeeBalances.
+        """
+        from apps.payments.providers.base import PaymentEventData
+        from apps.payments.services.reconciliation import ReconciliationService
+
+        initial_tx_count = PaymentTransaction.objects.count()
+
+        ingress = PaymentIngressLog.objects.create(
+            provider='mpesa',
+            short_code='654321',
+            raw_payload={'TransID': 'TX_UNKNOWN'},
+            resolved_school=self.school_alpha
+        )
+        data = PaymentEventData(
+            provider='mpesa',
+            transaction_code='TX_UNKNOWN',
+            amount=Decimal('1000.00'),
+            phone_number='0711111111',
+            reference='ADM-UNKNOWN',
+            short_code='654321',
+            raw_payload={'TransID': 'TX_UNKNOWN'}
+        )
+
+        event = ReconciliationService.reconcile(data, self.config_alpha, ingress)
+        self.assertEqual(event.status, 'UNRESOLVED_STUDENT')
+        self.assertEqual(PaymentTransaction.objects.count(), initial_tx_count)
+
+    def test_partial_failure_transaction_rollback(self):
+        """
+        Verify that if a reconciliation fails halfway through (e.g. balance update raises exception),
+        all records (including PaymentTransaction) are rolled back atomically, leaving no orphan structures.
+        """
+        from apps.payments.providers.base import PaymentEventData
+        from apps.payments.services.reconciliation import ReconciliationService
+
+        ingress = PaymentIngressLog.objects.create(
+            provider='mpesa',
+            short_code='654321',
+            raw_payload={'TransID': 'TX_FAIL'},
+            resolved_school=self.school_alpha
+        )
+        data = PaymentEventData(
+            provider='mpesa',
+            transaction_code='TX_FAIL',
+            amount=Decimal('1000.00'),
+            phone_number='0711111111',
+            reference='ADM-ALPHA-001',
+            short_code='654321',
+            raw_payload={'TransID': 'TX_FAIL'}
+        )
+
+        initial_tx_count = PaymentTransaction.objects.count()
+
+        # Mock apply_payment_to_balances to raise an unexpected runtime error
+        with patch('apps.payments.services.reconciliation.apply_payment_to_balances', side_effect=ValueError("Simulated ledger write error")):
+            with self.assertRaises(ValueError):
+                ReconciliationService.reconcile(data, self.config_alpha, ingress)
+
+        # Confirm that no PaymentTransaction was created (properly rolled back!)
+        self.assertEqual(PaymentTransaction.objects.count(), initial_tx_count)
+
+    def test_term_close_conservation(self):
+        """
+        Verify mathematical conservation during term-close operations:
+        The sum of source closing balances must exactly equal the sum of target period arrears + prepayments.
+        """
+        # Create active voteheads
+        tuition = self.tuition_alpha
+        transport = self.transport_alpha
+
+        # Seed balances with arrears on tuition (+4000) and prepayment on transport (-500)
+        FeeBalance.objects.create(
+            school=self.school_alpha,
+            student=self.student_alpha,
+            vote_head=tuition,
+            year=2026,
+            term=1,
+            opening_balance=Decimal('0.00'),
+            amount_invoiced=Decimal('5000.00'),
+            amount_paid=Decimal('1000.00'),
+            closing_balance=Decimal('4000.00'),
+        )
+        FeeBalance.objects.create(
+            school=self.school_alpha,
+            student=self.student_alpha,
+            vote_head=transport,
+            year=2026,
+            term=1,
+            opening_balance=Decimal('0.00'),
+            amount_invoiced=Decimal('1000.00'),
+            amount_paid=Decimal('1500.00'),
+            closing_balance=Decimal('-500.00'),
+        )
+
+        # Total sum of source closing balances: Tuition = 4000, Transport = -500. Total = 3500
+        # Under term-close rules:
+        # positive balances collapse to an 'Arrears' votehead in the new term (4000)
+        # negative balances collapse to 'Prepayment' in the new term (-500)
+        self.client.force_authenticate(self.user_alpha)
+        response = self.client.post('/api/finance/term-close/rollover/', {'year': 2026, 'term': 1}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        arrears_v = VoteHead.objects.get(school=self.school_alpha, name='Arrears')
+        prepayment_v = VoteHead.objects.get(school=self.school_alpha, name='Prepayment')
+
+        arrears_bal = FeeBalance.objects.get(
+            school=self.school_alpha, student=self.student_alpha, vote_head=arrears_v, year=2026, term=2
+        )
+        prepayment_bal = FeeBalance.objects.get(
+            school=self.school_alpha, student=self.student_alpha, vote_head=prepayment_v, year=2026, term=2
+        )
+
+        # Confirm exact mathematical conservation of resources
+        self.assertEqual(arrears_bal.opening_balance, Decimal('4000.00'))
+        self.assertEqual(prepayment_bal.opening_balance, Decimal('-500.00'))
+        self.assertEqual(arrears_bal.opening_balance + prepayment_bal.opening_balance, Decimal('3500.00'))

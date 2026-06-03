@@ -150,7 +150,11 @@ class ReconciliationService:
             term = 1
 
         # ── Apportion across voteheads by priority ────────────────────────────
-        allocations = apportion_payment(config.school, student, data.amount)
+        allocations = apportion_payment(config.school, student, data.amount, year=year, term=term)
+        serializable_allocations = [
+            {'vote_head': item['vote_head'], 'amount': float(item['amount'])}
+            for item in allocations
+        ]
 
         # ── Create ledger entry (source of truth) ─────────────────────────────
         # mode='mpesa' for MPESA; mode='bank' for KCB Buni (no new mode needed).
@@ -165,7 +169,7 @@ class ReconciliationService:
             remarks=f'Automated via {data.provider} webhook',
             apportion_log={
                 'provider': data.provider,
-                'allocations': allocations,
+                'allocations': serializable_allocations,
                 'year': year,
                 'term': term,
             },
@@ -278,7 +282,11 @@ class ReconciliationService:
             year = oldest_balance.year if oldest_balance else now().year
             term = oldest_balance.term if oldest_balance else 1
 
-            allocations = apportion_payment(config.school, student, event.amount)
+            allocations = apportion_payment(config.school, student, event.amount, year=year, term=term)
+            serializable_allocations = [
+                {'vote_head': item['vote_head'], 'amount': float(item['amount'])}
+                for item in allocations
+            ]
 
             mode = 'mpesa' if event.provider == 'mpesa' else 'bank'
             fee_tx = PaymentTransaction(
@@ -293,7 +301,7 @@ class ReconciliationService:
                 ),
                 apportion_log={
                     'provider': event.provider,
-                    'allocations': allocations,
+                    'allocations': serializable_allocations,
                     'year': year,
                     'term': term,
                     'reprocessed': True,
