@@ -1,6 +1,7 @@
 """Django settings for skooltrack_pro Student Exam Management System."""
 
 
+import logging
 import os
 import sys
 from datetime import timedelta
@@ -152,6 +153,14 @@ else:
                 'OPTIONS': {'sslmode': 'require'} if DB_SSL_REQUIRE else {},
             }
         }
+
+database_config = DATABASES['default']
+logging.getLogger(__name__).warning(
+    "DATABASE STARTUP CONFIG host=%s name=%s user=%s",
+    database_config.get('HOST') or database_config.get('host'),
+    database_config.get('NAME') or database_config.get('name'),
+    database_config.get('USER') or database_config.get('user'),
+)
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
