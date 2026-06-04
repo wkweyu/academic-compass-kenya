@@ -79,6 +79,10 @@ def health_check(request):
             "database": "connected"
         })
     except Exception as e:
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.exception("HEALTH CHECK FAILURE")
         return Response({
             "status": "unhealthy",
             "database": "connection failed",
