@@ -9,6 +9,7 @@ from pathlib import Path
 
 import dj_database_url
 from decouple import config
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -141,6 +142,11 @@ else:
                 ssl_require=DB_SSL_REQUIRE,
             )
         }
+    elif not DEBUG:
+        raise ImproperlyConfigured(
+            'SUPABASE_DB_URL must be set for non-debug deployments. '
+            'Remove conflicting DB_* / DATABASE_URL settings in Render and use SUPABASE_DB_URL as the only production database source.'
+        )
     else:
         DATABASES = {
             'default': {

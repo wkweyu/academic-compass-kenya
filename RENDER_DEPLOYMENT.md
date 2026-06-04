@@ -62,6 +62,9 @@ Recommended format:
 - `CORS_ALLOWED_ORIGINS=https://<your-frontend>.onrender.com`
 - `CSRF_TRUSTED_ORIGINS=https://<your-frontend>.onrender.com,https://<your-backend>.onrender.com`
 
+Use `SUPABASE_DB_URL` as the only production database source on Render.
+Do not set `DATABASE_URL` or fallback `DB_NAME` / `DB_USER` / `DB_PASSWORD` / `DB_HOST` / `DB_PORT` for the Render backend service.
+
 Recommended:
 
 - `COOKIE_SECURE=true`
