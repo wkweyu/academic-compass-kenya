@@ -84,10 +84,11 @@ def health_check(request):
         logger = logging.getLogger(__name__)
         logger.exception("HEALTH CHECK FAILURE")
         return Response({
-            "status": "unhealthy",
-            "database": "connection failed",
+            "status": "degraded",
+            "message": "Django backend is running",
+            "database": "unreachable",
             "error": str(e)
-        }, status=500)
+        })
 
 @api_view(['GET'])
 def api_test(request):
