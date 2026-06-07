@@ -54,6 +54,13 @@ class ReconciliationService:
         On success:   PaymentEvent(RECONCILED) + fees.PaymentTransaction created
         On bad ref:   PaymentEvent(UNRESOLVED_STUDENT | INVALID_REFERENCE) — no fee record
         """
+        _SUPPORTED_PROVIDERS = {'mpesa', 'kcb_buni', 'manual'}
+        if data.provider not in _SUPPORTED_PROVIDERS:
+            raise ValueError(
+                f"Unsupported payment provider: {data.provider!r}. "
+                f"Supported: {sorted(_SUPPORTED_PROVIDERS)}"
+            )
+
         idempotency_key = f'{data.provider}:{data.transaction_code}'
 
         # ── Create PaymentEvent in RECEIVED state ──────────────────────────────

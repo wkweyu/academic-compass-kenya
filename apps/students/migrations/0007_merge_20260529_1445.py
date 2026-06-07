@@ -6,7 +6,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('students', '0004_admission_number_sequence_and_function'),
+        ('students', '0004_alter_stream_year_alter_student_admission_year'),
         ('students', '0006_alter_student_admission_number_db_default'),
     ]
 

@@ -1,6 +1,7 @@
 from django.urls import path
 from .views import (
     DailyCollectionsReportView,
+    ManualPaymentView,
     PaymentReportsExportCSVView,
     PaymentDashboardView,
     PaymentEventDetailView,
@@ -37,6 +38,11 @@ urlpatterns = [
     ),
     # ── Admin / reporting API ──────────────────────────────────────────────────
     path('events/', PaymentEventListView.as_view(), name='payment-events'),
+    path(
+        'manual/',
+        ManualPaymentView.as_view(),
+        name='manual-payment',
+    ),
     path(
         'events/unresolved/',
         UnresolvedPaymentEventListView.as_view(),

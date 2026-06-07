@@ -8,6 +8,7 @@ from apps.core.models import SchoolScopedModel
 PROVIDER_CHOICES = [
     ('mpesa', 'M-PESA Paybill'),
     ('kcb_buni', 'KCB Buni'),
+    ('manual', 'Manual Entry'),
 ]
 
 PAYMENT_EVENT_STATUS = [

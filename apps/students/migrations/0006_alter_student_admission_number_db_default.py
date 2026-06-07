@@ -5,7 +5,7 @@ from django.db.models.expressions import RawSQL
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("students", "0005_admission_number_sequence_and_function"),
+        ("students", "0004_alter_stream_year_alter_student_admission_year"),
     ]
 
     operations = [

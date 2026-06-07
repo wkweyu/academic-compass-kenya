@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 import csv
 
 from django.http import HttpResponse, StreamingHttpResponse
@@ -11,7 +11,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.fees.models import PaymentTransaction
-from apps.payments.models import PaymentEvent
+from apps.payments.models import PaymentEvent, PaymentIngressLog, SchoolPaymentConfig
+from apps.payments.providers.base import PaymentEventData
 from apps.payments.serializers import PaymentEventSerializer
 from apps.payments.services.reconciliation import ReconciliationService
 from apps.fees.services.activity_log import log_finance_activity
@@ -56,6 +57,7 @@ class PaymentEventListView(ListAPIView):
             queryset = queryset.filter(
                 Q(transaction_code__icontains=search)
                 | Q(reference__icontains=search)
+                | Q(student__admission_number__icontains=search)
                 | Q(student__first_name__icontains=search)
                 | Q(student__last_name__icontains=search)
             )
@@ -93,6 +95,134 @@ class UnresolvedPaymentEventListView(ListAPIView):
             queryset = queryset.filter(school_id=user.school_id)
 
         return queryset
+
+
+class ManualPaymentView(APIView):
+    """
+    POST /api/payments/manual/
+
+    Creates a PaymentIngressLog + PaymentEvent and runs ReconciliationService
+    for cash, bank, or cheque payments entered by finance staff.
+    This is the canonical path — all manual payments must go through here so
+    they appear in the unified PaymentEvent feed.
+    """
+    permission_classes = [FinanceAccessPermission]
+
+    _VALID_MODES = {'cash', 'bank', 'cheque'}
+
+    def post(self, request):
+        data = request.data
+
+        # ── Validate required fields ───────────────────────────────────────────
+        admission_number = (data.get('admission_number') or '').strip().upper()
+        reference = (data.get('reference') or '').strip().upper()
+        payment_mode = (data.get('payment_mode') or '').strip().lower()
+        term_raw = data.get('term')
+        year_raw = data.get('year')
+        amount_raw = data.get('amount')
+
+        errors = {}
+        if not admission_number:
+            errors['admission_number'] = 'Required.'
+        if not reference:
+            errors['reference'] = 'Required.'
+        if payment_mode not in self._VALID_MODES:
+            errors['payment_mode'] = f'Must be one of: {sorted(self._VALID_MODES)}.'
+        try:
+            amount = Decimal(str(amount_raw))
+            if amount <= 0:
+                raise ValueError
+        except (InvalidOperation, ValueError, TypeError):
+            errors['amount'] = 'Must be a positive number.'
+        try:
+            term = int(term_raw)
+            if term not in (1, 2, 3):
+                raise ValueError
+        except (ValueError, TypeError):
+            errors['term'] = 'Must be 1, 2, or 3.'
+        try:
+            year = int(year_raw)
+        except (ValueError, TypeError):
+            errors['year'] = 'Must be an integer year.'
+        if errors:
+            return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # ── Resolve school ─────────────────────────────────────────────────────
+        school = getattr(request.user, 'school', None)
+        if school is None:
+            return Response(
+                {'detail': 'Your account is not linked to a school.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # ── Idempotency check (school-scoped) ──────────────────────────────────
+        idempotency_key = f'manual:{school.code}:{reference}'
+        existing = PaymentEvent.unscoped.filter(idempotency_key=idempotency_key).first()
+        if existing is not None:
+            return Response(
+                {
+                    'detail': 'A payment with this reference already exists for this school.',
+                    'payment_event_id': str(existing.id),
+                    'status': existing.status,
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        # ── Look up pre-seeded manual SchoolPaymentConfig ──────────────────────
+        try:
+            config = SchoolPaymentConfig.objects.get(provider='manual', school=school)
+        except SchoolPaymentConfig.DoesNotExist:
+            return Response(
+                {
+                    'detail': (
+                        'Manual payment config not found for this school. '
+                        'Run: python manage.py seed_manual_payment_configs'
+                    )
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        # ── Create PaymentIngressLog (audit trail) ─────────────────────────────
+        ingress_log = PaymentIngressLog.objects.create(
+            provider='manual',
+            short_code=config.short_code,
+            raw_payload=dict(request.data),
+            source_ip=request.META.get('REMOTE_ADDR'),
+            resolved_school=school,
+        )
+
+        # ── Build normalised PaymentEventData ──────────────────────────────────
+        event_data = PaymentEventData(
+            provider='manual',
+            transaction_code=reference,
+            amount=amount,
+            phone_number='',
+            reference=admission_number,
+            short_code=config.short_code,
+            raw_payload=dict(request.data),
+        )
+
+        # ── Reconcile (atomic — single source of truth for ledger writes) ──────
+        event = ReconciliationService.reconcile(event_data, config, ingress_log)
+
+        if event.status == 'RECONCILED':
+            return Response(
+                {
+                    'payment_event_id': str(event.id),
+                    'status': 'reconciled',
+                    'student': event.student.admission_number if event.student else None,
+                    'amount': str(event.amount),
+                },
+                status=status.HTTP_201_CREATED,
+            )
+        return Response(
+            {
+                'payment_event_id': str(event.id),
+                'status': event.status,
+                'detail': event.error_message,
+            },
+            status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
 
 
 class ReprocessPaymentEventView(APIView):
