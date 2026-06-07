@@ -164,9 +164,15 @@ class ReconciliationService:
         ]
 
         # ── Create ledger entry (source of truth) ─────────────────────────────
-        # mode='mpesa' for MPESA; mode='bank' for KCB Buni (no new mode needed).
-        # Actual provider is preserved in apportion_log for reporting.
-        mode = 'mpesa' if data.provider == 'mpesa' else 'bank'
+        # For webhook providers: mpesa → 'mpesa', kcb_buni → 'bank'.
+        # For manual entries: use the payment_mode from the original POST body
+        # (stored in raw_payload by ManualPaymentView). Defaults to 'cash'.
+        if data.provider == 'mpesa':
+            mode = 'mpesa'
+        elif data.provider == 'manual':
+            mode = data.raw_payload.get('payment_mode', 'cash')
+        else:
+            mode = 'bank'
         fee_tx = PaymentTransaction(
             school=config.school,
             student=student,

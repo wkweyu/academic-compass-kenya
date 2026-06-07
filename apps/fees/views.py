@@ -115,22 +115,24 @@ class BulkDebitView(APIView):
                         continue
             
             if student.is_on_transport and student.transport_route:
-                votehead = VoteHead.objects.get(name="Transport")
-                if student.transport_type == 'one_way':
-                    charge = student.transport_route.one_way_charge
-                    
-                else:
-                    charge = student.transport_route.two_way_charge
+                try:
+                    votehead = VoteHead.objects.get(school=school, name="Transport")
+                    if student.transport_type == 'one_way':
+                        charge = student.transport_route.one_way_charge
+                    else:
+                        charge = student.transport_route.two_way_charge
 
-            if charge > 0:
-                DebitTransaction.objects.create(
-                    student=student,
-                    vote_head=votehead,
-                    amount=charge,
-                    year=year,
-                    term=term,
-                    description=f"Transport charge ({student.transport_type})"
-                )            
+                    if charge > 0:
+                        DebitTransaction.objects.create(
+                            student=student,
+                            vote_head=votehead,
+                            amount=charge,
+                            year=year,
+                            term=term,
+                            description=f"Transport charge ({student.transport_type})"
+                        )
+                except VoteHead.DoesNotExist:
+                    pass            
         return Response({'status': f"{count} debit transactions recorded."})
 
     def record_debit(self, school, student, vote_head, year, term, amount):
