@@ -56,9 +56,14 @@ export default function PaymentReportsPage() {
       conversionQuery.refetch();
     },
     onError: (error: any) => {
+      const detail =
+        error?.standardError?.details?.detail ||
+        error?.standardError?.message ||
+        error?.message ||
+        'Could not complete rollover.';
       toast({
         title: 'Term close failed',
-        description: error?.message || 'Could not complete rollover.',
+        description: detail,
         variant: 'destructive',
       });
     },
