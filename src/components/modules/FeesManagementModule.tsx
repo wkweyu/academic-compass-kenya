@@ -138,6 +138,12 @@ export const FeesManagementModule = () => {
       return;
     }
 
+    const selectedStudent = students.find(s => s.id === parseInt(paymentForm.student_id));
+    if (!selectedStudent?.admission_number) {
+      toast({ title: 'Error', description: 'Student admission number not found — refresh the page and try again', variant: 'destructive' });
+      return;
+    }
+
     // Build manual allocations if in manual mode
     let manualAllocs: { vote_head_id: number; amount: number }[] | undefined;
     if (manualAllocMode) {
@@ -154,6 +160,7 @@ export const FeesManagementModule = () => {
     try {
       const receipt = await feesService.collectPayment({
         student_id: parseInt(paymentForm.student_id),
+        admission_number: selectedStudent.admission_number,
         amount: parseFloat(paymentForm.amount),
         payment_mode: paymentForm.mode,
         reference: paymentForm.reference,

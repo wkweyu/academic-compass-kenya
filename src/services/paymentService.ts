@@ -366,6 +366,25 @@ async function downloadServerCsv(path: string, query: URLSearchParams, fallbackF
 }
 
 export const paymentService = {
+  async postManualPayment(params: {
+    admission_number: string;
+    amount: number;
+    reference: string;
+    payment_mode: string;
+    term: number;
+    year: number;
+  }): Promise<{ payment_event_id: string; status: string; student: string | null; amount: string }> {
+    const response = await client<{ payment_event_id: string; status: string; student: string | null; amount: string }>(
+      '/payments/manual/',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+      }
+    );
+    return response;
+  },
+
   async getEvents(params?: {
     status?: string;
     provider?: string;

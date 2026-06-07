@@ -392,7 +392,39 @@ export const feesService = {
     year: number;
     remarks?: string;
     manual_allocations?: { vote_head_id: number; amount: number }[];
+    admission_number?: string;
   }): Promise<Receipt> {
+    // ── Django unified payment path ───────────────────────────────────────────
+    // All manual payments go through POST /api/payments/manual/ so they appear
+    // in the PaymentEvent feed. Set USE_DJANGO_PAYMENTS=false to fall back to
+    // the legacy Supabase-direct path below (kept intact for rollback only).
+    const USE_DJANGO_PAYMENTS = true;
+    if (USE_DJANGO_PAYMENTS) {
+      if (!params.admission_number) {
+        throw new Error('admission_number is required for manual payment posting');
+      }
+      const { paymentService } = await import('@/services/paymentService');
+      const result = await paymentService.postManualPayment({
+        admission_number: params.admission_number,
+        amount: params.amount,
+        reference: params.reference,
+        payment_mode: params.payment_mode,
+        term: params.term,
+        year: params.year,
+      });
+      // Return a Receipt-shaped object so callers don't need to change
+      return {
+        id: result.payment_event_id,
+        receipt_no: params.reference,
+        amount: params.amount,
+        student_id: params.student_id,
+        payment_mode: params.payment_mode,
+        term: params.term,
+        year: params.year,
+        allocations: [],
+      } as unknown as Receipt;
+    }
+    // ── Legacy Supabase-direct path (unreachable while USE_DJANGO_PAYMENTS=true) ──
     const schoolId = await getSchoolId();
     let userId: number | null = null;
     try { userId = await getUserId(); } catch {}
