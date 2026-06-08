@@ -209,11 +209,20 @@ Deno.serve(async (req) => {
     // First try to update an existing row matched by email (handles the case where a
     // Django-provisioned user exists with the same email but a different/null auth_user_id,
     // which would cause the insert below to fail on the email UNIQUE constraint).
-    const { data: existingByEmail } = await serviceClient
+    const { data: existingByEmail, error: lookupError } = await serviceClient
       .from("users")
-      .select("id, auth_user_id")
+      .select("id, auth_user_id, school_id")
       .eq("email", admin_email)
       .maybeSingle();
+
+    console.log("create-school-admin: public.users lookup by email", {
+      operation: "create-school-admin/users-lookup",
+      admin_email,
+      school_id,
+      auth_user_id: authUserId,
+      found_row: existingByEmail ? { id: existingByEmail.id, auth_user_id: existingByEmail.auth_user_id, school_id: existingByEmail.school_id } : null,
+      lookup_error: lookupError?.message ?? null,
+    });
 
     if (existingByEmail && existingByEmail.auth_user_id !== authUserId) {
       // Patch the existing row to link it to the correct Supabase Auth user.
@@ -228,13 +237,46 @@ Deno.serve(async (req) => {
         })
         .eq("id", existingByEmail.id);
 
+      console.log("create-school-admin: patched existing row by email", {
+        operation: "create-school-admin/users-patch",
+        row_id: existingByEmail.id,
+        set_auth_user_id: authUserId,
+        set_school_id: school_id,
+        patch_error: patchError?.message ?? null,
+      });
+
       if (patchError) {
         throw new Error(`Failed to link existing user profile: ${patchError.message}`);
+      }
+    } else if (existingByEmail && existingByEmail.auth_user_id === authUserId && existingByEmail.school_id !== school_id) {
+      // Row exists and auth_user_id already matches — just update school_id directly.
+      const { error: schoolPatchError } = await serviceClient
+        .from("users")
+        .update({ school_id, is_active: true, updated_at: now })
+        .eq("id", existingByEmail.id);
+
+      console.log("create-school-admin: updated school_id on matched row", {
+        operation: "create-school-admin/users-school-patch",
+        row_id: existingByEmail.id,
+        set_school_id: school_id,
+        prev_school_id: existingByEmail.school_id,
+        patch_error: schoolPatchError?.message ?? null,
+      });
+
+      if (schoolPatchError) {
+        throw new Error(`Failed to update school on user profile: ${schoolPatchError.message}`);
       }
     } else {
       const { error: upsertError } = await serviceClient
         .from("users")
         .upsert(userPayload as any, { onConflict: "auth_user_id" });
+
+      console.log("create-school-admin: upserted user by auth_user_id", {
+        operation: "create-school-admin/users-upsert",
+        auth_user_id: authUserId,
+        school_id,
+        upsert_error: upsertError?.message ?? null,
+      });
 
       if (upsertError) {
         throw new Error(`Failed to upsert public user profile: ${upsertError.message}`);
