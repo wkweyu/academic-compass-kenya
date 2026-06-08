@@ -204,6 +204,7 @@ Deno.serve(async (req) => {
       is_staff: false,
       is_superuser: false,
       updated_at: now,
+      created_at: now,
       date_joined: now,
     };
 
