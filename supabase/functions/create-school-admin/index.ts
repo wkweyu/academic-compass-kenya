@@ -206,12 +206,39 @@ Deno.serve(async (req) => {
       userPayload.date_joined = now;
     }
 
-    const { error: upsertError } = await serviceClient
+    // First try to update an existing row matched by email (handles the case where a
+    // Django-provisioned user exists with the same email but a different/null auth_user_id,
+    // which would cause the insert below to fail on the email UNIQUE constraint).
+    const { data: existingByEmail } = await serviceClient
       .from("users")
-      .upsert(userPayload as any, { onConflict: "auth_user_id" });
+      .select("id, auth_user_id")
+      .eq("email", admin_email)
+      .maybeSingle();
 
-    if (upsertError) {
-      throw new Error(`Failed to upsert public user profile: ${upsertError.message}`);
+    if (existingByEmail && existingByEmail.auth_user_id !== authUserId) {
+      // Patch the existing row to link it to the correct Supabase Auth user.
+      const { error: patchError } = await serviceClient
+        .from("users")
+        .update({
+          auth_user_id: authUserId,
+          username: admin_email,
+          school_id,
+          is_active: true,
+          updated_at: now,
+        })
+        .eq("id", existingByEmail.id);
+
+      if (patchError) {
+        throw new Error(`Failed to link existing user profile: ${patchError.message}`);
+      }
+    } else {
+      const { error: upsertError } = await serviceClient
+        .from("users")
+        .upsert(userPayload as any, { onConflict: "auth_user_id" });
+
+      if (upsertError) {
+        throw new Error(`Failed to upsert public user profile: ${upsertError.message}`);
+      }
     }
 
     // --- Assign schooladmin role ---

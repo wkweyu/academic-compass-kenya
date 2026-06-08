@@ -1313,7 +1313,7 @@ const SchoolDetailDialog = ({
         name: school.name, email: school.email, phone: school.phone,
         city: school.city, country: school.country,
       });
-      setAdminAccess({ adminEmail: school.email, adminPassword: "" });
+      setAdminAccess({ adminEmail: "", adminPassword: "" });
       setPortfolioOwnerId(school.portfolio_owner_user_id || "unassigned");
       setEditing(false);
     }
@@ -1381,10 +1381,18 @@ const SchoolDetailDialog = ({
   const handleResendEmail = async () => {
     setResending(true);
     try {
+      const hasCredentials = !!adminAccess.adminEmail && !!adminAccess.adminPassword;
+      const recipient = adminAccess.adminEmail || school.email;
       await saasService.sendOnboardingNotification(
-        school.id, school.code, school.name, school.email, ""
+        school.id,
+        school.code,
+        school.name,
+        recipient,
+        "",
+        hasCredentials ? adminAccess.adminEmail : undefined,
+        hasCredentials ? adminAccess.adminPassword : undefined,
       );
-      toast.success(`Onboarding email resent to ${school.email}`);
+      toast.success(`Onboarding email resent to ${recipient}`);
     } catch (err: any) {
       toast.error(err.message || "Failed to resend email");
     } finally {
@@ -1593,7 +1601,7 @@ const SchoolDetailDialog = ({
                               type="email"
                               value={adminAccess.adminEmail}
                               onChange={(e) => setAdminAccess((prev) => ({ ...prev, adminEmail: e.target.value }))}
-                              placeholder="admin@school.com"
+                              placeholder="Enter admin's login email"
                             />
                           </div>
                           <div>
