@@ -188,7 +188,10 @@ Deno.serve(async (req) => {
     }
 
     // --- Single upsert for public.users ---
-    // date_joined is only included for new users to preserve historical metadata on repair.
+    // date_joined is always included: the NOT NULL constraint requires it on INSERT.
+    // For existing rows, the ON CONFLICT DO UPDATE won't overwrite it since the upsert
+    // only updates the specified columns. For the email-matched patch path, date_joined
+    // is not in the UPDATE SET so existing values are preserved.
     const now = new Date().toISOString();
     const userPayload: Record<string, unknown> = {
       auth_user_id: authUserId,
@@ -201,10 +204,8 @@ Deno.serve(async (req) => {
       is_staff: false,
       is_superuser: false,
       updated_at: now,
+      date_joined: now,
     };
-    if (created) {
-      userPayload.date_joined = now;
-    }
 
     // First try to update an existing row matched by email (handles the case where a
     // Django-provisioned user exists with the same email but a different/null auth_user_id,
