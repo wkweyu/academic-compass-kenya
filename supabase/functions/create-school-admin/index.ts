@@ -43,7 +43,9 @@ Deno.serve(async (req) => {
 
     // --- Request payload validation (400) ---
     const body = await req.json();
-    const { school_id, admin_email, admin_password } = body;
+    const { school_id } = body;
+    const admin_email = body.admin_email?.trim();
+    const admin_password = body.admin_password;
 
     if (!school_id || !admin_email || !admin_password) {
       return new Response(
@@ -139,7 +141,8 @@ Deno.serve(async (req) => {
       return null;
     };
 
-    const existingUser = await findAuthUserByEmail(admin_email);
+    const admin_email_lower = admin_email.toLowerCase();
+    const existingUser = await findAuthUserByEmail(admin_email_lower);
     let authUserId: string;
     let created: boolean;
 
@@ -169,7 +172,7 @@ Deno.serve(async (req) => {
       });
 
       const { data: newUser, error: createError } = await serviceClient.auth.admin.createUser({
-        email: admin_email,
+        email: admin_email_lower,
         password: admin_password,
         email_confirm: true,
       });
@@ -195,8 +198,12 @@ Deno.serve(async (req) => {
     const now = new Date().toISOString();
     const userPayload: Record<string, unknown> = {
       auth_user_id: authUserId,
-      username: admin_email,
-      email: admin_email,
+      username: admin_email.toLowerCase(),
+      email: admin_email.toLowerCase(),
+      password: "!",
+      phone: "",
+      role: "schooladmin",
+      notification_preferences: {},
       first_name: "",
       last_name: "",
       school_id,
@@ -214,7 +221,7 @@ Deno.serve(async (req) => {
     const { data: existingByEmail, error: lookupError } = await serviceClient
       .from("users")
       .select("id, auth_user_id, school_id")
-      .eq("email", admin_email)
+      .eq("email", admin_email.toLowerCase())
       .maybeSingle();
 
     console.log("create-school-admin: public.users lookup by email", {
@@ -232,10 +239,14 @@ Deno.serve(async (req) => {
         .from("users")
         .update({
           auth_user_id: authUserId,
-          username: admin_email,
+          username: admin_email.toLowerCase(),
           school_id,
           is_active: true,
           updated_at: now,
+          password: "!",
+          phone: "",
+          role: "schooladmin",
+          notification_preferences: {},
         })
         .eq("id", existingByEmail.id);
 
@@ -254,7 +265,15 @@ Deno.serve(async (req) => {
       // Row exists and auth_user_id already matches — just update school_id directly.
       const { error: schoolPatchError } = await serviceClient
         .from("users")
-        .update({ school_id, is_active: true, updated_at: now })
+        .update({
+          school_id,
+          is_active: true,
+          updated_at: now,
+          password: "!",
+          phone: "",
+          role: "schooladmin",
+          notification_preferences: {},
+        })
         .eq("id", existingByEmail.id);
 
       console.log("create-school-admin: updated school_id on matched row", {
