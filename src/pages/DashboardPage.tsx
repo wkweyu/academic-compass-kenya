@@ -16,7 +16,7 @@ const DashboardPage = () => {
         const status = await settingsService.getSchoolSetupStatus();
 
         if (mounted && !status.complete) {
-          navigate('/onboarding', {
+          navigate('/settings', {
             replace: true,
             state: { onboardingRedirect: true },
           });

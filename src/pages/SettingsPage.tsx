@@ -1,15 +1,28 @@
-import { ArrowRight, CheckCircle2, Settings2 } from "lucide-react";
+import { ArrowRight, CheckCircle2, Settings2, Info } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { SystemSettingsModule } from "@/components/modules/SystemSettingsModule";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const SettingsPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const showOnboardingWelcome = location.state?.onboardingRedirect;
 
   return (
     <div className="space-y-6">
+      {showOnboardingWelcome && (
+        <Alert className="border-primary/30 bg-primary/5 dark:bg-primary/10">
+          <Info className="h-4 w-4 text-primary" />
+          <AlertTitle className="font-semibold text-primary">Welcome to your new School Console!</AlertTitle>
+          <AlertDescription className="text-muted-foreground">
+            You've been redirected here because your school setup is not yet complete. Please use the quick steps below to set up your profiles, academic terms, and classes so you can access the main dashboard.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <Card className="border-primary/20 bg-primary/5">
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3">
