@@ -1320,12 +1320,28 @@ const SchoolDetailDialog = ({
   }, [school, open]);
 
   const generatePassword = () => {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$";
-    const array = new Uint8Array(12);
-    crypto.getRandomValues(array);
-    let pass = "";
-    for (let i = 0; i < 12; i += 1) pass += chars.charAt(array[i] % chars.length);
-    setAdminAccess((prev) => ({ ...prev, adminPassword: pass }));
+    const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+    const lower = "abcdefghjkmnpqrstuvwxyz";
+    const digits = "23456789";
+    const special = "!@#$%";
+    const all = upper + lower + digits + special;
+    const pick = (set: string, byte: number) => set[byte % set.length];
+    // 28 random bytes: 4 guarantee one per class, 8 fill, 16 used for shuffle
+    const a = new Uint8Array(28);
+    crypto.getRandomValues(a);
+    const chars = [
+      pick(upper, a[0]),
+      pick(lower, a[1]),
+      pick(digits, a[2]),
+      pick(special, a[3]),
+      ...Array.from({ length: 8 }, (_, i) => pick(all, a[4 + i])),
+    ];
+    // Fisher-Yates shuffle
+    for (let i = 11; i > 0; i--) {
+      const j = a[16 + i] % (i + 1);
+      [chars[i], chars[j]] = [chars[j], chars[i]];
+    }
+    setAdminAccess((prev) => ({ ...prev, adminPassword: chars.join("") }));
   };
 
   const handleSave = async () => {
