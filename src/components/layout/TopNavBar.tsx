@@ -2,35 +2,9 @@ import { useState, useRef, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { TermManager } from '@/utils/termManager';
 import { useAuth } from '@/hooks/useAuth';
+import { getVisibleNavGroups, navGroups, type NavItem } from '@/lib/navigationConfig';
 import skooltrackLogo from '@/assets/skooltrack-logo.png';
-import {
-  BarChart3,
-  MessageSquare,
-  Users,
-  School,
-  TrendingUp,
-  CalendarCheck,
-  UserCheck,
-  ClipboardList,
-  BookOpen,
-  Receipt,
-  Truck,
-  ShoppingCart,
-  Sprout,
-  DollarSign,
-  CreditCard,
-  Settings,
-  GraduationCap,
-  LogOut,
-  User,
-  ChevronDown,
-  Menu,
-  X,
-  Bell,
-  FileText,
-  LifeBuoy,
-  CalendarDays,
-} from 'lucide-react';
+import { ChevronDown, Menu, X, Bell, LogOut, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SupportNotificationPanel } from '@/components/communication/SupportNotificationPanel';
 import {
@@ -42,125 +16,21 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
-interface NavItem {
-  id: string;
-  title: string;
-  url?: string;
-  icon: React.ElementType;
-  subItems?: { id: string; title: string; url: string; icon?: React.ElementType }[];
-}
-
-const navGroups: { label: string; items: NavItem[] }[] = [
-  {
-    label: 'Overview',
-    items: [
-      { id: 'dashboard', title: 'Dashboard', url: '/dashboard', icon: BarChart3 },
-      { id: 'communications', title: 'Communication', url: '/communications', icon: MessageSquare },
-    ],
-  },
-  {
-    label: 'Students',
-    items: [
-      { id: 'students', title: 'Students', url: '/students', icon: Users },
-      { id: 'classes', title: 'Classes', url: '/classes', icon: School },
-      { id: 'promotions', title: 'Promotions', url: '/promotions', icon: TrendingUp },
-      {
-        id: 'attendance',
-        title: 'Attendance',
-        icon: CalendarCheck,
-        subItems: [
-          { id: 'att-mark', title: 'Mark Attendance', url: '/attendance' },
-          { id: 'att-reports', title: 'View Reports', url: '/attendance/reports' },
-        ],
-      },
-      {
-        id: 'timetable',
-        title: 'Timetable',
-        icon: CalendarDays,
-        subItems: [
-          { id: 'timetable-class', title: 'Class Timetable', url: '/timetable' },
-          { id: 'timetable-teacher', title: 'Teacher Schedule', url: '/timetable/teacher' },
-          { id: 'timetable-room', title: 'Special Rooms', url: '/timetable/room' },
-          { id: 'timetable-periods', title: 'Periods & Calendar', url: '/timetable/periods' },
-          { id: 'timetable-substitutions', title: 'Substitutions', url: '/timetable/substitutions' },
-        ],
-      },
-    ],
-  },
-  {
-    label: 'Staff',
-    items: [
-      {
-        id: 'teachers',
-        title: 'Staff & Teachers',
-        icon: UserCheck,
-        subItems: [
-          { id: 'staff-all', title: 'All Staff', url: '/teachers' },
-          { id: 'staff-assign', title: 'Assignments', url: '/teachers/assignments' },
-          { id: 'staff-avail', title: 'Availability', url: '/teachers/availability' },
-          { id: 'staff-work', title: 'Workload', url: '/teachers/workload' },
-          { id: 'staff-att', title: 'Attendance', url: '/teachers/attendance' },
-          { id: 'staff-leave', title: 'Leave Management', url: '/teachers/leave' },
-          { id: 'staff-perf', title: 'Performance', url: '/teachers/performance' },
-          { id: 'staff-rep', title: 'Reports', url: '/teachers/reports' },
-        ],
-      },
-    ],
-  },
-  {
-    label: 'Academics',
-    items: [
-      {
-        id: 'exams',
-        title: 'Exams',
-        icon: ClipboardList,
-        subItems: [
-          { id: 'exam-sessions', title: 'Exam Sessions', url: '/exams' },
-          { id: 'term-reports', title: 'Term Reports', url: '/term-reports' },
-        ],
-      },
-      {
-        id: 'subjects',
-        title: 'Subjects',
-        icon: BookOpen,
-        subItems: [
-          { id: 'subj-all', title: 'All Subjects', url: '/subjects' },
-          { id: 'subj-cat', title: 'Categories', url: '/subjects/categories' },
-          { id: 'subj-alloc', title: 'Class Allocations', url: '/subjects/allocations' },
-        ],
-      },
-    ],
-  },
-  {
-    label: 'Finance',
-    items: [
-      { id: 'payments', title: 'Payments', url: '/finance/payments', icon: Receipt },
-      { id: 'payments-unresolved', title: 'Unresolved Payments', url: '/finance/payments/unresolved', icon: FileText },
-      { id: 'payments-reports', title: 'Collections Reports', url: '/finance/payments/reports', icon: BarChart3 },
-      { id: 'student-statements', title: 'Student Statements', url: '/students', icon: FileText },
-      { id: 'iga', title: 'IGA', url: '/iga', icon: Sprout },
-      { id: 'payroll', title: 'Payroll', url: '/payroll', icon: DollarSign },
-      { id: 'accounting', title: 'Accounting', url: '/accounting', icon: CreditCard },
-      { id: 'procurement', title: 'Procurement', url: '/procurement', icon: ShoppingCart },
-      { id: 'transport', title: 'Transport', url: '/transport', icon: Truck },
-    ],
-  },
-  {
-    label: 'System',
-    items: [
-      { id: 'settings', title: 'Settings', url: '/settings', icon: Settings },
-    ],
-  },
-];
-
 function NavDropdown({ label, items }: { label: string; items: NavItem[] }) {
+  const { hasAnyRole } = useAuth();
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const allUrls = items.flatMap(item =>
-    item.subItems ? item.subItems.map(s => s.url) : item.url ? [item.url] : []
-  );
+  const allUrls = items.flatMap(item => {
+    const visibleSubItems = item.subItems ?? [];
+
+    return visibleSubItems.length > 0
+      ? visibleSubItems.map((s) => s.url)
+      : item.url
+      ? [item.url]
+      : [];
+  });
   const isGroupActive = allUrls.some(url => location.pathname === url || location.pathname.startsWith(url + '/'));
 
   // Single items without dropdown
@@ -217,14 +87,20 @@ function NavDropdown({ label, items }: { label: string; items: NavItem[] }) {
       {open && (
         <div className="absolute top-full left-0 mt-1 w-56 bg-popover border border-border rounded-lg shadow-elevated z-50 animate-slide-down">
           <div className="p-1.5">
-            {items.map(item =>
-              item.subItems ? (
+            {items.map(item => {
+              const visibleSubItems = item.subItems ?? [];
+
+              if (item.subItems && visibleSubItems.length === 0) {
+                return null;
+              }
+
+              return item.subItems ? (
                 <div key={item.id}>
                   <div className="px-2.5 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                     <item.icon className="h-3.5 w-3.5" />
                     {item.title}
                   </div>
-                  {item.subItems.map(sub => (
+                  {visibleSubItems.map(sub => (
                     <NavLink
                       key={sub.id}
                       to={sub.url}
@@ -261,8 +137,8 @@ function NavDropdown({ label, items }: { label: string; items: NavItem[] }) {
                   <item.icon className="h-4 w-4" />
                   <span>{item.title}</span>
                 </NavLink>
-              )
-            )}
+              );
+            })}
           </div>
         </div>
       )}
@@ -271,7 +147,7 @@ function NavDropdown({ label, items }: { label: string; items: NavItem[] }) {
 }
 
 export function TopNavBar() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, hasAnyRole } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
 
@@ -279,6 +155,8 @@ export function TopNavBar() {
   useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
+
+  const visibleGroups = getVisibleNavGroups(navGroups, hasAnyRole);
 
   return (
     <>
@@ -299,7 +177,7 @@ export function TopNavBar() {
 
           {/* Desktop nav items */}
           <nav className="hidden lg:flex items-center gap-0.5">
-            {navGroups.map(group => (
+            {visibleGroups.map(group => (
               <NavDropdown key={group.label} label={group.label} items={group.items} />
             ))}
           </nav>
@@ -357,55 +235,61 @@ export function TopNavBar() {
           <div className="fixed inset-0 bg-foreground/20 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
           <div className="fixed top-14 left-0 right-0 bottom-0 overflow-y-auto bg-card border-t border-border animate-slide-down">
             <nav className="p-4 space-y-1">
-              {navGroups.map(group => (
+              {visibleGroups.map(group => (
                 <div key={group.label}>
-                  <p className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    {group.label}
-                  </p>
-                  {group.items.map(item =>
-                    item.subItems ? (
-                      <div key={item.id} className="space-y-0.5">
-                        <div className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-foreground">
+                    <p className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      {group.label}
+                    </p>
+                    {group.items.map(item => {
+                      const visibleSubItems = item.subItems ?? [];
+
+                      if (item.subItems && visibleSubItems.length === 0) {
+                        return null;
+                      }
+
+                      return item.subItems ? (
+                        <div key={item.id} className="space-y-0.5">
+                          <div className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-foreground">
+                            <item.icon className="h-4 w-4" />
+                            {item.title}
+                          </div>
+                          {visibleSubItems.map(sub => (
+                            <NavLink
+                              key={sub.id}
+                              to={sub.url}
+                              className={({ isActive }) =>
+                                cn(
+                                  'flex items-center gap-2 pl-9 pr-3 py-2 text-sm rounded-md',
+                                  isActive
+                                    ? 'bg-primary/10 text-primary font-medium'
+                                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                                )
+                              }
+                              end
+                            >
+                              {sub.title}
+                            </NavLink>
+                          ))}
+                        </div>
+                      ) : (
+                        <NavLink
+                          key={item.id}
+                          to={item.url!}
+                          className={({ isActive }) =>
+                            cn(
+                              'flex items-center gap-2 px-3 py-2 text-sm rounded-md',
+                              isActive
+                                ? 'bg-primary/10 text-primary font-medium'
+                                : 'text-foreground hover:bg-muted'
+                            )
+                          }
+                          end
+                        >
                           <item.icon className="h-4 w-4" />
                           {item.title}
-                        </div>
-                        {item.subItems.map(sub => (
-                          <NavLink
-                            key={sub.id}
-                            to={sub.url}
-                            className={({ isActive }) =>
-                              cn(
-                                'flex items-center gap-2 pl-9 pr-3 py-2 text-sm rounded-md',
-                                isActive
-                                  ? 'bg-primary/10 text-primary font-medium'
-                                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                              )
-                            }
-                            end
-                          >
-                            {sub.title}
-                          </NavLink>
-                        ))}
-                      </div>
-                    ) : (
-                      <NavLink
-                        key={item.id}
-                        to={item.url!}
-                        className={({ isActive }) =>
-                          cn(
-                            'flex items-center gap-2 px-3 py-2 text-sm rounded-md',
-                            isActive
-                              ? 'bg-primary/10 text-primary font-medium'
-                              : 'text-foreground hover:bg-muted'
-                          )
-                        }
-                        end
-                      >
-                        <item.icon className="h-4 w-4" />
-                        {item.title}
-                      </NavLink>
-                    )
-                  )}
+                        </NavLink>
+                      );
+                    })}
                 </div>
               ))}
             </nav>

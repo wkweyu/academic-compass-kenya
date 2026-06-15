@@ -3,16 +3,18 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscriptionCheck } from '@/hooks/useSubscriptionCheck';
 import { Loader2, AlertTriangle, XCircle } from 'lucide-react';
+import type { AppRole } from '@/lib/permissions';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
+  requiredRoles?: readonly AppRole[];
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { user, loading, signOut } = useAuth();
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRoles }) => {
+  const { user, loading, signOut, hasAnyRole } = useAuth();
   const { subscription, loading: subLoading, isExpired, isNearExpiry } = useSubscriptionCheck();
 
   if (loading || subLoading) {
@@ -44,6 +46,27 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
             <p className="text-sm text-muted-foreground text-center">
               School: <span className="font-semibold text-foreground">{subscription.school_name}</span>
             </p>
+            <Button variant="outline" className="w-full" onClick={() => signOut()}>
+              Sign Out
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (requiredRoles && requiredRoles.length > 0 && !hasAnyRole(requiredRoles)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="max-w-md w-full shadow-lg">
+          <CardHeader className="text-center space-y-2">
+            <AlertTriangle className="w-12 h-12 text-amber-600 mx-auto" />
+            <CardTitle className="text-xl">Access Restricted</CardTitle>
+            <CardDescription>
+              You do not have permission to view this page. Contact your administrator if you believe this is an error.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
             <Button variant="outline" className="w-full" onClick={() => signOut()}>
               Sign Out
             </Button>
