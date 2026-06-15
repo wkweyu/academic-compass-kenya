@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import type { AppRole } from "@/lib/permissions";
+import { APP_ROLES } from '@/lib/permissions';
 
 interface AuthContextType {
   user: User | null;
@@ -50,6 +51,43 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     let nextRoles = (roleRows ?? []).map((row) => String(row.role));
 
+    // Normalize role strings to the canonical frontend `AppRole` values.
+    const normalizeRole = (raw: string | null | undefined): AppRole | undefined => {
+      if (!raw) return undefined;
+      const cleaned = String(raw).trim().toLowerCase().replace(/[-_\s]/g, '');
+      if (APP_ROLES.includes(cleaned as AppRole)) return cleaned as AppRole;
+
+      const aliasMap: Record<string, AppRole> = {
+        bursar: 'finance',
+        accountant: 'finance',
+        financestaff: 'finance',
+        finance_staff: 'finance',
+        systemadmin: 'superadmin',
+        system_admin: 'superadmin',
+        super_admin: 'superadmin',
+        school_admin: 'schooladmin',
+      };
+
+      if (aliasMap[cleaned]) return aliasMap[cleaned];
+      // fallback: try raw lower without cleaning
+      const rawLower = String(raw).trim().toLowerCase();
+      if (aliasMap[rawLower]) return aliasMap[rawLower];
+
+      return undefined;
+    };
+
+    const normalized = Array.from(
+      new Set(
+        nextRoles
+          .map((r) => normalizeRole(r))
+          .filter((r): r is AppRole => Boolean(r))
+      )
+    );
+
+    if (normalized.length > 0) {
+      nextRoles = normalized as string[];
+    }
+
     if (nextRoles.length === 0) {
       const { data: fallbackUser, error: fallbackError } = await supabase
         .from<Database["public"]["Tables"]["users"]["Row"]>("users")
@@ -71,8 +109,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (import.meta.env.DEV) {
       console.debug("Auth roles loaded", {
         userId: authUserId,
-        roles: nextRoles,
-        hasSchoolAdmin: nextRoles.includes("school_admin"),
+        rawRoles: nextRoles,
+        normalizedRoles: nextRoles,
+        hasSchoolAdmin: nextRoles.includes("schooladmin") || nextRoles.includes("school_admin"),
       });
     }
   };
