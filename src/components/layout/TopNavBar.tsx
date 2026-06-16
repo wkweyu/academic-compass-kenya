@@ -65,6 +65,93 @@ function NavDropdown({ label, items }: { label: string; items: NavItem[] }) {
     timeoutRef.current = setTimeout(() => setOpen(false), 150);
   };
 
+  const renderDropdownItems = () => {
+    return items.map((item) => {
+      const visibleSubItems = item.subItems ?? [];
+
+      if (item.subItems && visibleSubItems.length === 0) {
+        if (item.url) {
+          return (
+            <NavLink
+              key={item.id}
+              to={item.url}
+              onClick={() => setOpen(false)}
+              className={({ isActive }) =>
+                cn(
+                  'flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors',
+                  isActive
+                    ? 'bg-primary/10 text-primary font-medium'
+                    : 'text-foreground hover:bg-muted'
+                )
+              }
+              end
+            >
+              <item.icon className="h-4 w-4" />
+              <span>{item.title}</span>
+            </NavLink>
+          );
+        }
+
+        return null;
+      }
+
+      if (item.subItems && visibleSubItems.length > 0) {
+        return (
+          <div key={item.id}>
+            <div className="px-2.5 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+              <item.icon className="h-3.5 w-3.5" />
+              {item.title}
+            </div>
+            {visibleSubItems.map((sub) => (
+              <NavLink
+                key={sub.id}
+                to={sub.url}
+                onClick={() => setOpen(false)}
+                className={({ isActive }) =>
+                  cn(
+                    'flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors',
+                    isActive
+                      ? 'bg-primary/10 text-primary font-medium'
+                      : 'text-foreground hover:bg-muted'
+                  )
+                }
+                end
+              >
+                <span>{sub.title}</span>
+              </NavLink>
+            ))}
+          </div>
+        );
+      }
+
+      if (item.url) {
+        return (
+          <NavLink
+            key={item.id}
+            to={item.url}
+            onClick={() => setOpen(false)}
+            className={({ isActive }) =>
+              cn(
+                'flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors',
+                isActive
+                  ? 'bg-primary/10 text-primary font-medium'
+                  : 'text-foreground hover:bg-muted'
+              )
+            }
+            end
+          >
+            <item.icon className="h-4 w-4" />
+            <span>{item.title}</span>
+          </NavLink>
+        );
+      }
+
+      return null;
+    });
+  };
+
+  const dropdownItems = renderDropdownItems();
+
   return (
     <div
       className="relative"
@@ -87,58 +174,9 @@ function NavDropdown({ label, items }: { label: string; items: NavItem[] }) {
       {open && (
         <div className="absolute top-full left-0 mt-1 w-56 bg-popover border border-border rounded-lg shadow-elevated z-50 animate-slide-down">
           <div className="p-1.5">
-            {items.map(item => {
-              const visibleSubItems = item.subItems ?? [];
-
-              if (item.subItems && visibleSubItems.length === 0) {
-                return null;
-              }
-
-              return item.subItems ? (
-                <div key={item.id}>
-                  <div className="px-2.5 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                    <item.icon className="h-3.5 w-3.5" />
-                    {item.title}
-                  </div>
-                  {visibleSubItems.map(sub => (
-                    <NavLink
-                      key={sub.id}
-                      to={sub.url}
-                      onClick={() => setOpen(false)}
-                      className={({ isActive }) =>
-                        cn(
-                          'flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors',
-                          isActive
-                            ? 'bg-primary/10 text-primary font-medium'
-                            : 'text-foreground hover:bg-muted'
-                        )
-                      }
-                      end
-                    >
-                      <span>{sub.title}</span>
-                    </NavLink>
-                  ))}
-                </div>
-              ) : (
-                <NavLink
-                  key={item.id}
-                  to={item.url!}
-                  onClick={() => setOpen(false)}
-                  className={({ isActive }) =>
-                    cn(
-                      'flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors',
-                      isActive
-                        ? 'bg-primary/10 text-primary font-medium'
-                        : 'text-foreground hover:bg-muted'
-                    )
-                  }
-                  end
-                >
-                  <item.icon className="h-4 w-4" />
-                  <span>{item.title}</span>
-                </NavLink>
-              );
-            })}
+            {dropdownItems.length > 0 ? dropdownItems : (
+              <div className="px-3 py-3 text-sm text-muted-foreground">No accessible menu items</div>
+            )}
           </div>
         </div>
       )}
