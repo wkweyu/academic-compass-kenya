@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from apps.schools.serializers import SchoolSerializer
-from .models import User  # Make sure you're importing your User model correctly
+from .models import User
+
 
 class UserSerializer(serializers.ModelSerializer):
     school = SchoolSerializer(read_only=True)
@@ -8,7 +9,21 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'full_name', 'role', 'school']
+        fields = [
+            'id',
+            'username',
+            'email',
+            'first_name',
+            'last_name',
+            'full_name',
+            'role',
+            'school',
+            'entity_type',
+            'entity_id',
+            'status',
+            'login_enabled',
+            'expires_at',
+        ]
 
 
 class UserRoleChangePreviewSerializer(serializers.Serializer):
@@ -38,3 +53,13 @@ class UserCreateSerializer(serializers.Serializer):
     last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     role = serializers.CharField(max_length=50)
     password = serializers.CharField(max_length=128, required=False, allow_blank=True)
+
+
+class EnableLoginSerializer(serializers.Serializer):
+    entity_type = serializers.CharField(max_length=50)
+    entity_id = serializers.IntegerField()
+    email = serializers.EmailField()
+    role = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    send_invite = serializers.BooleanField(default=False)
+    login_enabled = serializers.BooleanField(default=True)
+    expires_at = serializers.DateTimeField(required=False, allow_null=True)

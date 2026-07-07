@@ -15,6 +15,23 @@ class User(AbstractUser):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     role = models.CharField(max_length=50, default='staff')
+    entity_type = models.CharField(max_length=50, blank=True, db_index=True)
+    entity_id = models.PositiveIntegerField(null=True, blank=True, db_index=True)
+    status = models.CharField(
+        max_length=30,
+        choices=[
+            ('INVITED', 'Invited'),
+            ('PENDING_EMAIL_VERIFICATION', 'Pending Email Verification'),
+            ('ACTIVE', 'Active'),
+            ('DISABLED', 'Disabled'),
+            ('LOCKED', 'Locked'),
+            ('EXPIRED', 'Expired'),
+        ],
+        default='ACTIVE',
+        db_index=True,
+    )
+    login_enabled = models.BooleanField(default=False, db_index=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
     notification_preferences = models.JSONField(default=dict, blank=True)
     
     USERNAME_FIELD = 'email'
