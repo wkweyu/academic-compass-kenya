@@ -24,6 +24,7 @@ class UserSerializer(serializers.ModelSerializer):
             'status',
             'login_enabled',
             'expires_at',
+            'last_login',
             'linked_entity_name',
         ]
 

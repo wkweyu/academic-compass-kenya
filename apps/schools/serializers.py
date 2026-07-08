@@ -143,10 +143,12 @@ class OnboardingStepProcessSerializer(serializers.Serializer):
 
 
 class ActivityLogSerializer(serializers.ModelSerializer):
+    actor_name = serializers.CharField(source='actor.full_name', read_only=True)
+
     class Meta:
         model = ActivityLog
         fields = '__all__'
-        read_only_fields = ['created_at']
+        read_only_fields = ['created_at', 'actor_name']
 
 
 class SchoolHealthSnapshotSerializer(serializers.ModelSerializer):
