@@ -11,6 +11,9 @@ import { GeneralSettingsTab } from './GeneralSettingsTab';
 import { GradingSystemTab } from './GradingSystemTab';
 import { StreamNamingTab } from './StreamNamingTab';
 import { PredefinedClassesTab } from './PredefinedClassesTab';
+import { UsersTab } from './UsersTab';
+import { RolesPermissionsTab } from './RolesPermissionsTab';
+import { AuditLogsTab } from './AuditLogsTab';
 import { BiometricIntegration } from '@/pages/Attendance/BiometricIntegration';
 import { SmsIntegration } from '@/pages/Attendance/SmsIntegration';
 import { settingsService } from '@/services/settingsService';
@@ -189,10 +192,25 @@ export function SystemSettingsModule() {
               <TabsTrigger value="predefined-classes">Predefined Classes</TabsTrigger>
               <TabsTrigger value="stream-naming">Stream Naming</TabsTrigger>
               <TabsTrigger value="grading">Grading System</TabsTrigger>
+              <TabsTrigger value="roles-permissions">Roles & Permissions</TabsTrigger>
+              <TabsTrigger value="users">Users</TabsTrigger>
+              <TabsTrigger value="audit">Audit Logs</TabsTrigger>
               <TabsTrigger value="biometric">Biometric</TabsTrigger>
               <TabsTrigger value="sms">SMS Gateway</TabsTrigger>
               <TabsTrigger value="general">General</TabsTrigger>
             </TabsList>
+
+            <TabsContent value="roles-permissions" className="mt-6">
+              <RolesPermissionsTab />
+            </TabsContent>
+
+            <TabsContent value="users" className="mt-6">
+              <UsersTab />
+            </TabsContent>
+
+            <TabsContent value="audit" className="mt-6">
+              <AuditLogsTab />
+            </TabsContent>
 
             <TabsContent value="school-profile" className="mt-6">
               <SchoolProfileTab />

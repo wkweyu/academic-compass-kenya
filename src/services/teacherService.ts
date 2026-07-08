@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { userService, EnableLoginPayload } from './userService';
 import { 
   Staff,
   Teacher,
@@ -1249,6 +1250,10 @@ export const staffService = {
       console.error('Error fetching staff stats:', error);
       throw error;
     }
+  },
+
+  async enableLogin(payload: EnableLoginPayload) {
+    return userService.enableLogin(payload);
   }
 };
 

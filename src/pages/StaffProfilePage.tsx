@@ -6,8 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Mail, Phone, MapPin, Calendar, Briefcase, CreditCard, User, BookOpen, ClipboardList } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ArrowLeft, Mail, Phone, MapPin, Calendar, Briefcase, CreditCard, User, BookOpen, ClipboardList, ShieldCheck } from 'lucide-react';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 
 const StaffProfilePage = () => {
   const { id } = useParams<{ id: string }>();
@@ -16,6 +21,9 @@ const StaffProfilePage = () => {
   const [assignments, setAssignments] = useState<StaffSubjectAssignment[]>([]);
   const [attendance, setAttendance] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(false);
+  const [loginRole, setLoginRole] = useState('teacher');
+  const [sendInvite, setSendInvite] = useState(true);
 
   useEffect(() => {
     loadStaffData();
@@ -39,6 +47,25 @@ const StaffProfilePage = () => {
       console.error('Error loading staff data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEnableLogin = async () => {
+    if (!staff) return;
+
+    try {
+      await staffService.enableLogin({
+        entity_type: 'staff',
+        entity_id: staff.id,
+        email: staff.email,
+        role: loginRole,
+        send_invite: sendInvite,
+        login_enabled: true
+      });
+      toast.success(`Login enabled for ${staff.full_name || `${staff.first_name} ${staff.last_name}`}`);
+      setIsLoginDialogOpen(false);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to enable login");
     }
   };
 
@@ -75,7 +102,16 @@ const StaffProfilePage = () => {
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Staff List
         </Button>
-        <Button onClick={() => navigate(`/teachers/${id}/edit`)}>Edit Profile</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => {
+            setLoginRole(staff.staff_category === 'Teaching Staff' ? 'teacher' : 'staff');
+            setIsLoginDialogOpen(true);
+          }}>
+            <ShieldCheck className="mr-2 h-4 w-4" />
+            Enable Login
+          </Button>
+          <Button onClick={() => navigate(`/teachers/${id}/edit`)}>Edit Profile</Button>
+        </div>
       </div>
 
       {/* Header Card */}
@@ -344,6 +380,51 @@ const StaffProfilePage = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Enable Login Dialog */}
+      <Dialog open={isLoginDialogOpen} onOpenChange={setIsLoginDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enable System Login</DialogTitle>
+            <DialogDescription>
+              Create a system account for {staff.full_name || `${staff.first_name} ${staff.last_name}`}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Assign System Role</Label>
+              <Select value={loginRole} onValueChange={setLoginRole}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="teacher">Teacher</SelectItem>
+                  <SelectItem value="finance">Finance Officer</SelectItem>
+                  <SelectItem value="transport">Transport Officer</SelectItem>
+                  <SelectItem value="librarian">Librarian</SelectItem>
+                  <SelectItem value="bursar">Bursar</SelectItem>
+                  <SelectItem value="accountant">Accountant</SelectItem>
+                  <SelectItem value="schooladmin">School Administrator</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="send-invite-profile"
+                checked={sendInvite}
+                onCheckedChange={(checked) => setSendInvite(!!checked)}
+              />
+              <Label htmlFor="send-invite-profile" className="text-sm font-normal cursor-pointer">
+                Send invitation email with instructions
+              </Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsLoginDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleEnableLogin}>Provision Account</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
