@@ -10,10 +10,10 @@ export const scoreService = {
         .from('exams_exam')
         .select(`
           *,
-          subject:subjects(name, code),
-          class:classes(name),
-          stream:streams(name),
-          exam_type:exams_examtype(name)
+          subject:subjects!exams_exam_subject_id_8f3e030d_fk_subjects_id(name, code),
+          class:classes!exams_exam_class_assigned_id_7e5c6ac4_fk_classes_id(name),
+          stream:streams!exams_exam_stream_id_e7068fd1_fk_streams_id(name),
+          exam_type:exams_examtype!exams_exam_exam_type_id_08ffd880_fk_exams_examtype_id(name)
         `)
         .order('exam_date', { ascending: false });
       
