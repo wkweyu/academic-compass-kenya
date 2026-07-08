@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { Staff, StaffStats, StaffFilters, DEPARTMENTS, EMPLOYMENT_TYPES, STAFF_STATUS_OPTIONS, STAFF_CATEGORIES } from '@/types/teacher';
 import { staffService } from '@/services/teacherService';
 import { StaffForm } from '@/components/forms/StaffForm';
@@ -36,6 +38,9 @@ export const TeacherManagementModule = ({ defaultTab = 'staff' }: TeacherManagem
   const [filters, setFilters] = useState<StaffFilters>({});
   const [isCreateStaffOpen, setIsCreateStaffOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
+  const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(false);
+  const [loginRole, setLoginRole] = useState('teacher');
+  const [sendInvite, setSendInvite] = useState(true);
   const [deleteStaffId, setDeleteStaffId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -70,13 +75,39 @@ export const TeacherManagementModule = ({ defaultTab = 'staff' }: TeacherManagem
     }
   };
 
-  const handleCreateStaff = async (data: Omit<Staff, 'id' | 'created_at' | 'updated_at' | 'full_name' | 'years_of_service' | 'gross_salary'>) => {
+  const handleCreateStaff = async (data: any) => {
     try {
-      await staffService.createStaff(data);
-      toast({
-        title: "Success",
-        description: "Staff member created successfully",
-      });
+      const newStaff = await staffService.createStaff(data);
+
+      // Handle login provisioning if enabled
+      if (data.enable_login) {
+        try {
+          await staffService.enableLogin({
+            entity_type: 'staff',
+            entity_id: newStaff.id,
+            email: newStaff.email,
+            role: data.system_role || 'teacher',
+            send_invite: data.send_invitation,
+            login_enabled: true
+          });
+          toast({
+            title: "Success",
+            description: "Staff member created and login account provisioned",
+          });
+        } catch (loginError: any) {
+          console.error('Error provisioning login:', loginError);
+          toast({
+            title: "Staff Created",
+            description: "Staff record saved, but login provisioning failed: " + (loginError.message || "Unknown error"),
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Success",
+          description: "Staff member created successfully",
+        });
+      }
       setIsCreateStaffOpen(false);
       loadData();
     } catch (error: any) {
@@ -87,6 +118,33 @@ export const TeacherManagementModule = ({ defaultTab = 'staff' }: TeacherManagem
         description: errorMessage,
         variant: "destructive",
         duration: 10000, // Show for 10 seconds
+      });
+    }
+  };
+
+  const handleEnableLogin = async () => {
+    if (!selectedStaff) return;
+
+    try {
+      await staffService.enableLogin({
+        entity_type: 'staff',
+        entity_id: selectedStaff.id,
+        email: selectedStaff.email,
+        role: loginRole,
+        send_invite: sendInvite,
+        login_enabled: true
+      });
+      toast({
+        title: "Success",
+        description: `Login enabled for ${selectedStaff.full_name}`,
+      });
+      setIsLoginDialogOpen(false);
+      setSelectedStaff(null);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to enable login",
+        variant: "destructive",
       });
     }
   };
@@ -428,6 +486,18 @@ export const TeacherManagementModule = ({ defaultTab = 'staff' }: TeacherManagem
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="Enable Login"
+                            onClick={() => {
+                              setSelectedStaff(member);
+                              setLoginRole(member.staff_category === 'Teaching Staff' ? 'teacher' : 'staff');
+                              setIsLoginDialogOpen(true);
+                            }}
+                          >
+                            <ShieldCheck className="h-4 w-4" />
+                          </Button>
                           <Button variant="ghost" size="sm">
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -478,6 +548,51 @@ export const TeacherManagementModule = ({ defaultTab = 'staff' }: TeacherManagem
           <StaffReportsModule />
         </TabsContent>
       </Tabs>
+
+      {/* Enable Login Dialog */}
+      <Dialog open={isLoginDialogOpen} onOpenChange={setIsLoginDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enable System Login</DialogTitle>
+            <DialogDescription>
+              Create a system account for {selectedStaff?.full_name}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Assign System Role</Label>
+              <Select value={loginRole} onValueChange={setLoginRole}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="teacher">Teacher</SelectItem>
+                  <SelectItem value="finance">Finance Officer</SelectItem>
+                  <SelectItem value="transport">Transport Officer</SelectItem>
+                  <SelectItem value="librarian">Librarian</SelectItem>
+                  <SelectItem value="bursar">Bursar</SelectItem>
+                  <SelectItem value="accountant">Accountant</SelectItem>
+                  <SelectItem value="schooladmin">School Administrator</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="send-invite"
+                checked={sendInvite}
+                onCheckedChange={(checked) => setSendInvite(!!checked)}
+              />
+              <Label htmlFor="send-invite" className="text-sm font-normal cursor-pointer">
+                Send invitation email with instructions
+              </Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsLoginDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleEnableLogin}>Provision Account</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <DeleteConfirmationDialog
