@@ -9,7 +9,8 @@ import {
   Clock,
   User,
   Box,
-  FileText
+  FileText,
+  History
 } from "lucide-react";
 import {
   Table,

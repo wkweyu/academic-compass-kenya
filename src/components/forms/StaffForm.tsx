@@ -8,11 +8,10 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Staff, EMPLOYMENT_TYPES, STAFF_STATUS_OPTIONS, STAFF_CATEGORIES, DEPARTMENTS, JOB_TITLES, SALARY_SCALES } from '@/types/teacher';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Briefcase, CreditCard, Shield, Wallet, Key, UserPlus } from 'lucide-react';
+import { Briefcase, CreditCard, Shield, Wallet } from 'lucide-react';
 
 const staffFormSchema = z.object({
   first_name: z.string().min(1, 'First name is required'),
@@ -47,10 +46,6 @@ const staffFormSchema = z.object({
   other_allowances: z.number().min(0, 'Other allowances must be positive').default(0),
   salary_scale: z.string().optional(),
   status: z.string().min(1, 'Status is required'),
-  // Login Access Fields
-  enable_login: z.boolean().default(false),
-  system_role: z.string().optional(),
-  send_invitation: z.boolean().default(true),
 });
 
 type StaffFormValues = z.infer<typeof staffFormSchema>;
@@ -99,9 +94,6 @@ export function StaffForm({ onSubmit, onCancel, initialData, isLoading = false }
       other_allowances: initialData?.other_allowances || 0,
       salary_scale: initialData?.salary_scale || '',
       status: initialData?.status || 'Active',
-      enable_login: false,
-      system_role: 'teacher',
-      send_invitation: true,
     },
   });
 
@@ -143,12 +135,11 @@ export function StaffForm({ onSubmit, onCancel, initialData, isLoading = false }
             <Badge variant="outline">Required fields marked in each section</Badge>
             <Badge variant="secondary">Personal, employment, finance, and salary</Badge>
           </div>
-          <TabsList className="grid w-full grid-cols-5 rounded-2xl border border-border/70 bg-muted/40 p-1">
+          <TabsList className="grid w-full grid-cols-4 rounded-2xl border border-border/70 bg-muted/40 p-1">
             <TabsTrigger value="personal">Personal</TabsTrigger>
             <TabsTrigger value="employment">Employment</TabsTrigger>
             <TabsTrigger value="financial">Financial</TabsTrigger>
             <TabsTrigger value="salary">Salary</TabsTrigger>
-            <TabsTrigger value="access">Access</TabsTrigger>
           </TabsList>
 
           <div className="erp-modal-body mt-4">
@@ -610,96 +601,6 @@ export function StaffForm({ onSubmit, onCancel, initialData, isLoading = false }
                 )}
               />
             </div>
-            </section>
-          </TabsContent>
-
-          <TabsContent value="access" className="mt-0 space-y-4">
-            <section className="erp-form-section">
-              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                <Key className="h-4 w-4 text-primary" /> System Access Control
-              </div>
-              <div className="space-y-4 pt-2">
-                <FormField
-                  control={form.control}
-                  name="enable_login"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel className="cursor-pointer">
-                          Provision system login account
-                        </FormLabel>
-                        <FormDescription>
-                          This will create a user account and allow this staff member to log in to the system.
-                        </FormDescription>
-                      </div>
-                    </FormItem>
-                  )}
-                />
-
-                {form.watch('enable_login') && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-muted/30 rounded-lg border animate-in fade-in slide-in-from-top-1">
-                    <FormField
-                      control={form.control}
-                      name="system_role"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>System Role</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select role" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="teacher">Teacher</SelectItem>
-                              <SelectItem value="finance">Finance Officer</SelectItem>
-                              <SelectItem value="transport">Transport Officer</SelectItem>
-                              <SelectItem value="librarian">Librarian</SelectItem>
-                              <SelectItem value="bursar">Bursar</SelectItem>
-                              <SelectItem value="accountant">Accountant</SelectItem>
-                              <SelectItem value="schooladmin">School Administrator</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormDescription>Defines system permissions.</FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="send_invitation"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 pt-8">
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                          <div className="space-y-1 leading-none">
-                            <FormLabel className="cursor-pointer font-normal">
-                              Send invitation email
-                            </FormLabel>
-                          </div>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                )}
-                {!form.watch('enable_login') && (
-                  <div className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-100 rounded-lg text-blue-800 text-sm">
-                    <UserPlus className="h-5 w-5 shrink-0" />
-                    <p>Login access can also be enabled later from the staff profile or system settings.</p>
-                  </div>
-                )}
-              </div>
             </section>
           </TabsContent>
 

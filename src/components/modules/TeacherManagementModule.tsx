@@ -16,6 +16,8 @@ import { Staff, StaffStats, StaffFilters, DEPARTMENTS, EMPLOYMENT_TYPES, STAFF_S
 import { staffService } from '@/services/teacherService';
 import { StaffForm } from '@/components/forms/StaffForm';
 import { DeleteConfirmationDialog } from '@/components/ui/DeleteConfirmationDialog';
+
+// Import modules using default imports as identified
 import StaffAttendanceModule from './StaffAttendanceModule';
 import StaffReportsModule from './StaffReportsModule';
 import TeacherAssignmentsModule from './TeacherAssignmentsModule';
@@ -77,37 +79,11 @@ export const TeacherManagementModule = ({ defaultTab = 'staff' }: TeacherManagem
 
   const handleCreateStaff = async (data: any) => {
     try {
-      const newStaff = await staffService.createStaff(data);
-
-      // Handle login provisioning if enabled
-      if (data.enable_login) {
-        try {
-          await staffService.enableLogin({
-            entity_type: 'staff',
-            entity_id: newStaff.id,
-            email: newStaff.email,
-            role: data.system_role || 'teacher',
-            send_invite: data.send_invitation,
-            login_enabled: true
-          });
-          toast({
-            title: "Success",
-            description: "Staff member created and login account provisioned",
-          });
-        } catch (loginError: any) {
-          console.error('Error provisioning login:', loginError);
-          toast({
-            title: "Staff Created",
-            description: "Staff record saved, but login provisioning failed: " + (loginError.message || "Unknown error"),
-            variant: "destructive",
-          });
-        }
-      } else {
-        toast({
-          title: "Success",
-          description: "Staff member created successfully",
-        });
-      }
+      await staffService.createStaff(data);
+      toast({
+        title: "Success",
+        description: "Staff member created successfully",
+      });
       setIsCreateStaffOpen(false);
       loadData();
     } catch (error: any) {

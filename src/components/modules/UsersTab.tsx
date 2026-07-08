@@ -249,8 +249,12 @@ export function UsersTab() {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col">
-                          <span className="text-xs font-medium capitalize">{user.entity_type || "N/A"}</span>
-                          <span className="text-[10px] text-muted-foreground">ID: #{user.entity_id || "N/A"}</span>
+                          <span className="text-xs font-medium capitalize">
+                            {(user as any).linked_entity_name || user.entity_type || "N/A"}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {user.entity_type ? `${user.entity_type} ID: #${user.entity_id}` : "No link"}
+                          </span>
                         </div>
                       </TableCell>
                       <TableCell>{getStatusBadge(user.status)}</TableCell>

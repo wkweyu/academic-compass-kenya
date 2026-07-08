@@ -6,6 +6,7 @@ from .models import User
 class UserSerializer(serializers.ModelSerializer):
     school = SchoolSerializer(read_only=True)
     full_name = serializers.CharField(read_only=True)
+    linked_entity_name = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -23,7 +24,28 @@ class UserSerializer(serializers.ModelSerializer):
             'status',
             'login_enabled',
             'expires_at',
+            'linked_entity_name',
         ]
+
+    def get_linked_entity_name(self, obj):
+        if not obj.entity_type or not obj.entity_id:
+            return None
+
+        try:
+            from .services import AccountService
+            entity = AccountService._resolve_entity(obj.entity_type, obj.entity_id)
+            if entity:
+                if hasattr(entity, 'full_name') and entity.full_name:
+                    return entity.full_name
+                if hasattr(entity, 'name') and entity.name:
+                    return entity.name
+                first = getattr(entity, 'first_name', '')
+                last = getattr(entity, 'last_name', '')
+                if first or last:
+                    return f"{first} {last}".strip()
+        except Exception:
+            return None
+        return None
 
 
 class UserRoleChangePreviewSerializer(serializers.Serializer):
@@ -56,8 +78,8 @@ class UserCreateSerializer(serializers.Serializer):
 
 
 class EnableLoginSerializer(serializers.Serializer):
-    entity_type = serializers.CharField(max_length=50)
-    entity_id = serializers.IntegerField()
+    entity_type = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    entity_id = serializers.IntegerField(required=False, allow_null=True)
     email = serializers.EmailField()
     role = serializers.CharField(max_length=50, required=False, allow_blank=True)
     send_invite = serializers.BooleanField(default=False)
