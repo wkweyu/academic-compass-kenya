@@ -146,11 +146,11 @@ export const examManagementService = {
       .from('exams_exam')
       .select(`
         *,
-        subject:subjects(name, code),
-        class:classes(name),
-        stream:streams(name),
-        exam_type:exams_examtype(name),
-        term:settings_termsetting(term, year)
+        subject:subjects!exams_exam_subject_id_8f3e030d_fk_subjects_id(name, code),
+        class:classes!exams_exam_class_assigned_id_7e5c6ac4_fk_classes_id(name),
+        stream:streams!exams_exam_stream_id_e7068fd1_fk_streams_id(name),
+        exam_type:exams_examtype!exams_exam_exam_type_id_08ffd880_fk_exams_examtype_id(name),
+        term:settings_termsetting!exams_exam_term_id_401d671c_fk_settings_termsetting_id(term, year)
       `)
       .order('exam_date', { ascending: false });
     
@@ -395,7 +395,7 @@ export const examManagementService = {
     // Get all students in the class/stream
     let studentQuery = supabase
       .from('students')
-      .select('id, admission_number, full_name, current_stream_id, stream:streams(name)')
+      .select('id, admission_number, full_name, current_stream_id, stream:streams!exams_exam_stream_id_e7068fd1_fk_streams_id(name)')
       .eq('current_class_id', classId)
       .eq('is_active', true);
     
@@ -496,7 +496,7 @@ export const examManagementService = {
       .from('exams_exam')
       .select(`
         id, name, max_marks, subject_id,
-        subject:subjects(name, code)
+        subject:subjects!exams_exam_subject_id_8f3e030d_fk_subjects_id(name, code)
       `)
       .eq('class_assigned_id', classId)
       .eq('term_id', termId)
@@ -558,8 +558,8 @@ export const examManagementService = {
       .from('students')
       .select(`
         id, admission_number, full_name, date_of_birth, gender,
-        class:classes(name),
-        stream:streams(name)
+        class:classes!exams_exam_class_assigned_id_7e5c6ac4_fk_classes_id(name),
+        stream:streams!exams_exam_stream_id_e7068fd1_fk_streams_id(name)
       `)
       .eq('id', studentId)
       .single();
@@ -573,8 +573,8 @@ export const examManagementService = {
         marks, grade, remarks,
         exam:exams_exam(
           name, max_marks, exam_date,
-          subject:subjects(name, code),
-          exam_type:exams_examtype(name)
+          subject:subjects!exams_exam_subject_id_8f3e030d_fk_subjects_id(name, code),
+          exam_type:exams_examtype!exams_exam_exam_type_id_08ffd880_fk_exams_examtype_id(name)
         )
       `)
       .eq('student_id', studentId)

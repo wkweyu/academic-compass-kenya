@@ -67,15 +67,15 @@ export const dashboardService = {
           .from("scores")
           .select("id", { count: "exact", head: true }),
         
-        // Recent exams
+        // Recent exams - Use explicit FKs to avoid 400 errors
         supabase
           .from("exams_exam")
           .select(`
             name,
             exam_date,
             is_published,
-            classes!exams_exam_class_assigned_id_fkey(name),
-            streams(name)
+            classes:classes!exams_exam_class_assigned_id_7e5c6ac4_fk_classes_id(name),
+            streams:streams!exams_exam_stream_id_e7068fd1_fk_streams_id(name)
           `)
           .eq("school_id", schoolId)
           .order("exam_date", { ascending: false })
@@ -86,7 +86,7 @@ export const dashboardService = {
           .from("scores")
           .select(`
             marks,
-            exams_exam!inner(subject_id, school_id)
+            exams_exam!scores_exam_id_d6290b08_fk_exams_exam_id!inner(subject_id, school_id)
           `)
           .eq("exams_exam.school_id", schoolId)
           .not("marks", "is", null),
@@ -144,7 +144,7 @@ export const dashboardService = {
         );
 
         return {
-          subject: `Subject ${subjectId}`, // You might want to fetch actual subject names
+          subject: `Subject ${subjectId}`,
           average: roundedAverage,
           grade: matchingGrade?.grade || "N/A"
         };
