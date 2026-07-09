@@ -1,0 +1,14 @@
+fees_allocation
+fees_debittransaction
+fees_feebalance
+fees_feestructure
+fees_ledger_entry
+fees_paymenttransaction
+fees_receipt
+fees_structure_group
+fees_structure_item
+fees_student_ledger
+fees_votehead
+payments_paymentevent
+payments_paymentingresslog
+payments_schoolpaymentconfig
