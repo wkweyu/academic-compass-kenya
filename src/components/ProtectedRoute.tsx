@@ -1,6 +1,8 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useQuery } from '@tanstack/react-query';
+import { userService } from '@/services/userService';
 import { useSubscriptionCheck } from '@/hooks/useSubscriptionCheck';
 import { Loader2, AlertTriangle, XCircle } from 'lucide-react';
 import type { AppRole } from '@/lib/permissions';
@@ -16,8 +18,17 @@ interface ProtectedRouteProps {
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRoles }) => {
   const { user, loading, signOut, hasAnyRole } = useAuth();
   const { subscription, loading: subLoading, isExpired, isNearExpiry } = useSubscriptionCheck();
+  const location = useLocation();
 
-  if (loading || subLoading) {
+  // Check if password change is forced
+  const { data: userProfile, isLoading: userProfileLoading } = useQuery({
+    queryKey: ["current-user-profile"],
+    queryFn: () => userService.getCurrentUser(),
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  if (loading || subLoading || (user && userProfileLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -27,6 +38,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRoles
 
   if (!user) {
     return <Navigate to="/auth" replace />;
+  }
+
+  // Force password change if required
+  if (userProfile?.force_password_change && location.pathname !== "/auth/change-password") {
+    return <Navigate to="/auth/change-password" replace />;
   }
 
   // Block access for expired subscriptions

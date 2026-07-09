@@ -1,0 +1,15 @@
+Hello {{ name }},
+
+Your Academic Compass account has been created.
+
+School: {{ school_name }}
+Role: {{ role }}
+
+Login URL: {{ login_url }}
+Username: {{ email }}
+Temporary Password: {{ password }}
+
+This temporary password must be changed the first time you log in.
+
+Regards,
+Academic Compass Team

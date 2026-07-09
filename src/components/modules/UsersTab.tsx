@@ -92,6 +92,7 @@ export function UsersTab() {
   const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [historyTab, setHistoryTab] = useState("activity");
   const [newRole, setNewRole] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [sendInvite, setSendInvite] = useState(true);
@@ -104,7 +105,13 @@ export function UsersTab() {
   const { data: history = [], isLoading: isLoadingHistory } = useQuery({
     queryKey: ["user-history", selectedUser?.id],
     queryFn: () => selectedUser ? userService.getUserHistory(selectedUser.id) : Promise.resolve([]),
-    enabled: isHistoryOpen && !!selectedUser,
+    enabled: isHistoryOpen && !!selectedUser && historyTab === "activity",
+  });
+
+  const { data: loginHistory = [], isLoading: isLoadingLoginHistory } = useQuery({
+    queryKey: ["user-login-history", selectedUser?.id],
+    queryFn: () => selectedUser ? userService.getLoginHistory(selectedUser.id) : Promise.resolve([]),
+    enabled: isHistoryOpen && !!selectedUser && historyTab === "login",
   });
 
   const enableLoginMutation = useMutation({
@@ -181,9 +188,23 @@ export function UsersTab() {
     }
   });
 
+  const resendLoginMutation = useMutation({
+    mutationFn: (userId: number) => userService.resendLoginDetails(userId),
+    onSuccess: () => {
+      toast.success("Login details resent successfully");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to resend login details");
+    }
+  });
+
   const handleResetPassword = () => {
     if (!selectedUser) return;
     resetPasswordMutation.mutate(selectedUser.id);
+  };
+
+  const handleResendLogin = (userId: number) => {
+    resendLoginMutation.mutate(userId);
   };
 
   const getStatusBadge = (status: string) => {
@@ -194,6 +215,10 @@ export function UsersTab() {
         return <Badge variant="secondary" className="bg-amber-50 text-amber-700 border-amber-200 gap-1.5 py-0.5 h-6"><div className="h-1.5 w-1.5 rounded-full bg-amber-600" /> Invited</Badge>;
       case 'DISABLED':
         return <Badge variant="destructive" className="gap-1.5 py-0.5 h-6 bg-red-50 text-red-700 border-red-200 hover:bg-red-100"><div className="h-1.5 w-1.5 rounded-full bg-red-600" /> Disabled</Badge>;
+      case 'LOCKED':
+        return <Badge variant="destructive" className="gap-1.5 py-0.5 h-6 bg-slate-900 text-white border-slate-700"><div className="h-1.5 w-1.5 rounded-full bg-slate-400" /> Locked</Badge>;
+      case 'EXPIRED':
+        return <Badge className="gap-1.5 py-0.5 h-6 bg-orange-100 text-orange-700 border-orange-200"><div className="h-1.5 w-1.5 rounded-full bg-orange-600" /> Expired</Badge>;
       default:
         return <Badge variant="outline" className="py-0.5 h-6">{status}</Badge>;
     }
@@ -262,6 +287,9 @@ export function UsersTab() {
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => { setSelectedUser(user); setIsPasswordDialogOpen(true); }} className="gap-2">
                       <Key className="h-4 w-4" /> Reset Password
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleResendLogin(user.id)} className="gap-2">
+                      <Send className="h-4 w-4" /> Resend Login Details
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => { setSelectedUser(user); setIsHistoryOpen(true); }} className="gap-2">
                       <History className="h-4 w-4" /> View History
@@ -430,53 +458,112 @@ export function UsersTab() {
 
       {/* User History Dialog */}
       <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <History className="h-5 w-5 text-primary" /> Account History
+              <History className="h-5 w-5 text-primary" /> User Logs & History
             </DialogTitle>
             <DialogDescription>
-              Recent activities and status changes for {selectedUser?.full_name}.
+              Activities and login history for {selectedUser?.full_name} ({selectedUser?.email}).
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            {isLoadingHistory ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              </div>
-            ) : history.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <Clock className="h-10 w-10 mx-auto mb-4 opacity-10" />
-                <p className="text-sm">No activity recorded for this user.</p>
-              </div>
-            ) : (
-              <ScrollArea className="h-[400px] pr-4">
-                <div className="space-y-6 relative before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-muted">
-                  {history.map((item) => (
-                    <div key={item.id} className="relative pl-8">
-                      <div className="absolute left-0 top-1.5 h-4 w-4 rounded-full bg-background border-2 border-primary" />
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-bold text-foreground capitalize">
-                            {item.action.replace(/_/g, " ")}
-                          </span>
-                          <span className="text-[11px] text-muted-foreground">
-                            {format(new Date(item.created_at), "MMM d, yyyy HH:mm")}
-                          </span>
-                        </div>
-                        <p className="text-xs text-muted-foreground">{item.description}</p>
-                        {item.metadata && Object.keys(item.metadata).length > 0 && (
-                          <div className="mt-2 p-2 rounded bg-muted/50 text-[10px] font-mono whitespace-pre-wrap truncate">
-                            {JSON.stringify(item.metadata, null, 2)}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+
+          <Tabs value={historyTab} onValueChange={setHistoryTab} className="mt-4">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="activity">Admin Activity Log</TabsTrigger>
+              <TabsTrigger value="login">Login History</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="activity" className="py-4">
+              {isLoadingHistory ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
-              </ScrollArea>
-            )}
-          </div>
+              ) : history.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Clock className="h-10 w-10 mx-auto mb-4 opacity-10" />
+                  <p className="text-sm">No activity recorded for this user.</p>
+                </div>
+              ) : (
+                <ScrollArea className="h-[400px] pr-4">
+                  <div className="space-y-6 relative before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-muted">
+                    {history.map((item: any) => (
+                      <div key={item.id} className="relative pl-8">
+                        <div className="absolute left-0 top-1.5 h-4 w-4 rounded-full bg-background border-2 border-primary" />
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-bold text-foreground capitalize">
+                              {item.action.replace(/_/g, " ")}
+                            </span>
+                            <span className="text-[11px] text-muted-foreground">
+                              {format(new Date(item.created_at), "MMM d, yyyy HH:mm")}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">{item.description}</p>
+                          <div className="flex gap-4 mt-1 text-[10px] text-muted-foreground italic">
+                            {item.ip_address && <span>IP: {item.ip_address}</span>}
+                            {item.user_agent && <span className="truncate max-w-[200px]" title={item.user_agent}>Browser: {item.user_agent}</span>}
+                          </div>
+                          {item.metadata && Object.keys(item.metadata).length > 0 && (
+                            <div className="mt-2 p-2 rounded bg-muted/50 text-[10px] font-mono whitespace-pre-wrap truncate">
+                              {JSON.stringify(item.metadata, null, 2)}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
+            </TabsContent>
+
+            <TabsContent value="login" className="py-4">
+              {isLoadingLoginHistory ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : loginHistory.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Power className="h-10 w-10 mx-auto mb-4 opacity-10" />
+                  <p className="text-sm">No login attempts recorded.</p>
+                </div>
+              ) : (
+                <ScrollArea className="h-[400px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Time</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>IP Address</TableHead>
+                        <TableHead>Device/Browser</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {loginHistory.map((login: any) => (
+                        <TableRow key={login.id}>
+                          <TableCell className="text-xs">
+                            {format(new Date(login.login_time), "MMM d, HH:mm:ss")}
+                          </TableCell>
+                          <TableCell>
+                            {login.successful ? (
+                              <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">Success</Badge>
+                            ) : (
+                              <Badge variant="destructive" title={login.failure_reason}>Failed</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-xs font-mono">{login.ip_address || "-"}</TableCell>
+                          <TableCell className="text-[10px] text-muted-foreground truncate max-w-[150px]" title={login.user_agent}>
+                            {login.user_agent || "-"}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              )}
+            </TabsContent>
+          </Tabs>
+
           <DialogFooter>
             <Button onClick={() => setIsHistoryOpen(false)}>Close</Button>
           </DialogFooter>

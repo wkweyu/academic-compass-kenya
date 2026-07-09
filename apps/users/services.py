@@ -1,5 +1,7 @@
 import logging
 import os
+import secrets
+import string
 from datetime import datetime
 from typing import Optional, Tuple, Any
 
@@ -7,6 +9,8 @@ from django.conf import settings
 from django.db import transaction
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
 
 import requests
 
@@ -18,6 +22,11 @@ logger = logging.getLogger(__name__)
 User = get_user_model()
 
 class AccountService:
+    @staticmethod
+    def _generate_temp_password(length: int = 14) -> str:
+        alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+        return ''.join(secrets.choice(alphabet) for _ in range(length))
+
     @staticmethod
     def _resolve_entity(entity_type: str, entity_id: int) -> Any:
         normalized_type = str(entity_type or '').strip().lower()
@@ -60,9 +69,17 @@ class AccountService:
         send_invite: bool = False,
         expires_at: Optional[datetime] = None,
         password: Optional[str] = None,
+        request: Any = None,
     ) -> User:
         email = email.strip().lower()
         role = normalize_role(role)
+
+        # If enabling login or resending invite, generate temp password if not provided
+        force_password_change = False
+        if login_enabled and (send_invite or not password):
+            if not password:
+                password = cls._generate_temp_password()
+            force_password_change = True
 
         logger.info(f"Provisioning account: email={email}, role={role}, entity_type={entity_type}, "
                     f"entity_id={entity_id}, login_enabled={login_enabled}, send_invite={send_invite}")
@@ -118,6 +135,7 @@ class AccountService:
                     last_name=last_name or '',
                     status=status,
                     login_enabled=login_enabled,
+                    force_password_change=force_password_change,
                     expires_at=expires_at,
                     is_active=login_enabled and status in {'ACTIVE', 'INVITED', 'PENDING_EMAIL_VERIFICATION'},
                     is_staff=is_platform_user # Platform users are Django staff by default in this system
@@ -136,6 +154,7 @@ class AccountService:
                 user.last_name = last_name or user.last_name
                 user.status = status
                 user.login_enabled = login_enabled
+                user.force_password_change = force_password_change or user.force_password_change
                 user.expires_at = expires_at
                 user.is_active = login_enabled and status in {'ACTIVE', 'INVITED', 'PENDING_EMAIL_VERIFICATION'}
                 # Preserve is_staff status for existing users or update if becoming platform user
@@ -144,19 +163,23 @@ class AccountService:
                 user.save()
 
         # 6. Supabase Sync (outside transaction)
-        cls._sync_supabase_user(user, password, send_invite=send_invite)
+        # We always want to sync the password if we generated one
+        cls._sync_supabase_user(user, password, send_invite=False) # We handle invite via our branded email
 
         # 7. Audit Logging
-        cls._log_account_action(user, caller, "account_provisioned", school or user.school)
+        action = "Enable Login"
+        if send_invite:
+            action = "Login Details Sent"
+        cls._log_account_action(user, caller, action, school or user.school, request=request)
 
-        # 8. Notification
+        # 8. Notification - Branded Welcome Email
         if send_invite and login_enabled:
-            cls._send_invitation(user, school or user.school)
+            cls._send_branded_welcome_email(user, school or user.school, password)
 
         return user
 
     @classmethod
-    def send_password_reset(cls, user_id: int, caller: User) -> bool:
+    def send_password_reset(cls, user_id: int, caller: User, request: Any = None) -> bool:
         user = User.objects.get(pk=user_id)
 
         # Permission check
@@ -179,54 +202,54 @@ class AccountService:
             "Content-Type": "application/json"
         }
 
-        # Supabase Admin API: Send OTP / Invite / Magic Link
-        # To trigger a password reset email from admin side:
-        endpoint = f"{supabase_url.rstrip('/')}/auth/v1/admin/generate_link"
-        payload = {
-            "type": "recovery",
-            "email": user.email,
-        }
+        # For our branded flow, we generate a new password and email it.
+        temp_password = cls._generate_temp_password()
 
         try:
-            logger.info(f"Generating password recovery link for {user.email}")
-            resp = requests.post(endpoint, headers=headers, json=payload, timeout=10)
-            logger.info(f"Supabase generate_link response: {resp.status_code}")
+            # Update Supabase
+            cls._sync_supabase_user(user, temp_password)
 
-            if resp.status_code == 200:
-                # The generate_link API returns the link.
-                # If we want Supabase to actually SEND the email, we should use the client-side resetPasswordForEmail
-                # OR use the admin API to update user with a password (which we want to avoid)
-                # Alternatively, we can use the 'invite' type if they haven't logged in,
-                # but for existing users 'recovery' is best.
-                # However, generate_link doesn't SEND the email, it just returns the URL.
+            # Update Django
+            user.force_password_change = True
+            user.status = 'INVITED' # Or keep ACTIVE? Let's go with INVITED for forced reset
+            user.save(update_fields=['force_password_change', 'status'])
 
-                # To TRIGGER the email from the server:
-                # We can use the regular GOTRUE endpoint but it's rate limited.
-                # The better way for ADMIN to trigger it:
+            # Send Email
+            cls._send_branded_welcome_email(user, user.school, temp_password, is_reset=True)
 
-                # Using the admin API to send an invite or just letting them know we can't 'trigger'
-                # it directly via admin API easily without sending the link ourselves.
+            # Audit
+            cls._log_account_action(user, caller, "Password Reset", user.school, request=request)
 
-                # Actually, there is an endpoint for this in some Gotrue versions:
-                # POST /admin/users/{uuid}/otp (not widely documented)
-
-                # Let's try the standard recovery endpoint (non-admin) - but this requires NO service key
-                # and uses the public anon key.
-
-                public_endpoint = f"{supabase_url.rstrip('/')}/auth/v1/recover"
-                public_headers = {
-                    "apikey": os.environ.get("SUPABASE_ANON_KEY") or getattr(settings, 'SUPABASE_ANON_KEY', ''),
-                    "Content-Type": "application/json"
-                }
-                resp = requests.post(public_endpoint, headers=public_headers, json={"email": user.email}, timeout=10)
-                logger.info(f"Supabase public recovery response: {resp.status_code}")
-
-                return resp.status_code == 200
-            else:
-                logger.error(f"Supabase generate_link error: {resp.text}")
-                return False
+            return True
         except Exception as e:
-            logger.error(f"Failed to trigger password reset for {user.email}: {e}")
+            logger.error(f"Failed to reset password for {user.email}: {e}")
+            return False
+
+    @classmethod
+    def resend_login_details(cls, user_id: int, caller: User, request: Any = None) -> bool:
+        user = User.objects.get(pk=user_id)
+        cls._validate_permissions(caller, user.school, user.role)
+
+        temp_password = cls._generate_temp_password()
+
+        try:
+            # Update Supabase
+            cls._sync_supabase_user(user, temp_password)
+
+            # Update Django
+            user.force_password_change = True
+            # If already active, it remains active but will force change
+            user.save(update_fields=['force_password_change'])
+
+            # Send Email
+            cls._send_branded_welcome_email(user, user.school, temp_password, is_resend=True)
+
+            # Audit
+            cls._log_account_action(user, caller, "Login Details Resent", user.school, request=request)
+
+            return True
+        except Exception as e:
+            logger.error(f"Failed to resend login details for {user.email}: {e}")
             return False
 
     @classmethod
@@ -251,7 +274,7 @@ class AccountService:
         cls._revoke_supabase_sessions(user)
 
         # Audit
-        cls._log_account_action(user, caller, "account_disabled", user.school)
+        cls._log_account_action(user, caller, "Disable Login", user.school)
 
         return user
 
@@ -424,7 +447,7 @@ class AccountService:
         return actual_other_admin_count == 0
 
     @staticmethod
-    def _log_account_action(user: User, actor: User, action: str, school: Optional[Any]):
+    def _log_account_action(user: User, actor: User, action: str, school: Optional[Any], request: Any = None):
         if school:
             log_activity(
                 school=school,
@@ -437,23 +460,42 @@ class AccountService:
                     "role": user.role,
                     "entity_type": user.entity_type,
                     "entity_id": user.entity_id
-                }
+                },
+                request=request
             )
 
     @staticmethod
-    def _send_invitation(user: User, school: Optional[Any]):
-        if not school:
+    def _send_branded_welcome_email(user: User, school: Optional[Any], password: str, is_reset: bool = False, is_resend: bool = False):
+        if not school or not user.email:
             return
 
+        subject = "Welcome to Academic Compass"
+        if is_reset:
+            subject = "Your Academic Compass Password has been Reset"
+        elif is_resend:
+            subject = "Your Academic Compass Login Details"
+
+        context = {
+            'name': user.first_name or user.full_name or user.email,
+            'school_name': school.name,
+            'role': user.role,
+            'email': user.email,
+            'password': password,
+            'login_url': "https://academic-compass-web.onrender.com",
+        }
+
+        html_message = render_to_string('emails/welcome_staff.html', context)
+        plain_message = render_to_string('emails/welcome_staff.txt', context)
+
         try:
-            send_notification(
-                school=school,
-                recipient=user,
-                template_key='account_invited',
-                variables={
-                    'name': user.first_name or user.email,
-                    'schoolName': school.name,
-                }
+            send_mail(
+                subject=subject,
+                message=plain_message,
+                from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@academic-compass.com'),
+                recipient_list=[user.email],
+                html_message=html_message,
+                fail_silently=False,
             )
+            logger.info(f"Welcome/Reset email sent to {user.email}")
         except Exception as e:
-            logger.error(f"Failed to send invitation to {user.email}: {e}")
+            logger.error(f"Failed to send branded email to {user.email}: {e}")

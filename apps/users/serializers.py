@@ -23,6 +23,7 @@ class UserSerializer(serializers.ModelSerializer):
             'entity_id',
             'status',
             'login_enabled',
+            'force_password_change',
             'expires_at',
             'last_login',
             'linked_entity_name',
@@ -51,6 +52,20 @@ class UserSerializer(serializers.ModelSerializer):
 
 class UserRoleChangePreviewSerializer(serializers.Serializer):
     new_role = serializers.CharField(max_length=50)
+
+
+class LoginHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LoginHistory
+        fields = [
+            'id',
+            'login_time',
+            'logout_time',
+            'ip_address',
+            'user_agent',
+            'successful',
+            'failure_reason',
+        ]
 
 
 class UserRoleChangeSerializer(serializers.Serializer):

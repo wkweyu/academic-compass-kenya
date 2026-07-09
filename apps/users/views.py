@@ -11,6 +11,7 @@ from apps.schools.services import change_staff_role, get_role_change_impact, nor
 from .models import User
 from .serializers import (
     EnableLoginSerializer,
+    LoginHistorySerializer,
     UserCreateSerializer,
     UserRoleChangePreviewSerializer,
     UserRoleChangeSerializer,
@@ -110,12 +111,49 @@ class UserResetPasswordView(generics.GenericAPIView):
         # Check permissions - only platform staff or school admins can reset passwords
         _ensure_manager_access(request.user)
 
-        success = AccountService.send_password_reset(user.id, request.user)
+        try:
+            success = AccountService.send_password_reset(user_id=user.id, caller=request.user, request=request)
+            if success:
+                return Response({'detail': 'Password reset email sent successfully.'}, status=status.HTTP_200_OK)
+            else:
+                return Response({'detail': 'Failed to send password reset email.'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.exception("Error in UserResetPasswordView")
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        if success:
-            return Response({'detail': 'Password reset email sent successfully.'}, status=status.HTTP_200_OK)
-        else:
-            return Response({'detail': 'Failed to send password reset email. Ensure the user has a valid authentication ID.'}, status=status.HTTP_400_BAD_REQUEST)
+
+class ResendLoginDetailsView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, user_id, *args, **kwargs):
+        user = get_object_or_404(User, pk=user_id)
+        _ensure_manager_access(request.user)
+
+        try:
+            success = AccountService.resend_login_details(user_id=user.id, caller=request.user, request=request)
+            if success:
+                return Response({'detail': 'Login details resent successfully.'}, status=status.HTTP_200_OK)
+            else:
+                return Response({'detail': 'Failed to resend login details.'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.exception("Error in ResendLoginDetailsView")
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class LoginHistoryListView(generics.ListAPIView):
+    serializer_class = LoginHistorySerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user_id = self.kwargs.get('user_id')
+        user = get_object_or_404(User, pk=user_id)
+
+        # Ensure the caller has access to this user's history
+        # (Simplified: managers or the user themselves)
+        if request.user.id != user.id:
+             _ensure_manager_access(request.user)
+
+        return LoginHistory.objects.filter(user=user)
 
 
 class UserListView(generics.ListCreateAPIView):
@@ -171,6 +209,7 @@ class EnableLoginView(generics.GenericAPIView):
                 login_enabled=payload.get('login_enabled', True),
                 send_invite=payload.get('send_invite', False),
                 expires_at=payload.get('expires_at'),
+                request=request,
             )
         except (ValueError, PermissionError) as e:
             logger.error(f"Account provisioning failed: {str(e)}")
@@ -237,7 +276,57 @@ class CurrentUserView(generics.RetrieveAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_object(self):
-        return self.request.user
+        user = self.request.user
+
+        # Record Login History if this is a "fresh" hit in this session
+        # We can use a session variable or just check last login history entry
+        last_login = LoginHistory.objects.filter(user=user).first()
+        now = timezone.now()
+
+        # If no login history or last login was more than 30 mins ago, record new one
+        # (This is a simple heuristic to avoid duplicate logs on page refreshes)
+        if not last_login or (now - last_login.login_time).total_seconds() > 1800:
+             ip_address = None
+             x_forwarded_for = self.request.META.get('HTTP_X_FORWARDED_FOR')
+             if x_forwarded_for:
+                 ip_address = x_forwarded_for.split(',')[0]
+             else:
+                 ip_address = self.request.META.get('REMOTE_ADDR')
+
+             LoginHistory.objects.create(
+                 user=user,
+                 ip_address=ip_address,
+                 user_agent=self.request.META.get('HTTP_USER_AGENT'),
+                 successful=True
+             )
+
+             # Also update User.last_login
+             user.last_login = now
+             user.save(update_fields=['last_login'])
+
+        return user
+
+
+class CompleteFirstLoginView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        user = request.user
+        user.force_password_change = False
+        if user.status == 'INVITED':
+            user.status = 'ACTIVE'
+        user.save(update_fields=['force_password_change', 'status'])
+
+        # Log Audit
+        log_activity(
+            school=user.school,
+            actor=user,
+            action="first_login_completed",
+            description=f"User {user.email} completed first login password change.",
+            request=request
+        )
+
+        return Response({'success': True}, status=status.HTTP_200_OK)
 
 
 class UserRoleChangePreviewView(generics.GenericAPIView):

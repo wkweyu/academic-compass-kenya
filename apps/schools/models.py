@@ -311,6 +311,8 @@ class ActivityLog(models.Model):
     action = models.CharField(max_length=100, db_index=True)
     description = models.TextField()
     metadata = models.JSONField(default=dict, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
