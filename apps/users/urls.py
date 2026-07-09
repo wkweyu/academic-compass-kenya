@@ -1,19 +1,12 @@
 from django.urls import path
-from .views import (
-    CurrentUserView,
-    EnableLoginView,
-    PlatformUserRepairView,
-    UserDeleteView,
-    UserListView,
-    UserRoleChangePreviewView,
-    UserRoleChangeView,
-)
+from . import views
 
 urlpatterns = [
-    path('me/', CurrentUserView.as_view()),
-    path('repair-platform-links/', PlatformUserRepairView.as_view()),
-    path('enable-login/', EnableLoginView.as_view()),
-    path('', UserListView.as_view()),
+    path('me/', views.CurrentUserView.as_view()),
+    path('repair-platform-links/', views.PlatformUserRepairView.as_view()),
+    path('enable-login/', views.EnableLoginView.as_view()),
+    path('', views.UserListView.as_view()),
+    path('<int:user_id>/reset-password/', views.UserResetPasswordView.as_view()),
     path('<int:user_id>/', UserDeleteView.as_view()),
     path('<int:user_id>/role-change/preview/', UserRoleChangePreviewView.as_view()),
     path('<int:user_id>/role-change/', UserRoleChangeView.as_view()),

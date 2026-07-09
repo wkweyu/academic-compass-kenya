@@ -101,6 +101,23 @@ def _repair_platform_auth_links_and_roles():
 
     return {'linked_users': linked_users, 'role_grants': role_grants}
 
+class UserResetPasswordView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, user_id, *args, **kwargs):
+        user = get_object_or_404(User, pk=user_id)
+
+        # Check permissions - only platform staff or school admins can reset passwords
+        _ensure_manager_access(request.user)
+
+        success = AccountService.send_password_reset(user.id, request.user)
+
+        if success:
+            return Response({'detail': 'Password reset email sent successfully.'}, status=status.HTTP_200_OK)
+        else:
+            return Response({'detail': 'Failed to send password reset email. Ensure the user has a valid authentication ID.'}, status=status.HTTP_400_BAD_REQUEST)
+
+
 class UserListView(generics.ListCreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
@@ -149,14 +166,18 @@ class EnableLoginView(generics.GenericAPIView):
                 caller=request.user,
                 email=payload['email'],
                 role=payload.get('role', 'staff'),
-                entity_type=payload['entity_type'],
-                entity_id=payload['entity_id'],
+                entity_type=payload.get('entity_type'),
+                entity_id=payload.get('entity_id'),
                 login_enabled=payload.get('login_enabled', True),
                 send_invite=payload.get('send_invite', False),
                 expires_at=payload.get('expires_at'),
             )
         except (ValueError, PermissionError) as e:
+            logger.error(f"Account provisioning failed: {str(e)}")
             raise ValidationError({'detail': str(e)})
+        except Exception as e:
+            logger.exception("Unexpected error during account provisioning")
+            raise ValidationError({'detail': 'An unexpected error occurred during account provisioning.'})
 
         return Response(
             {

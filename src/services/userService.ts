@@ -56,6 +56,10 @@ export const userService = {
     await api.delete(`/api/users/${userId}/`);
   },
 
+  async resetPassword(userId: number): Promise<void> {
+    await api.post(`/api/users/${userId}/reset-password/`, {});
+  },
+
   async getCurrentUser(): Promise<UserProfile> {
     const response = await api.get<UserProfile>("/api/users/me/");
     return response.data;
