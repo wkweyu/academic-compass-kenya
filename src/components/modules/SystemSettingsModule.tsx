@@ -30,7 +30,8 @@ import {
   Shield,
   Users,
   History,
-  Lock
+  Lock,
+  Settings2
 } from 'lucide-react';
 
 type SetupStatus = {
