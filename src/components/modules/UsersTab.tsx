@@ -149,35 +149,41 @@ export function UsersTab() {
 
   const handleToggleLogin = (user: UserProfile) => {
     enableLoginMutation.mutate({
-      entity_type: user.entity_type || 'staff',
-      entity_id: user.entity_id || user.id,
+      entity_type: user.entity_type || (user.role === 'teacher' ? 'teacher' : 'staff'),
+      entity_id: user.entity_id,
       email: user.email,
       login_enabled: !user.login_enabled,
       role: user.role,
+      send_invite: !user.login_enabled, // Send invite if we are enabling access
     });
   };
 
   const handleChangeRole = () => {
     if (!selectedUser || !newRole) return;
     enableLoginMutation.mutate({
-      entity_type: selectedUser.entity_type || 'staff',
-      entity_id: selectedUser.entity_id || selectedUser.id,
+      entity_type: selectedUser.entity_type || (selectedUser.role === 'teacher' ? 'teacher' : 'staff'),
+      entity_id: selectedUser.entity_id,
       email: selectedUser.email,
       role: newRole,
       login_enabled: selectedUser.login_enabled,
     });
   };
 
+  const resetPasswordMutation = useMutation({
+    mutationFn: (userId: number) => userService.resetPassword(userId),
+    onSuccess: () => {
+      toast.success("Password reset email sent successfully");
+      setIsPasswordDialogOpen(false);
+      setSelectedUser(null);
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to send reset email");
+    }
+  });
+
   const handleResetPassword = () => {
-    if (!selectedUser || !newPassword) return;
-    enableLoginMutation.mutate({
-      entity_type: selectedUser.entity_type || 'staff',
-      entity_id: selectedUser.entity_id || selectedUser.id,
-      email: selectedUser.email,
-      password: newPassword,
-      send_invite: sendInvite,
-      login_enabled: selectedUser.login_enabled,
-    });
+    if (!selectedUser) return;
+    resetPasswordMutation.mutate(selectedUser.id);
   };
 
   const getStatusBadge = (status: string) => {
@@ -399,51 +405,24 @@ export function UsersTab() {
           <DialogHeader>
             <DialogTitle>Reset Account Password</DialogTitle>
             <DialogDescription>
-              Set a new temporary password for {selectedUser?.full_name}.
+              This will send a password reset email to {selectedUser?.email}.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Temporary Password</Label>
-              <div className="flex gap-2">
-                <Input
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Enter new password"
-                  type="text"
-                  className="font-mono"
-                />
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$";
-                    const array = new Uint8Array(10);
-                    crypto.getRandomValues(array);
-                    let pass = "";
-                    for (let i = 0; i < 10; i++) pass += chars.charAt(array[i] % chars.length);
-                    setNewPassword(pass);
-                  }}
-                >
-                  Generate
-                </Button>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="send-invite"
-                checked={sendInvite}
-                onCheckedChange={(checked) => setSendInvite(!!checked)}
-              />
-              <Label htmlFor="send-invite" className="text-sm font-normal cursor-pointer">
-                Send invitation email with new credentials
-              </Label>
+          <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg flex items-start gap-3 mt-4">
+            <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+            <div className="text-sm text-amber-800">
+              <p className="font-semibold mb-1">Send Reset Email?</p>
+              <p>The user will receive a link to securely set their new password. We no longer generate temporary passwords in this dashboard for security reasons.</p>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="mt-6">
             <Button variant="outline" onClick={() => setIsPasswordDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleResetPassword} disabled={enableLoginMutation.isPending || !newPassword}>
-              {enableLoginMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save Changes
+            <Button
+              onClick={handleResetPassword}
+              disabled={resetPasswordMutation.isPending}
+            >
+              {resetPasswordMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Send Reset Link
             </Button>
           </DialogFooter>
         </DialogContent>
