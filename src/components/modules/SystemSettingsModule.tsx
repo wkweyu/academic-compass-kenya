@@ -19,7 +19,19 @@ import { SmsIntegration } from '@/pages/Attendance/SmsIntegration';
 import { settingsService } from '@/services/settingsService';
 import { classService } from '@/services/classService';
 import { streamSettingsService } from '@/services/streamSettingsService';
-import { CheckCircle2, Circle, Loader2, RefreshCcw, School, Sparkles, CalendarDays } from 'lucide-react';
+import {
+  CheckCircle2,
+  Circle,
+  Loader2,
+  RefreshCcw,
+  School,
+  Sparkles,
+  CalendarDays,
+  Shield,
+  Users,
+  History,
+  Lock
+} from 'lucide-react';
 
 type SetupStatus = {
   profileReady: boolean;
@@ -171,82 +183,92 @@ export function SystemSettingsModule() {
         </CardContent>
       </Card>
 
-      <Card className="border-border/80 shadow-sm">
-        <CardHeader>
+      <Card className="border-border/80 shadow-sm overflow-hidden">
+        <CardHeader className="bg-muted/30 border-b border-border/70 pb-6">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <CardTitle>System Settings</CardTitle>
-              <p className="mt-2 text-sm text-muted-foreground">Configure school profile, academic dates, class defaults, and operational integrations from one workspace.</p>
+              <CardTitle className="flex items-center gap-2">
+                <Settings2 className="h-5 w-5 text-primary" /> System Administration
+              </CardTitle>
+              <p className="mt-2 text-sm text-muted-foreground">Manage school profile, academic periods, user access, and system-wide configurations.</p>
             </div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-muted/30 px-3 py-2 text-xs font-medium text-muted-foreground">
-              <CalendarDays className="h-3.5 w-3.5" /> Setup and profile configuration
+            <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground shadow-sm">
+              <Lock className="h-3.5 w-3.5" /> Identity & Security
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="h-auto w-full flex-wrap justify-start gap-2 rounded-2xl border border-border/70 bg-muted/40 p-2">
-              <TabsTrigger value="school-profile">School Profile</TabsTrigger>
-              <TabsTrigger value="academic-year">Academic Years</TabsTrigger>
-              <TabsTrigger value="terms">Term Settings</TabsTrigger>
-              <TabsTrigger value="predefined-classes">Predefined Classes</TabsTrigger>
-              <TabsTrigger value="stream-naming">Stream Naming</TabsTrigger>
-              <TabsTrigger value="grading">Grading System</TabsTrigger>
-              <TabsTrigger value="roles-permissions">Roles & Permissions</TabsTrigger>
-              <TabsTrigger value="users">Users</TabsTrigger>
-              <TabsTrigger value="audit">Audit Logs</TabsTrigger>
-              <TabsTrigger value="biometric">Biometric</TabsTrigger>
-              <TabsTrigger value="sms">SMS Gateway</TabsTrigger>
-              <TabsTrigger value="general">General</TabsTrigger>
+            <TabsList className="h-auto w-full flex-wrap justify-start gap-0 rounded-none border-b border-border/70 bg-muted/20 p-0">
+              <TabsTrigger value="school-profile" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-background py-4 px-6">Profile</TabsTrigger>
+              <TabsTrigger value="users" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-background py-4 px-6 gap-2">
+                <Users className="h-4 w-4" /> Users
+              </TabsTrigger>
+              <TabsTrigger value="roles-permissions" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-background py-4 px-6 gap-2">
+                <Shield className="h-4 w-4" /> Roles
+              </TabsTrigger>
+              <TabsTrigger value="audit" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-background py-4 px-6 gap-2">
+                <History className="h-4 w-4" /> Audit Logs
+              </TabsTrigger>
+              <TabsTrigger value="academic-year" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-background py-4 px-6">Academic Years</TabsTrigger>
+              <TabsTrigger value="terms" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-background py-4 px-6">Terms</TabsTrigger>
+              <TabsTrigger value="predefined-classes" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-background py-4 px-6">Classes</TabsTrigger>
+              <TabsTrigger value="stream-naming" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-background py-4 px-6">Streams</TabsTrigger>
+              <TabsTrigger value="grading" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-background py-4 px-6">Grading</TabsTrigger>
+              <TabsTrigger value="biometric" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-background py-4 px-6">Biometric</TabsTrigger>
+              <TabsTrigger value="sms" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-background py-4 px-6">SMS</TabsTrigger>
+              <TabsTrigger value="general" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-background py-4 px-6">General</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="roles-permissions" className="mt-6">
-              <RolesPermissionsTab />
-            </TabsContent>
+            <div className="p-6">
+              <TabsContent value="roles-permissions" className="mt-0">
+                <RolesPermissionsTab />
+              </TabsContent>
 
-            <TabsContent value="users" className="mt-6">
-              <UsersTab />
-            </TabsContent>
+              <TabsContent value="users" className="mt-0">
+                <UsersTab />
+              </TabsContent>
 
-            <TabsContent value="audit" className="mt-6">
-              <AuditLogsTab />
-            </TabsContent>
+              <TabsContent value="audit" className="mt-0">
+                <AuditLogsTab />
+              </TabsContent>
 
-            <TabsContent value="school-profile" className="mt-6">
-              <SchoolProfileTab />
-            </TabsContent>
+              <TabsContent value="school-profile" className="mt-0">
+                <SchoolProfileTab />
+              </TabsContent>
 
-            <TabsContent value="academic-year" className="mt-6">
-              <AcademicYearTab />
-            </TabsContent>
+              <TabsContent value="academic-year" className="mt-0">
+                <AcademicYearTab />
+              </TabsContent>
 
-            <TabsContent value="terms" className="mt-6">
-              <TermSettingsTab />
-            </TabsContent>
+              <TabsContent value="terms" className="mt-0">
+                <TermSettingsTab />
+              </TabsContent>
 
-            <TabsContent value="predefined-classes" className="mt-6">
-              <PredefinedClassesTab />
-            </TabsContent>
+              <TabsContent value="predefined-classes" className="mt-0">
+                <PredefinedClassesTab />
+              </TabsContent>
 
-            <TabsContent value="stream-naming" className="mt-6">
-              <StreamNamingTab />
-            </TabsContent>
+              <TabsContent value="stream-naming" className="mt-0">
+                <StreamNamingTab />
+              </TabsContent>
 
-            <TabsContent value="grading" className="mt-6">
-              <GradingSystemTab />
-            </TabsContent>
+              <TabsContent value="grading" className="mt-0">
+                <GradingSystemTab />
+              </TabsContent>
 
-            <TabsContent value="biometric" className="mt-6">
-              <BiometricIntegration />
-            </TabsContent>
+              <TabsContent value="biometric" className="mt-0">
+                <BiometricIntegration />
+              </TabsContent>
 
-            <TabsContent value="sms" className="mt-6">
-              <SmsIntegration />
-            </TabsContent>
+              <TabsContent value="sms" className="mt-0">
+                <SmsIntegration />
+              </TabsContent>
 
-            <TabsContent value="general" className="mt-6">
-              <GeneralSettingsTab />
-            </TabsContent>
+              <TabsContent value="general" className="mt-0">
+                <GeneralSettingsTab />
+              </TabsContent>
+            </div>
           </Tabs>
         </CardContent>
       </Card>

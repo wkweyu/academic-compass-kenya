@@ -637,12 +637,18 @@ class ActivityLogListView(generics.ListAPIView):
     def get_queryset(self):
         queryset = ActivityLog.objects.select_related('school', 'actor', 'lead', 'onboarding_progress', 'task')
         school_id = self.request.query_params.get('school_id')
+        actor_id = self.request.query_params.get('actor_id')
+
         if school_id:
             school = get_object_or_404(School, pk=school_id)
             _ensure_school_access(self.request, school)
             queryset = queryset.filter(school_id=school_id)
         elif not _is_platform_staff(self.request.user):
             queryset = queryset.filter(school_id=self.request.user.school_id)
+
+        if actor_id:
+            queryset = queryset.filter(actor_id=actor_id)
+
         return queryset.order_by('-created_at')
 
 
