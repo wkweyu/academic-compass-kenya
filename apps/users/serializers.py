@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from apps.schools.serializers import SchoolSerializer
-from .models import User
+from .models import User, LoginHistory
 
 
 class UserSerializer(serializers.ModelSerializer):

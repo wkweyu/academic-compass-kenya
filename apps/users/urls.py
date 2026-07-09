@@ -10,7 +10,7 @@ urlpatterns = [
     path('<int:user_id>/reset-password/', views.UserResetPasswordView.as_view()),
     path('<int:user_id>/resend-login/', views.ResendLoginDetailsView.as_view()),
     path('<int:user_id>/login-history/', views.LoginHistoryListView.as_view()),
-    path('<int:user_id>/', UserDeleteView.as_view()),
-    path('<int:user_id>/role-change/preview/', UserRoleChangePreviewView.as_view()),
-    path('<int:user_id>/role-change/', UserRoleChangeView.as_view()),
+    path('<int:user_id>/', views.UserDeleteView.as_view()),
+    path('<int:user_id>/role-change/preview/', views.UserRoleChangePreviewView.as_view()),
+    path('<int:user_id>/role-change/', views.UserRoleChangeView.as_view()),
 ]
