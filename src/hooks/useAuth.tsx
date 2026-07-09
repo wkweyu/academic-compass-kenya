@@ -20,6 +20,7 @@ interface AuthContextType {
   hasAnyRole: (requiredRoles: readonly AppRole[]) => boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, confirmPassword?: string) => Promise<void>;
+  updatePassword: (password: string) => Promise<void>;
   logout: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -151,9 +152,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     requiredRoles.some((requiredRole) => roles.includes(requiredRole));
 
   const login = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    // After login, we can check for force_password_change if we have the user
+    // However, it's better to let the App logic check the user object in AuthProvider
+  };
+
+  const updatePassword = async (password: string) => {
+    const { error } = await supabase.auth.updateUser({
+      password: password
     });
 
     if (error) {
@@ -205,6 +219,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         hasAnyRole,
         login,
         register,
+        updatePassword,
         logout,
         signOut: signOutHandler,
       }}

@@ -31,6 +31,7 @@ class User(AbstractUser):
         db_index=True,
     )
     login_enabled = models.BooleanField(default=False, db_index=True)
+    force_password_change = models.BooleanField(default=False)
     expires_at = models.DateTimeField(null=True, blank=True)
     notification_preferences = models.JSONField(default=dict, blank=True)
     
@@ -54,3 +55,23 @@ class User(AbstractUser):
         if self.password is None:
             return False
         return super().check_password(raw_password)
+
+
+class LoginHistory(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='login_history')
+    login_time = models.DateTimeField(auto_now_add=True)
+    logout_time = models.DateTimeField(null=True, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(null=True, blank=True)
+    successful = models.BooleanField(default=True)
+    failure_reason = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'login_history'
+        ordering = ['-login_time']
+        verbose_name = 'Login History'
+        verbose_name_plural = 'Login Histories'
+
+    def __str__(self):
+        return f"{self.user.email} at {self.login_time}"

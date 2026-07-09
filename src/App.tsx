@@ -10,6 +10,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import AuthPage from "./pages/AuthPage";
 import SaaSLoginPage from "./pages/SaaSLoginPage";
 import SaaSDashboardPage from "./pages/SaaSDashboardPage";
+import ChangePasswordPage from "./pages/Auth/ChangePasswordPage";
 import NotFound from "./pages/NotFound";
 import { appRoutes } from '@/lib/navigationConfig';
 
@@ -25,6 +26,7 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/auth" element={<AuthPage />} />
+              <Route path="/auth/change-password" element={<ChangePasswordPage />} />
               <Route path="/saas/login" element={<SaaSLoginPage />} />
               <Route path="/saas/dashboard" element={<SaaSDashboardPage />} />
               <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>

@@ -60,6 +60,15 @@ export const userService = {
     await api.post(`/api/users/${userId}/reset-password/`, {});
   },
 
+  async resendLoginDetails(userId: number): Promise<void> {
+    await api.post(`/api/users/${userId}/resend-login/`, {});
+  },
+
+  async getLoginHistory(userId: number): Promise<any[]> {
+    const response = await api.get<any[]>(`/api/users/${userId}/login-history/`);
+    return response.data || [];
+  },
+
   async getCurrentUser(): Promise<UserProfile> {
     const response = await api.get<UserProfile>("/api/users/me/");
     return response.data;

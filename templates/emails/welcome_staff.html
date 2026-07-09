@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Welcome to Academic Compass</title>
+    <style>
+        body { font-family: sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px; }
+        .header { text-align: center; margin-bottom: 20px; }
+        .footer { margin-top: 30px; font-size: 12px; color: #777; border-top: 1px solid #eee; padding-top: 10px; }
+        .credentials { background: #f9f9f9; padding: 15px; border-radius: 4px; margin: 20px 0; }
+        .button { display: inline-block; padding: 10px 20px; background-color: #007bff; color: #fff; text-decoration: none; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Academic Compass</h1>
+        </div>
+        <p>Hello {{ name }},</p>
+        <p>Your Academic Compass account has been created.</p>
+
+        <p><strong>School:</strong> {{ school_name }}<br>
+        <strong>Role:</strong> {{ role }}</p>
+
+        <div class="credentials">
+            <p><strong>Login URL:</strong> <a href="{{ login_url }}">{{ login_url }}</a></p>
+            <p><strong>Username:</strong> {{ email }}</p>
+            <p><strong>Temporary Password:</strong> {{ password }}</p>
+        </div>
+
+        <p>This temporary password must be changed the first time you log in.</p>
+
+        <p><a href="{{ login_url }}" class="button">Login Now</a></p>
+
+        <p>Regards,<br>Academic Compass Team</p>
+
+        <div class="footer">
+            <p>This is an automated message. Please do not reply to this email.</p>
+        </div>
+    </div>
+</body>
+</html>

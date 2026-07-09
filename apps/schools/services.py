@@ -858,13 +858,24 @@ def _sync_progress_completion(progress):
     return progress
 
 
-def log_activity(*, school, actor=None, action, description, metadata=None, lead=None, onboarding_progress=None, task=None):
+def log_activity(*, school, actor=None, action, description, metadata=None, lead=None, onboarding_progress=None, task=None, request=None):
     _validate_school_scope(
         school=school,
         lead=lead,
         onboarding_progress=onboarding_progress,
         task=task,
     )
+
+    ip_address = None
+    user_agent = None
+    if request:
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip_address = x_forwarded_for.split(',')[0]
+        else:
+            ip_address = request.META.get('REMOTE_ADDR')
+        user_agent = request.META.get('HTTP_USER_AGENT')
+
     entry = ActivityLog(
         school=school,
         actor=actor,
@@ -874,6 +885,8 @@ def log_activity(*, school, actor=None, action, description, metadata=None, lead
         lead=lead,
         onboarding_progress=onboarding_progress,
         task=task,
+        ip_address=ip_address,
+        user_agent=user_agent,
     )
     return _save_with_validation(entry)
 
