@@ -80,7 +80,9 @@ class SupabaseAuthService:
             endpoint = f"{cls._get_base_url()}/auth/v1/admin/invite"
             payload.pop("email_confirm", None)
         else:
-            payload["password"] = password or "ChangeMe123!"
+            if not password:
+                raise ValueError("Password is required when send_invite is false.")
+            payload["password"] = password
 
         try:
             resp = requests.post(endpoint, headers=cls._admin_headers(), json=payload, timeout=10)

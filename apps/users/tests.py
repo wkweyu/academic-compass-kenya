@@ -1,6 +1,8 @@
 from datetime import date
+from io import StringIO
 from unittest.mock import patch
 
+from django.core.management import call_command
 from django.db import IntegrityError
 from django.test import TestCase
 from rest_framework import status
@@ -8,9 +10,10 @@ from rest_framework.test import APIClient, APIRequestFactory, force_authenticate
 
 from apps.schools.models import School
 from apps.teachers.models import Teacher
-from apps.users.models import LinkedEntityType, User
+from apps.users.models import AccountStatus, LinkedEntityType, User
 from apps.users.serializers import EnableLoginSerializer
 from apps.users.services import AccountService
+from apps.users.supabase_auth_service import SupabaseAuthService
 from apps.users.views import DisableLoginView, EnableLoginView, EntityDisableLoginView, EntityEnableLoginView, UserAssignRoleView, UserDeleteView, UserListView
 
 
@@ -395,6 +398,17 @@ class AccountLifecycleMethodTests(TestCase):
             status='ACTIVE',
             is_active=True,
         )
+        self.teacher = Teacher.objects.create(
+            school=self.school,
+            first_name='Temp',
+            last_name='Teacher',
+            full_name='Temp Teacher',
+            tsc_number='TSCLIFE1001',
+            gender='F',
+            date_of_birth=date(1992, 1, 1),
+            phone='0711001100',
+            email='temp.teacher.lifecycle@example.com',
+        )
 
     @patch('apps.users.services.AccountService._log_account_action')
     @patch('apps.users.services.AccountService._revoke_supabase_sessions')
@@ -420,3 +434,112 @@ class AccountLifecycleMethodTests(TestCase):
         self.assertTrue(updated.login_enabled)
         self.assertTrue(updated.is_active)
         self.assertEqual(updated.status, 'ACTIVE')
+
+    @patch('apps.users.services.NotificationService.send_welcome_email')
+    @patch('apps.users.services.AccountService._log_account_action')
+    @patch('apps.users.services.AccountService._sync_supabase_user')
+    @patch('apps.users.services.AccountService._generate_temp_password', return_value='TempPass!12345')
+    def test_enable_login_without_password_uses_temp_credentials_and_invited_state(
+        self,
+        _generate_temp_password,
+        sync_supabase,
+        _log_action,
+        send_welcome_email,
+    ):
+        created = AccountService.enable_login(
+            caller=self.admin,
+            email='new.lifecycle.teacher@example.com',
+            role='teacher',
+            entity_type=LinkedEntityType.TEACHER,
+            entity_id=self.teacher.id,
+            login_enabled=True,
+            send_invite=False,
+        )
+
+        self.assertEqual(created.status, AccountStatus.INVITED)
+        self.assertTrue(created.force_password_change)
+        sync_supabase.assert_called_once_with(created, 'TempPass!12345', send_invite=False)
+        send_welcome_email.assert_called_once_with(user=created, school=self.school, password='TempPass!12345')
+
+    @patch('apps.users.services.NotificationService.send_welcome_email')
+    @patch('apps.users.services.AccountService._log_account_action')
+    @patch('apps.users.services.AccountService._sync_supabase_user')
+    def test_enable_login_with_explicit_password_stays_active(self, sync_supabase, _log_action, send_welcome_email):
+        created = AccountService.enable_login(
+            caller=self.admin,
+            email='explicit.lifecycle.teacher@example.com',
+            role='teacher',
+            entity_type=LinkedEntityType.TEACHER,
+            entity_id=self.teacher.id,
+            login_enabled=True,
+            send_invite=False,
+            password='ExplicitPass!234',
+        )
+
+        self.assertEqual(created.status, AccountStatus.ACTIVE)
+        self.assertFalse(created.force_password_change)
+        sync_supabase.assert_called_once_with(created, 'ExplicitPass!234', send_invite=False)
+        send_welcome_email.assert_not_called()
+
+    def test_complete_first_login_moves_user_to_active(self):
+        self.user.status = AccountStatus.INVITED
+        self.user.force_password_change = True
+        self.user.save(update_fields=['status', 'force_password_change'])
+
+        AccountService.complete_first_login(user=self.user)
+        self.user.refresh_from_db()
+
+        self.assertEqual(self.user.status, AccountStatus.ACTIVE)
+        self.assertFalse(self.user.force_password_change)
+
+
+class SupabaseAuthServiceSecurityTests(TestCase):
+    @patch('apps.users.supabase_auth_service.requests.post')
+    @patch('apps.users.supabase_auth_service.SupabaseAuthService._is_configured', return_value=True)
+    @patch('apps.users.supabase_auth_service.SupabaseAuthService._get_base_url', return_value='https://example.supabase.co')
+    @patch('apps.users.supabase_auth_service.SupabaseAuthService._admin_headers', return_value={'Authorization': 'Bearer x', 'apikey': 'x', 'Content-Type': 'application/json'})
+    def test_create_user_requires_password_when_not_inviting(
+        self,
+        _admin_headers,
+        _base_url,
+        _is_configured,
+        requests_post,
+    ):
+        with self.assertRaises(ValueError):
+            SupabaseAuthService.create_user(email='user@example.com', password=None, send_invite=False)
+
+        requests_post.assert_not_called()
+
+
+class UpdateSchoolAdminEmailCommandTests(TestCase):
+    def setUp(self):
+        self.school = School.objects.create(name='Command School', code='SCHCMD1')
+        self.user = User.objects.create_user(
+            username='cmd-admin',
+            email='cmd.admin@example.com',
+            password='InitialPass!234',
+            role='schooladmin',
+            school=self.school,
+            login_enabled=True,
+            status='ACTIVE',
+            is_active=True,
+        )
+
+    def test_command_does_not_print_password_in_apply_mode(self):
+        known_password = 'SuperSecret!123'
+        stdout = StringIO()
+
+        call_command(
+            'update_school_admin_email',
+            '--school-code', self.school.code,
+            '--old-email', self.user.email,
+            '--new-email', 'cmd.admin.updated@example.com',
+            '--password', known_password,
+            '--apply',
+            stdout=stdout,
+        )
+
+        output = stdout.getvalue()
+        self.assertNotIn(known_password, output)
+        self.assertNotIn('Temporary password set:', output)
+        self.assertIn('Credential reference issued:', output)

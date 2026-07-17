@@ -120,7 +120,7 @@ class AccountService:
         email = email.strip().lower()
         role = normalize_role(role)
 
-        # If enabling login or resending invite, generate temp password if not provided
+        # If provisioning uses temporary credentials, force a first-login password change.
         force_password_change = False
         if login_enabled and (send_invite or not password):
             if not password:
@@ -158,7 +158,7 @@ class AccountService:
             # 4. Status determination
             if not login_enabled:
                 status = AccountStatus.NOT_ENABLED
-            elif send_invite:
+            elif force_password_change:
                 status = AccountStatus.INVITED
             else:
                 status = AccountStatus.ACTIVE
@@ -203,7 +203,7 @@ class AccountService:
                 user.last_name = last_name or user.last_name
                 user.status = status
                 user.login_enabled = login_enabled
-                user.force_password_change = force_password_change or user.force_password_change
+                user.force_password_change = force_password_change
                 user.expires_at = expires_at
                 user.is_active = login_enabled and status in {
                     AccountStatus.ACTIVE,
@@ -226,7 +226,7 @@ class AccountService:
         cls._log_account_action(user, caller, action, school or user.school, request=request)
 
         # 8. Notification - Branded Welcome Email
-        if send_invite and login_enabled:
+        if login_enabled and force_password_change and password:
             NotificationService.send_welcome_email(user=user, school=school or user.school, password=password)
 
         return user

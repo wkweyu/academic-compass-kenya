@@ -34,6 +34,7 @@ class Command(BaseCommand):
 
         # generate a temporary password if not provided
         temp_password = provided_password or self._generate_password()
+        credential_reference = self._generate_credential_reference()
 
         # find School lazily to avoid hard dependency if apps path differs
         try:
@@ -119,7 +120,10 @@ class Command(BaseCommand):
                     pass
 
             self.stdout.write(self.style.SUCCESS(f"Local user updated: id={user.pk}, email={user.email}"))
-            self.stdout.write(self.style.WARNING(f"Temporary password set: {temp_password}"))
+            self.stdout.write(self.style.WARNING(
+                "Credential reference issued: %s (store securely; credential value is never printed)."
+                % credential_reference
+            ))
         else:
             self.stdout.write(self.style.WARNING("Dry-run mode: no changes were written. Rerun with --apply to commit."))
 
@@ -128,3 +132,6 @@ class Command(BaseCommand):
     def _generate_password(self, length: int = 14) -> str:
         alphabet = string.ascii_letters + string.digits + "!@#$%^&*()-_"
         return "".join(secrets.choice(alphabet) for _ in range(length))
+
+    def _generate_credential_reference(self) -> str:
+        return f"credref_{secrets.token_urlsafe(12)}"
