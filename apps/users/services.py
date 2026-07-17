@@ -22,8 +22,19 @@ from .models import AccountStatus, LinkedEntityType
 logger = logging.getLogger(__name__)
 User = get_user_model()
 
+
+class AuditAction:
+    ENABLE_LOGIN = 'ENABLE_LOGIN'
+    DISABLE_LOGIN = 'DISABLE_LOGIN'
+    ROLE_CHANGE = 'ROLE_CHANGE'
+    PASSWORD_RESET = 'PASSWORD_RESET'
+    INVITE_SENT = 'INVITE_SENT'
+    ACCOUNT_EXPIRED = 'ACCOUNT_EXPIRED'
+
 class AccountService:
     ENTITY_ALREADY_LINKED_ERROR = 'Entity already has a linked user account.'
+    LAST_ADMIN_DISABLE_ERROR = 'Cannot disable the last administrator for this school.'
+    LINKED_ACCOUNT_NOT_FOUND_ERROR = 'No linked user account was found for this entity.'
 
     @staticmethod
     def _generate_temp_password(length: int = 14) -> str:
@@ -177,9 +188,9 @@ class AccountService:
         cls._sync_supabase_user(user, password, send_invite=False) # We handle invite via our branded email
 
         # 7. Audit Logging
-        action = "ENABLE_LOGIN"
+        action = AuditAction.ENABLE_LOGIN
         if send_invite:
-            action = "INVITE_SENT"
+            action = AuditAction.INVITE_SENT
         cls._log_account_action(user, caller, action, school or user.school, request=request)
 
         # 8. Notification - Branded Welcome Email
@@ -228,7 +239,7 @@ class AccountService:
             cls._send_branded_welcome_email(user, user.school, temp_password, is_reset=True)
 
             # Audit
-            cls._log_account_action(user, caller, "PASSWORD_RESET", user.school, request=request)
+            cls._log_account_action(user, caller, AuditAction.PASSWORD_RESET, user.school, request=request)
 
             return True
         except Exception as e:
@@ -255,7 +266,7 @@ class AccountService:
             cls._send_branded_welcome_email(user, user.school, temp_password, is_resend=True)
 
             # Audit
-            cls._log_account_action(user, caller, "INVITE_SENT", user.school, request=request)
+            cls._log_account_action(user, caller, AuditAction.INVITE_SENT, user.school, request=request)
 
             return True
         except Exception as e:
@@ -269,7 +280,7 @@ class AccountService:
 
             # Validation: Cannot disable last school admin
             if user.school and cls._is_last_school_admin(user):
-                raise ValueError("Cannot disable the last administrator for this school.")
+                raise ValueError(cls.LAST_ADMIN_DISABLE_ERROR)
 
             # Permission check
             cls._validate_permissions(caller, user.school, user.role)
@@ -284,9 +295,16 @@ class AccountService:
         cls._revoke_supabase_sessions(user)
 
         # Audit
-        cls._log_account_action(user, caller, "DISABLE_LOGIN", user.school)
+        cls._log_account_action(user, caller, AuditAction.DISABLE_LOGIN, user.school)
 
         return user
+
+    @classmethod
+    def disable_login_for_entity(cls, *, entity_type: str, entity_id: int, caller: User) -> User:
+        user = User.objects.filter(entity_type=str(entity_type or '').lower(), entity_id=entity_id).first()
+        if not user:
+            raise ValueError(cls.LINKED_ACCOUNT_NOT_FOUND_ERROR)
+        return cls.disable_login(user_id=user.id, caller=caller)
 
     @staticmethod
     def _validate_permissions(caller: User, target_school: Optional[Any], target_role: str):

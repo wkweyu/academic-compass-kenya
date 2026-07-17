@@ -257,6 +257,58 @@ class EntityEnableLoginView(EnableLoginView):
         return self._provision_from_payload(request, payload)
 
 
+class DisableLoginView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, user_id, *args, **kwargs):
+        try:
+            user = AccountService.disable_login(user_id=user_id, caller=request.user)
+        except User.DoesNotExist:
+            raise ValidationError({'detail': 'User not found.'})
+        except (ValueError, PermissionError) as e:
+            if str(e) == AccountService.LAST_ADMIN_DISABLE_ERROR:
+                return Response({'detail': str(e)}, status=status.HTTP_409_CONFLICT)
+            raise ValidationError({'detail': str(e)})
+
+        return Response(
+            {
+                'id': user.id,
+                'email': user.email,
+                'status': user.status,
+                'login_enabled': user.login_enabled,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class EntityDisableLoginView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        entity_type = kwargs['entity_type']
+        entity_id = kwargs['entity_id']
+        try:
+            user = AccountService.disable_login_for_entity(entity_type=entity_type, entity_id=entity_id, caller=request.user)
+        except (ValueError, PermissionError) as e:
+            if str(e) in {
+                AccountService.LAST_ADMIN_DISABLE_ERROR,
+                AccountService.LINKED_ACCOUNT_NOT_FOUND_ERROR,
+            }:
+                code = status.HTTP_409_CONFLICT if str(e) == AccountService.LAST_ADMIN_DISABLE_ERROR else status.HTTP_404_NOT_FOUND
+                return Response({'detail': str(e)}, status=code)
+            raise ValidationError({'detail': str(e)})
+
+        return Response(
+            {
+                'id': user.id,
+                'email': user.email,
+                'status': user.status,
+                'login_enabled': user.login_enabled,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
 class PlatformUserRepairView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
 

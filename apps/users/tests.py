@@ -11,7 +11,7 @@ from apps.teachers.models import Teacher
 from apps.users.models import LinkedEntityType, User
 from apps.users.serializers import EnableLoginSerializer
 from apps.users.services import AccountService
-from apps.users.views import EnableLoginView, EntityEnableLoginView, UserDeleteView
+from apps.users.views import DisableLoginView, EnableLoginView, EntityDisableLoginView, EntityEnableLoginView, UserDeleteView
 
 
 class UserEntityConstraintTests(TestCase):
@@ -98,6 +98,31 @@ class AccountServiceIsolationTests(TestCase):
                 entity_id=self.teacher_a.id,
                 login_enabled=True,
             )
+
+    @patch('apps.users.services.AccountService._log_account_action')
+    @patch('apps.users.services.AccountService._revoke_supabase_sessions')
+    @patch('apps.users.services.AccountService._revoke_django_sessions')
+    def test_disable_login_revokes_sessions_and_marks_disabled(self, revoke_django, revoke_supabase, _log_action):
+        account = User.objects.create_user(
+            username='teacher-account',
+            email='teacher.account@example.com',
+            password='password123',
+            role='teacher',
+            school=self.school_a,
+            entity_type=LinkedEntityType.TEACHER,
+            entity_id=self.teacher_a.id,
+            login_enabled=True,
+            status='ACTIVE',
+            is_active=True,
+        )
+
+        updated = AccountService.disable_login(user_id=account.id, caller=self.school_a_admin)
+
+        self.assertFalse(updated.login_enabled)
+        self.assertEqual(updated.status, 'DISABLED')
+        self.assertFalse(updated.is_active)
+        revoke_django.assert_called_once_with(updated)
+        revoke_supabase.assert_called_once_with(updated)
 
 
 class EnableLoginViewTests(TestCase):
@@ -190,3 +215,41 @@ class LastSchoolAdminProtectionTests(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('last active school administrator', response.data['detail'])
+
+
+class DisableLoginViewTests(TestCase):
+    def setUp(self):
+        self.factory = APIRequestFactory()
+        self.school = School.objects.create(name='Disable School', code='SCHD001')
+        self.admin = User.objects.create_user(
+            username='disable-admin',
+            email='disable.admin@example.com',
+            password='password123',
+            role='schooladmin',
+            school=self.school,
+            login_enabled=True,
+            status='ACTIVE',
+            is_active=True,
+        )
+
+    @patch('apps.users.views.AccountService.disable_login')
+    def test_disable_login_view_maps_last_admin_error_to_409(self, mock_disable):
+        mock_disable.side_effect = ValueError(AccountService.LAST_ADMIN_DISABLE_ERROR)
+        request = self.factory.post('/api/users/12/disable-login/')
+        force_authenticate(request, user=self.admin)
+
+        response = DisableLoginView.as_view()(request, user_id=12)
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+
+    @patch('apps.users.views.AccountService.disable_login_for_entity')
+    def test_entity_disable_login_view_passes_url_entity(self, mock_disable_entity):
+        mock_disable_entity.return_value = self.admin
+        request = self.factory.post('/api/users/teachers/77/disable-login/')
+        force_authenticate(request, user=self.admin)
+
+        response = EntityDisableLoginView.as_view()(request, entity_type='teacher', entity_id=77)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        mock_disable_entity.assert_called_once()
+        _, kwargs = mock_disable_entity.call_args
+        self.assertEqual(kwargs['entity_type'], 'teacher')
+        self.assertEqual(kwargs['entity_id'], 77)
