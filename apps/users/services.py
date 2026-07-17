@@ -6,6 +6,8 @@ from datetime import datetime
 from typing import Optional, Tuple, Any
 
 from django.conf import settings
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import connection
 from django.db import transaction
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -14,10 +16,10 @@ from django.template.loader import render_to_string
 
 import requests
 
-from apps.schools.services import log_activity, send_notification, normalize_role
+from apps.schools.services import change_staff_role, get_role_change_impact, log_activity, normalize_role
 from apps.students.models import Student
 from apps.teachers.models import Teacher
-from .models import AccountStatus, LinkedEntityType
+from .models import AccountStatus, LinkedEntityType, LoginHistory
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -30,12 +32,45 @@ class AuditAction:
     PASSWORD_RESET = 'PASSWORD_RESET'
     INVITE_SENT = 'INVITE_SENT'
     ACCOUNT_EXPIRED = 'ACCOUNT_EXPIRED'
+    ACCOUNT_UNLOCKED = 'ACCOUNT_UNLOCKED'
 
 class AccountService:
     ENTITY_ALREADY_LINKED_ERROR = 'Entity already has a linked user account.'
     LAST_ADMIN_DISABLE_ERROR = 'Cannot disable the last administrator for this school.'
     LINKED_ACCOUNT_NOT_FOUND_ERROR = 'No linked user account was found for this entity.'
     USER_NOT_FOUND_ERROR = 'User not found.'
+    SELF_DELETE_ERROR = 'You cannot delete your own account.'
+    LAST_ADMIN_DELETE_ERROR = 'Cannot delete the last active school administrator for this school.'
+
+    PLATFORM_STAFF_ROLES = {
+        'staff',
+        'sales_rep',
+        'onboarding_specialist',
+        'account_manager',
+        'marketer',
+        'manager',
+        'platform_admin',
+        'support',
+    }
+
+    ADMIN_ROLES = {'admin', 'schooladmin', 'school_admin', 'principal', 'headteacher'}
+
+    SYNCABLE_PLATFORM_ROLES = ('platform_admin', 'support', 'account_manager', 'marketer')
+
+    @staticmethod
+    def is_platform_staff(user: User) -> bool:
+        caller_role = normalize_role(getattr(user, 'role', '')).lower()
+        return bool(
+            user.is_superuser
+            or user.is_staff
+            or (not getattr(user, 'school_id', None) and caller_role in AccountService.PLATFORM_STAFF_ROLES)
+        )
+
+    @classmethod
+    def ensure_manager_access(cls, user: User) -> User:
+        if cls.is_platform_staff(user):
+            return user
+        raise PermissionError('Only platform administrators or managers can perform user management.')
 
     @staticmethod
     def _generate_temp_password(length: int = 14) -> str:
@@ -71,7 +106,7 @@ class AccountService:
             username = f"{username_base}{suffix}"
 
     @classmethod
-    def provision_account(
+    def enable_login(
         cls,
         caller: User,
         email: str,
@@ -201,7 +236,36 @@ class AccountService:
         return user
 
     @classmethod
-    def send_password_reset(cls, user_id: int, caller: User, request: Any = None) -> bool:
+    def create_account(
+        cls,
+        *,
+        caller: User,
+        email: str,
+        role: str,
+        first_name: Optional[str] = None,
+        last_name: Optional[str] = None,
+        password: Optional[str] = None,
+        request: Any = None,
+    ) -> User:
+        return cls.enable_login(
+            caller=caller,
+            email=email,
+            role=role,
+            first_name=first_name,
+            last_name=last_name,
+            password=password,
+            login_enabled=True,
+            send_invite=False,
+            request=request,
+        )
+
+    @classmethod
+    def provision_account(cls, *args, **kwargs) -> User:
+        # Backward-compatible wrapper for existing callers.
+        return cls.enable_login(*args, **kwargs)
+
+    @classmethod
+    def reset_password(cls, user_id: int, caller: User, request: Any = None) -> bool:
         user = User.objects.get(pk=user_id)
 
         # Permission check
@@ -248,7 +312,12 @@ class AccountService:
             return False
 
     @classmethod
-    def resend_login_details(cls, user_id: int, caller: User, request: Any = None) -> bool:
+    def send_password_reset(cls, *args, **kwargs) -> bool:
+        # Backward-compatible wrapper for existing callers.
+        return cls.reset_password(*args, **kwargs)
+
+    @classmethod
+    def resend_credentials(cls, user_id: int, caller: User, request: Any = None) -> bool:
         user = User.objects.get(pk=user_id)
         cls._validate_permissions(caller, user.school, user.role)
 
@@ -275,6 +344,11 @@ class AccountService:
             return False
 
     @classmethod
+    def resend_login_details(cls, *args, **kwargs) -> bool:
+        # Backward-compatible wrapper for existing callers.
+        return cls.resend_credentials(*args, **kwargs)
+
+    @classmethod
     def disable_login(cls, user_id: int, caller: User) -> User:
         with transaction.atomic():
             user = User.objects.select_for_update().get(pk=user_id)
@@ -286,10 +360,12 @@ class AccountService:
             # Permission check
             cls._validate_permissions(caller, user.school, user.role)
 
-            user.login_enabled = False
-            user.status = AccountStatus.DISABLED
-            user.is_active = False
-            user.save()
+            cls._set_account_state(
+                user,
+                status=AccountStatus.DISABLED,
+                login_enabled=False,
+                is_active=False,
+            )
 
         # Revoke Sessions
         cls._revoke_django_sessions(user)
@@ -309,6 +385,10 @@ class AccountService:
 
     @classmethod
     def assign_role(cls, *, user_id: int, new_role: str, caller: User, request: Any = None) -> User:
+        return cls.change_role(user_id=user_id, new_role=new_role, caller=caller, request=request)
+
+    @classmethod
+    def change_role(cls, *, user_id: int, new_role: str, caller: User, request: Any = None) -> User:
         with transaction.atomic():
             user = User.objects.select_for_update().filter(pk=user_id).first()
             if not user:
@@ -334,18 +414,262 @@ class AccountService:
         )
         return user
 
+    @classmethod
+    def unlock_account(cls, *, user_id: int, caller: User, request: Any = None) -> User:
+        with transaction.atomic():
+            user = User.objects.select_for_update().filter(pk=user_id).first()
+            if not user:
+                raise ValueError(cls.USER_NOT_FOUND_ERROR)
+
+            cls._validate_permissions(caller, user.school, user.role)
+
+            cls._set_account_state(
+                user,
+                status=AccountStatus.ACTIVE,
+                login_enabled=True,
+                is_active=True,
+            )
+
+        cls._log_account_action(user, caller, AuditAction.ACCOUNT_UNLOCKED, user.school, request=request)
+        return user
+
+    @classmethod
+    def expire_account(cls, *, user_id: int, caller: User, request: Any = None) -> User:
+        with transaction.atomic():
+            user = User.objects.select_for_update().filter(pk=user_id).first()
+            if not user:
+                raise ValueError(cls.USER_NOT_FOUND_ERROR)
+
+            if user.school and cls._is_last_school_admin(user):
+                raise ValueError(cls.LAST_ADMIN_DISABLE_ERROR)
+
+            cls._validate_permissions(caller, user.school, user.role)
+
+            cls._set_account_state(
+                user,
+                status=AccountStatus.EXPIRED,
+                login_enabled=False,
+                is_active=False,
+            )
+
+        cls._revoke_django_sessions(user)
+        cls._revoke_supabase_sessions(user)
+        cls._log_account_action(user, caller, AuditAction.ACCOUNT_EXPIRED, user.school, request=request)
+        return user
+
+    @classmethod
+    def list_users_for_caller(cls, *, caller: User, role: Optional[str] = None):
+        if cls.is_platform_staff(caller):
+            queryset = User.objects.filter(school_id__isnull=True)
+        elif getattr(caller, 'school_id', None):
+            queryset = User.objects.filter(school_id=caller.school_id)
+        else:
+            queryset = User.objects.none()
+
+        queryset = queryset.order_by('first_name', 'last_name', 'email')
+        if role:
+            queryset = queryset.filter(role=role)
+        return queryset
+
+    @classmethod
+    def get_login_history_queryset(cls, *, requester: User, target_user_id: int):
+        user = User.objects.get(pk=target_user_id)
+        if requester.id != user.id:
+            cls.ensure_manager_access(requester)
+        return LoginHistory.objects.filter(user=user)
+
+    @classmethod
+    def touch_login_history(cls, *, user: User, request: Any):
+        last_login = LoginHistory.objects.filter(user=user).first()
+        now = timezone.now()
+
+        # Avoid duplicate writes on rapid refreshes.
+        if not last_login or (now - last_login.login_time).total_seconds() > 1800:
+            x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+            if x_forwarded_for:
+                ip_address = x_forwarded_for.split(',')[0]
+            else:
+                ip_address = request.META.get('REMOTE_ADDR')
+
+            LoginHistory.objects.create(
+                user=user,
+                ip_address=ip_address,
+                user_agent=request.META.get('HTTP_USER_AGENT'),
+                successful=True,
+            )
+
+            user.last_login = now
+            user.save(update_fields=['last_login'])
+
+    @classmethod
+    def complete_first_login(cls, *, user: User, request: Any = None):
+        user.force_password_change = False
+        if user.status == AccountStatus.INVITED:
+            user.status = AccountStatus.ACTIVE
+        user.save(update_fields=['force_password_change', 'status'])
+
+        log_activity(
+            school=user.school,
+            actor=user,
+            action='first_login_completed',
+            description=f'User {user.email} completed first login password change.',
+            request=request,
+        )
+
+    @classmethod
+    def delete_user(cls, *, user_id: int, caller: User):
+        cls.ensure_manager_access(caller)
+
+        with transaction.atomic():
+            user = User.objects.select_for_update().filter(pk=user_id).first()
+            if not user:
+                raise ValueError(cls.USER_NOT_FOUND_ERROR)
+
+            if user.id == caller.id:
+                raise ValueError(cls.SELF_DELETE_ERROR)
+            if user.school_id and cls._is_last_school_admin(user):
+                raise ValueError(cls.LAST_ADMIN_DELETE_ERROR)
+
+            if not user.school_id and user.auth_user_id:
+                cls._cleanup_platform_portfolio_assignments(user.auth_user_id)
+
+            user.delete()
+
+    @classmethod
+    def repair_platform_auth_links_and_roles(cls):
+        if connection.vendor != 'postgresql':
+            return {'linked_users': 0, 'role_grants': 0}
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM information_schema.tables
+                    WHERE table_schema = 'auth' AND table_name = 'users'
+                )
+                """
+            )
+            has_auth_users = cursor.fetchone()[0]
+
+            cursor.execute(
+                """
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM information_schema.tables
+                    WHERE table_schema = 'public' AND table_name = 'user_roles'
+                )
+                """
+            )
+            has_user_roles = cursor.fetchone()[0]
+
+            if not has_auth_users or not has_user_roles:
+                return {'linked_users': 0, 'role_grants': 0}
+
+            cursor.execute(
+                """
+                UPDATE public.users AS pu
+                SET auth_user_id = au.id
+                FROM auth.users AS au
+                WHERE pu.school_id IS NULL
+                  AND pu.auth_user_id IS NULL
+                  AND LOWER(COALESCE(pu.email, '')) = LOWER(COALESCE(au.email, ''))
+                  AND pu.role = ANY(%s)
+                """,
+                [list(cls.SYNCABLE_PLATFORM_ROLES)],
+            )
+            linked_users = cursor.rowcount
+
+            cursor.execute(
+                """
+                INSERT INTO public.user_roles (user_id, role)
+                SELECT pu.auth_user_id, pu.role::public.app_role
+                FROM public.users AS pu
+                WHERE pu.school_id IS NULL
+                  AND pu.auth_user_id IS NOT NULL
+                  AND pu.role = ANY(%s)
+                ON CONFLICT (user_id, role) DO NOTHING
+                """,
+                [list(cls.SYNCABLE_PLATFORM_ROLES)],
+            )
+            role_grants = cursor.rowcount
+
+        return {'linked_users': linked_users, 'role_grants': role_grants}
+
+    @classmethod
+    def preview_role_change(cls, *, caller: User, user_id: int, new_role: str):
+        cls.ensure_manager_access(caller)
+        staff = User.objects.get(pk=user_id)
+        return get_role_change_impact(staff_id=staff.id, new_role=new_role)
+
+    @classmethod
+    def apply_role_change(
+        cls,
+        *,
+        caller: User,
+        user_id: int,
+        new_role: str,
+        strategy: str,
+        keep_lead_ids: list[int],
+        keep_school_ids: list[int],
+        target_staff_ids: dict,
+        notes: str,
+    ):
+        cls.ensure_manager_access(caller)
+        staff = User.objects.get(pk=user_id)
+        result = change_staff_role(
+            staff_id=staff.id,
+            initiated_by_id=caller.id,
+            new_role=new_role,
+            strategy=strategy,
+            keep_lead_ids=keep_lead_ids,
+            keep_school_ids=keep_school_ids,
+            target_staff_ids=target_staff_ids,
+            notes=notes,
+        )
+        staff.refresh_from_db()
+        return staff, result
+
+    @staticmethod
+    def _cleanup_platform_portfolio_assignments(auth_user_id: str):
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'school_portfolio_assignments')"
+            )
+            if cursor.fetchone()[0]:
+                cursor.execute(
+                    'DELETE FROM school_portfolio_assignments WHERE owner_user_id = %s',
+                    [auth_user_id],
+                )
+
+    @staticmethod
+    def _set_account_state(
+        user: User,
+        *,
+        status: str,
+        login_enabled: bool,
+        is_active: bool,
+        force_password_change: Optional[bool] = None,
+    ):
+        user.status = status
+        user.login_enabled = login_enabled
+        user.is_active = is_active
+        update_fields = ['status', 'login_enabled', 'is_active']
+        if force_password_change is not None:
+            user.force_password_change = force_password_change
+            update_fields.append('force_password_change')
+        user.save(update_fields=update_fields)
+
     @staticmethod
     def _validate_permissions(caller: User, target_school: Optional[Any], target_role: str):
-        PLATFORM_STAFF_ROLES = {'staff', 'sales_rep', 'onboarding_specialist', 'account_manager', 'marketer', 'manager', 'platform_admin', 'support'}
-
         caller_role = normalize_role(getattr(caller, 'role', '')).lower()
-        is_platform_staff = bool(caller.is_superuser or caller.is_staff or (not getattr(caller, 'school_id', None) and caller_role in PLATFORM_STAFF_ROLES))
+        is_platform_staff = bool(caller.is_superuser or caller.is_staff or (not getattr(caller, 'school_id', None) and caller_role in AccountService.PLATFORM_STAFF_ROLES))
 
         if is_platform_staff:
             return
 
         if target_school:
-            is_school_admin = bool(getattr(caller, 'school_id', None) == getattr(target_school, 'id', None) and caller_role in {'admin', 'schooladmin', 'school_admin', 'principal', 'headteacher'})
+            is_school_admin = bool(getattr(caller, 'school_id', None) == getattr(target_school, 'id', None) and caller_role in AccountService.ADMIN_ROLES)
             if is_school_admin:
                 return
             raise PermissionError("You do not have permission to manage users for this school.")
@@ -483,10 +807,8 @@ class AccountService:
 
     @staticmethod
     def _is_last_school_admin(user: User) -> bool:
-        admin_roles = {'admin', 'schooladmin', 'school_admin', 'principal', 'headteacher'}
-
         user_role = normalize_role(user.role)
-        if user_role not in admin_roles:
+        if user_role not in AccountService.ADMIN_ROLES:
             return False
 
         other_admins = User.objects.filter(
@@ -497,7 +819,7 @@ class AccountService:
 
         actual_other_admin_count = 0
         for u in other_admins:
-            if normalize_role(u.role) in admin_roles:
+            if normalize_role(u.role) in AccountService.ADMIN_ROLES:
                 actual_other_admin_count += 1
 
         return actual_other_admin_count == 0

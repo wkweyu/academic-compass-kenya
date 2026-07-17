@@ -140,7 +140,7 @@ class EnableLoginViewTests(TestCase):
             is_active=True,
         )
 
-    @patch('apps.users.views.AccountService.provision_account')
+    @patch('apps.users.views.AccountService.enable_login')
     def test_returns_409_when_entity_already_linked(self, mock_provision):
         mock_provision.side_effect = ValueError(AccountService.ENTITY_ALREADY_LINKED_ERROR)
 
@@ -159,7 +159,7 @@ class EnableLoginViewTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
         self.assertIn('already has a linked user account', response.data['detail'])
 
-    @patch('apps.users.views.AccountService.provision_account')
+    @patch('apps.users.views.AccountService.enable_login')
     def test_teacher_resource_endpoint_forces_entity_type(self, mock_provision):
         mock_provision.return_value = self.admin
 
@@ -370,3 +370,53 @@ class AssignRoleViewTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.user.refresh_from_db()
         self.assertEqual(self.user.role, 'accountant')
+
+
+class AccountLifecycleMethodTests(TestCase):
+    def setUp(self):
+        self.school = School.objects.create(name='Lifecycle School', code='SCHLC01')
+        self.admin = User.objects.create_user(
+            username='lifecycle-admin',
+            email='lifecycle.admin@example.com',
+            password='password123',
+            role='schooladmin',
+            school=self.school,
+            login_enabled=True,
+            status='ACTIVE',
+            is_active=True,
+        )
+        self.user = User.objects.create_user(
+            username='lifecycle-user',
+            email='lifecycle.user@example.com',
+            password='password123',
+            role='teacher',
+            school=self.school,
+            login_enabled=True,
+            status='ACTIVE',
+            is_active=True,
+        )
+
+    @patch('apps.users.services.AccountService._log_account_action')
+    @patch('apps.users.services.AccountService._revoke_supabase_sessions')
+    @patch('apps.users.services.AccountService._revoke_django_sessions')
+    def test_expire_account_disables_and_revokes_sessions(self, revoke_django, revoke_supabase, _log_action):
+        updated = AccountService.expire_account(user_id=self.user.id, caller=self.admin)
+
+        self.assertFalse(updated.login_enabled)
+        self.assertFalse(updated.is_active)
+        self.assertEqual(updated.status, 'EXPIRED')
+        revoke_django.assert_called_once_with(updated)
+        revoke_supabase.assert_called_once_with(updated)
+
+    @patch('apps.users.services.AccountService._log_account_action')
+    def test_unlock_account_restores_active_access(self, _log_action):
+        self.user.status = 'LOCKED'
+        self.user.login_enabled = False
+        self.user.is_active = False
+        self.user.save(update_fields=['status', 'login_enabled', 'is_active'])
+
+        updated = AccountService.unlock_account(user_id=self.user.id, caller=self.admin)
+
+        self.assertTrue(updated.login_enabled)
+        self.assertTrue(updated.is_active)
+        self.assertEqual(updated.status, 'ACTIVE')
