@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import json
-import os
 import secrets
 import string
 from typing import Optional
@@ -10,10 +8,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.contrib.auth import get_user_model
 
-try:
-    import requests
-except Exception:  # pragma: no cover - requests may not be installed in every env
-    requests = None
+from apps.users.supabase_auth_service import SupabaseAuthService
 
 
 class Command(BaseCommand):
@@ -77,28 +72,23 @@ class Command(BaseCommand):
         # Supabase update (if requested)
         auth_user_id = getattr(user, "auth_user_id", None)
         if use_supabase:
-            if requests is None:
-                raise CommandError("The 'requests' library is required to update Supabase; please install it or run without --supabase")
-
-            supabase_url = os.environ.get("SUPABASE_URL")
-            service_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-            if not supabase_url or not service_key:
+            if not SupabaseAuthService._is_configured():
                 raise CommandError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in the environment to use --supabase")
 
             if not auth_user_id:
                 raise CommandError("User does not have an 'auth_user_id' field populated; cannot update Supabase without it")
 
             self.stdout.write(f"Supabase update requested for auth_user_id={auth_user_id}")
-
-            supabase_endpoint = supabase_url.rstrip("/") + f"/auth/v1/admin/users/{auth_user_id}"
-            payload = {"email": new_email, "password": temp_password, "email_confirm": True}
-
-            self.stdout.write("Supabase API call (dry-run): %s -> %s" % (supabase_endpoint, json.dumps({k: (v if k != 'password' else '*****') for k, v in payload.items()})))
+            self.stdout.write("Supabase update call (dry-run): update_user(auth_user_id, email, password, email_confirm=True)")
             if do_apply:
-                headers = {"Authorization": f"Bearer {service_key}", "apikey": service_key, "Content-Type": "application/json"}
-                resp = requests.patch(supabase_endpoint, headers=headers, json=payload, timeout=15)
-                if resp.status_code not in (200, 204):
-                    raise CommandError(f"Supabase update failed: {resp.status_code} {resp.text}")
+                updated = SupabaseAuthService.update_user(
+                    auth_user_id=auth_user_id,
+                    email=new_email,
+                    password=temp_password,
+                    email_confirm=True,
+                )
+                if not updated:
+                    raise CommandError("Supabase update failed")
                 self.stdout.write(self.style.SUCCESS("Supabase auth user updated"))
 
         # Local Django update

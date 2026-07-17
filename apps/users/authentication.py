@@ -4,9 +4,8 @@ from django.utils import timezone
 from rest_framework import authentication
 from rest_framework.exceptions import AuthenticationFailed
 
-import requests
-
 from .services import AccountService
+from .supabase_auth_service import SupabaseAuthService
 
 
 User = get_user_model()
@@ -28,31 +27,9 @@ class SupabaseJWTAuthentication(authentication.BaseAuthentication):
         if scheme.lower() != 'bearer' or not token:
             return None
 
-        supabase_url = getattr(settings, 'SUPABASE_PROJECT_URL', '')
-        supabase_anon_key = getattr(settings, 'SUPABASE_ANON_KEY', '')
-        if not supabase_url or not supabase_anon_key:
+        payload = SupabaseAuthService.get_user_from_access_token(token=token)
+        if not payload:
             return None
-
-        try:
-            response = requests.get(
-                f"{supabase_url.rstrip('/')}/auth/v1/user",
-                headers={
-                    'apikey': supabase_anon_key,
-                    'Authorization': f'Bearer {token}',
-                },
-                timeout=10,
-            )
-        except requests.RequestException:
-            # Supabase is unreachable (e.g. project paused, DNS failure, network error).
-            # Return None so DRF tries the next authentication backend instead of hard-failing.
-            return None
-
-        if response.status_code == 401:
-            return None
-        if response.status_code >= 400:
-            raise AuthenticationFailed('Supabase session validation failed.')
-
-        payload = response.json()
         auth_user_id = payload.get('id')
         email = (payload.get('email') or '').strip().lower()
         if not auth_user_id:

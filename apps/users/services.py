@@ -1,25 +1,21 @@
 import logging
-import os
 import secrets
 import string
 from datetime import datetime
 from typing import Optional, Tuple, Any
 
-from django.conf import settings
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import connection
 from django.db import transaction
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-from django.core.mail import send_mail
-from django.template.loader import render_to_string
-
-import requests
 
 from apps.schools.services import change_staff_role, get_role_change_impact, log_activity, normalize_role
 from apps.students.models import Student
 from apps.teachers.models import Teacher
 from .models import AccountStatus, LinkedEntityType, LoginHistory
+from .notification_service import NotificationService
+from .supabase_auth_service import SupabaseAuthService
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -231,7 +227,7 @@ class AccountService:
 
         # 8. Notification - Branded Welcome Email
         if send_invite and login_enabled:
-            cls._send_branded_welcome_email(user, school or user.school, password)
+            NotificationService.send_welcome_email(user=user, school=school or user.school, password=password)
 
         return user
 
@@ -275,25 +271,19 @@ class AccountService:
             logger.warning(f"Cannot send reset email for {user.email}: No Supabase auth_user_id found.")
             return False
 
-        supabase_url = os.environ.get("SUPABASE_URL") or getattr(settings, 'SUPABASE_PROJECT_URL', '')
-        service_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-
-        if not supabase_url or not service_key:
-            logger.error("Supabase configuration missing; cannot send reset email.")
-            return False
-
-        headers = {
-            "Authorization": f"Bearer {service_key}",
-            "apikey": service_key,
-            "Content-Type": "application/json"
-        }
-
         # For our branded flow, we generate a new password and email it.
         temp_password = cls._generate_temp_password()
 
         try:
             # Update Supabase
-            cls._sync_supabase_user(user, temp_password)
+            updated = SupabaseAuthService.update_user(
+                auth_user_id=user.auth_user_id,
+                email=user.email,
+                password=temp_password,
+                email_confirm=True,
+            )
+            if not updated:
+                return False
 
             # Update Django
             user.force_password_change = True
@@ -301,7 +291,7 @@ class AccountService:
             user.save(update_fields=['force_password_change', 'status'])
 
             # Send Email
-            cls._send_branded_welcome_email(user, user.school, temp_password, is_reset=True)
+            NotificationService.send_password_reset(user=user, school=user.school, password=temp_password)
 
             # Audit
             cls._log_account_action(user, caller, AuditAction.PASSWORD_RESET, user.school, request=request)
@@ -325,7 +315,14 @@ class AccountService:
 
         try:
             # Update Supabase
-            cls._sync_supabase_user(user, temp_password)
+            updated = SupabaseAuthService.update_user(
+                auth_user_id=user.auth_user_id,
+                email=user.email,
+                password=temp_password,
+                email_confirm=True,
+            )
+            if not updated:
+                return False
 
             # Update Django
             user.force_password_change = True
@@ -333,7 +330,7 @@ class AccountService:
             user.save(update_fields=['force_password_change'])
 
             # Send Email
-            cls._send_branded_welcome_email(user, user.school, temp_password, is_resend=True)
+            NotificationService.send_credentials_resend(user=user, school=user.school, password=temp_password)
 
             # Audit
             cls._log_account_action(user, caller, AuditAction.INVITE_SENT, user.school, request=request)
@@ -687,88 +684,27 @@ class AccountService:
 
     @staticmethod
     def _sync_supabase_user(user: User, password: Optional[str] = None, send_invite: bool = False):
-        supabase_url = os.environ.get("SUPABASE_URL") or getattr(settings, 'SUPABASE_PROJECT_URL', '')
-        service_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+        if user.auth_user_id:
+            if send_invite:
+                SupabaseAuthService.reset_password(email=user.email)
 
-        if not supabase_url or not service_key:
-            logger.warning("Supabase configuration missing; skipping sync.")
+            SupabaseAuthService.update_user(
+                auth_user_id=user.auth_user_id,
+                email=user.email,
+                password=password,
+            )
             return
 
-        headers = {
-            "Authorization": f"Bearer {service_key}",
-            "apikey": service_key,
-            "Content-Type": "application/json"
-        }
-
-        if user.auth_user_id:
-            # For existing users, if send_invite is true, we should trigger a recovery email
-            # as Supabase doesn't have a "re-invite" for confirmed users, but we can use recovery.
-            if send_invite:
-                logger.info(f"Triggering invite/recovery email for existing user {user.email}")
-                public_endpoint = f"{supabase_url.rstrip('/')}/auth/v1/recover"
-                public_headers = {
-                    "apikey": os.environ.get("SUPABASE_ANON_KEY") or getattr(settings, 'SUPABASE_ANON_KEY', ''),
-                    "Content-Type": "application/json"
-                }
-                try:
-                    requests.post(public_endpoint, headers=public_headers, json={"email": user.email}, timeout=10)
-                except Exception as e:
-                    logger.error(f"Failed to send recovery email: {e}")
-
-            endpoint = f"{supabase_url.rstrip('/')}/auth/v1/admin/users/{user.auth_user_id}"
-            payload = {"email": user.email}
-            if password:
-                payload["password"] = password
-
-            try:
-                logger.info(f"Updating Supabase user: {user.auth_user_id}, payload keys: {list(payload.keys())}")
-                resp = requests.patch(endpoint, headers=headers, json=payload, timeout=10)
-                logger.info(f"Supabase update response: {resp.status_code}")
-                if resp.status_code >= 400:
-                    logger.error(f"Supabase update error: {resp.text}")
-                resp.raise_for_status()
-            except Exception as e:
-                logger.error(f"Failed to update Supabase user {user.auth_user_id}: {e}")
-        else:
-            endpoint = f"{supabase_url.rstrip('/')}/auth/v1/admin/users"
-            # If send_invite is true, we use the Supabase invite flow instead of direct creation
-            # to let Supabase handle the email delivery.
-            payload = {
-                "email": user.email,
-                "user_metadata": {
-                    "full_name": f"{user.first_name} {user.last_name}".strip(),
-                }
-            }
-
-            if send_invite:
-                # Use invite endpoint
-                endpoint = f"{supabase_url.rstrip('/')}/auth/v1/admin/invite"
-            else:
-                payload.update({
-                    "password": password or "ChangeMe123!",
-                    "email_confirm": True,
-                })
-
-            try:
-                logger.info(f"Creating Supabase user: {user.email}")
-                resp = requests.post(endpoint, headers=headers, json=payload, timeout=10)
-                logger.info(f"Supabase create response: {resp.status_code}")
-                if resp.status_code == 201:
-                    data = resp.json()
-                    user.auth_user_id = data.get("id")
-                    user.save(update_fields=['auth_user_id'])
-                    logger.info(f"Supabase user created: {user.auth_user_id}")
-                elif resp.status_code == 400 and "already registered" in resp.text:
-                    logger.info(f"Supabase user for {user.email} already exists.")
-                    # Try to fetch the user to get the ID if we don't have it
-                    fetch_endpoint = f"{supabase_url.rstrip('/')}/auth/v1/admin/users"
-                    # Note: Supabase admin API doesn't have a direct "get by email" but we can list and filter
-                    # but for simplicity we just log it for now.
-                else:
-                    logger.error(f"Supabase create error: {resp.text}")
-                    resp.raise_for_status()
-            except Exception as e:
-                logger.error(f"Failed to create Supabase user for {user.email}: {e}")
+        created = SupabaseAuthService.create_user(
+            email=user.email,
+            password=password,
+            full_name=f"{user.first_name} {user.last_name}".strip(),
+            email_confirm=True,
+            send_invite=send_invite,
+        )
+        if created and created.get('id'):
+            user.auth_user_id = created.get('id')
+            user.save(update_fields=['auth_user_id'])
 
     @staticmethod
     def _revoke_django_sessions(user: User):
@@ -785,25 +721,8 @@ class AccountService:
 
     @staticmethod
     def _revoke_supabase_sessions(user: User):
-        if not user.auth_user_id:
-            return
-
-        supabase_url = os.environ.get("SUPABASE_URL") or getattr(settings, 'SUPABASE_PROJECT_URL', '')
-        service_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-
-        if not supabase_url or not service_key:
-            return
-
-        headers = {
-            "Authorization": f"Bearer {service_key}",
-            "apikey": service_key,
-        }
-
-        endpoint = f"{supabase_url.rstrip('/')}/auth/v1/admin/users/{user.auth_user_id}/logout"
-        try:
-            requests.post(endpoint, headers=headers, timeout=10)
-        except Exception as e:
-            logger.error(f"Failed to revoke Supabase sessions for {user.auth_user_id}: {e}")
+        if user.auth_user_id:
+            SupabaseAuthService.revoke_sessions(auth_user_id=user.auth_user_id)
 
     @staticmethod
     def _is_last_school_admin(user: User) -> bool:
@@ -847,36 +766,11 @@ class AccountService:
 
     @staticmethod
     def _send_branded_welcome_email(user: User, school: Optional[Any], password: str, is_reset: bool = False, is_resend: bool = False):
-        if not school or not user.email:
-            return
-
-        subject = "Welcome to Academic Compass"
+        # Backward-compatible bridge during service extraction.
         if is_reset:
-            subject = "Your Academic Compass Password has been Reset"
-        elif is_resend:
-            subject = "Your Academic Compass Login Details"
-
-        context = {
-            'name': user.first_name or user.full_name or user.email,
-            'school_name': school.name,
-            'role': user.role,
-            'email': user.email,
-            'password': password,
-            'login_url': "https://academic-compass-web.onrender.com",
-        }
-
-        html_message = render_to_string('emails/welcome_staff.html', context)
-        plain_message = render_to_string('emails/welcome_staff.txt', context)
-
-        try:
-            send_mail(
-                subject=subject,
-                message=plain_message,
-                from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@academic-compass.com'),
-                recipient_list=[user.email],
-                html_message=html_message,
-                fail_silently=False,
-            )
-            logger.info(f"Welcome/Reset email sent to {user.email}")
-        except Exception as e:
-            logger.error(f"Failed to send branded email to {user.email}: {e}")
+            NotificationService.send_password_reset(user=user, school=school, password=password)
+            return
+        if is_resend:
+            NotificationService.send_credentials_resend(user=user, school=school, password=password)
+            return
+        NotificationService.send_welcome_email(user=user, school=school, password=password)
