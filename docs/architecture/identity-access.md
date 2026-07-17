@@ -200,7 +200,90 @@ Idempotency and consistency:
 - IAM changes should be validated with backend tests covering cross-tenant denial, linkage conflicts, role assignment, disable flows, and last-admin protection.
 - Production observability should include audit logs, login history reports, and Supabase admin API error telemetry.
 
+## 11) Critical Sequence Flows
+
+### 11.1 Enable Login for Linked Entity
+```mermaid
+sequenceDiagram
+  participant Admin as School Admin or Platform Staff
+  participant FE as Frontend
+  participant API as Django API
+  participant SVC as AccountService
+  participant SB as Supabase Auth Admin API
+  participant AUD as Audit Log
+
+  Admin->>FE: Trigger enable login
+  FE->>API: POST enable-login endpoint
+  API->>SVC: provision_account(caller, entity, role, email)
+  SVC->>SVC: Validate tenant scope and linkage conflicts
+  SVC->>SB: Create or update auth user
+  SVC->>SVC: Persist local user and status
+  SVC->>AUD: Write ENABLE_LOGIN event
+  API-->>FE: 201 with user payload
+```
+
+### 11.2 Disable Login by User or Entity
+```mermaid
+sequenceDiagram
+  participant Admin as School Admin or Platform Staff
+  participant FE as Frontend
+  participant API as Django API
+  participant SVC as AccountService
+  participant SB as Supabase Auth Admin API
+  participant AUD as Audit Log
+
+  Admin->>FE: Trigger disable login
+  FE->>API: POST disable-login endpoint
+  API->>SVC: disable_login or disable_login_for_entity
+  SVC->>SVC: Enforce permission and last-admin guard
+  SVC->>SVC: Set login_enabled false, status DISABLED
+  SVC->>SVC: Revoke Django sessions
+  SVC->>SB: Revoke Supabase sessions
+  SVC->>AUD: Write DISABLE_LOGIN event
+  API-->>FE: 200 with updated status
+```
+
+### 11.3 Assign Role
+```mermaid
+sequenceDiagram
+  participant Admin as School Admin or Platform Staff
+  participant FE as Frontend
+  participant API as Django API
+  participant SVC as AccountService
+  participant AUD as Audit Log
+
+  Admin->>FE: Submit new role
+  FE->>API: POST assign-role endpoint
+  API->>SVC: assign_role(user_id, role, caller)
+  SVC->>SVC: Validate caller scope and target role policy
+  SVC->>SVC: Persist role change
+  SVC->>AUD: Write ROLE_CHANGE with old and new role
+  API-->>FE: 200 with updated role
+```
+
+### 11.4 Request Authentication Path
+```mermaid
+sequenceDiagram
+  participant Client as Frontend Client
+  participant API as Django API
+  participant AUTH as Supabase JWT Auth Backend
+  participant SB as Supabase Auth User Endpoint
+
+  Client->>API: API request with Bearer token
+  API->>AUTH: Authenticate request
+  AUTH->>SB: Validate token via auth user endpoint
+  SB-->>AUTH: User identity payload
+  AUTH->>AUTH: Resolve local user by auth_user_id or email fallback
+  AUTH->>AUTH: Enforce enabled, active, and expiry checks
+  AUTH-->>API: Authenticated user context
+  API-->>Client: Authorized response
+```
+
+## Related Documents
+- Stakeholder summary: docs/architecture/identity-access-summary.md
+- QA checklist: docs/architecture/identity-access-qa-checklist.md
+
 ## Revision Control
-- Baseline version: 1.0
+- Baseline version: 1.1
 - Date: 2026-07-18
 - Owner: Backend Architecture / Identity Domain
