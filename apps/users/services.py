@@ -17,11 +17,14 @@ import requests
 from apps.schools.services import log_activity, send_notification, normalize_role
 from apps.students.models import Student
 from apps.teachers.models import Teacher
+from .models import AccountStatus, LinkedEntityType
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
 
 class AccountService:
+    ENTITY_ALREADY_LINKED_ERROR = 'Entity already has a linked user account.'
+
     @staticmethod
     def _generate_temp_password(length: int = 14) -> str:
         alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
@@ -30,10 +33,10 @@ class AccountService:
     @staticmethod
     def _resolve_entity(entity_type: str, entity_id: int) -> Any:
         normalized_type = str(entity_type or '').strip().lower()
-        if normalized_type in {'teacher', 'teachers', 'staff'}:
+        if normalized_type in {LinkedEntityType.TEACHER, 'teachers', LinkedEntityType.STAFF}:
             # Support both teacher and staff mapping to Teacher model if that is the source of truth
             return Teacher.objects.filter(pk=entity_id).first()
-        if normalized_type in {'student', 'students'}:
+        if normalized_type in {LinkedEntityType.STUDENT, 'students'}:
             return Student.objects.filter(pk=entity_id).first()
         # Add other entities as they are implemented (e.g., Parent)
         return None
@@ -111,11 +114,11 @@ class AccountService:
 
             # 4. Status determination
             if not login_enabled:
-                status = 'DISABLED'
+                status = AccountStatus.NOT_ENABLED
             elif send_invite:
-                status = 'INVITED'
+                status = AccountStatus.INVITED
             else:
-                status = 'ACTIVE'
+                status = AccountStatus.ACTIVE
 
             # 5. Create or Update Local User
             if not user:
@@ -137,14 +140,17 @@ class AccountService:
                     login_enabled=login_enabled,
                     force_password_change=force_password_change,
                     expires_at=expires_at,
-                    is_active=login_enabled and status in {'ACTIVE', 'INVITED', 'PENDING_EMAIL_VERIFICATION'},
+                    is_active=login_enabled and status in {
+                        AccountStatus.ACTIVE,
+                        AccountStatus.INVITED,
+                        AccountStatus.PENDING_EMAIL_VERIFICATION,
+                    },
                     is_staff=is_platform_user # Platform users are Django staff by default in this system
                 )
                 if password:
                     user.set_password(password)
                     user.save(update_fields=['password'])
             else:
-                user.username = cls._build_unique_username(email, exclude_user_id=user.id)
                 user.email = email
                 user.role = role
                 user.school = school
@@ -156,7 +162,11 @@ class AccountService:
                 user.login_enabled = login_enabled
                 user.force_password_change = force_password_change or user.force_password_change
                 user.expires_at = expires_at
-                user.is_active = login_enabled and status in {'ACTIVE', 'INVITED', 'PENDING_EMAIL_VERIFICATION'}
+                user.is_active = login_enabled and status in {
+                    AccountStatus.ACTIVE,
+                    AccountStatus.INVITED,
+                    AccountStatus.PENDING_EMAIL_VERIFICATION,
+                }
                 # Preserve is_staff status for existing users or update if becoming platform user
                 if is_platform_user:
                     user.is_staff = True
@@ -167,9 +177,9 @@ class AccountService:
         cls._sync_supabase_user(user, password, send_invite=False) # We handle invite via our branded email
 
         # 7. Audit Logging
-        action = "Enable Login"
+        action = "ENABLE_LOGIN"
         if send_invite:
-            action = "Login Details Sent"
+            action = "INVITE_SENT"
         cls._log_account_action(user, caller, action, school or user.school, request=request)
 
         # 8. Notification - Branded Welcome Email
@@ -211,14 +221,14 @@ class AccountService:
 
             # Update Django
             user.force_password_change = True
-            user.status = 'INVITED' # Or keep ACTIVE? Let's go with INVITED for forced reset
+            user.status = AccountStatus.INVITED
             user.save(update_fields=['force_password_change', 'status'])
 
             # Send Email
             cls._send_branded_welcome_email(user, user.school, temp_password, is_reset=True)
 
             # Audit
-            cls._log_account_action(user, caller, "Password Reset", user.school, request=request)
+            cls._log_account_action(user, caller, "PASSWORD_RESET", user.school, request=request)
 
             return True
         except Exception as e:
@@ -245,7 +255,7 @@ class AccountService:
             cls._send_branded_welcome_email(user, user.school, temp_password, is_resend=True)
 
             # Audit
-            cls._log_account_action(user, caller, "Login Details Resent", user.school, request=request)
+            cls._log_account_action(user, caller, "INVITE_SENT", user.school, request=request)
 
             return True
         except Exception as e:
@@ -265,7 +275,7 @@ class AccountService:
             cls._validate_permissions(caller, user.school, user.role)
 
             user.login_enabled = False
-            user.status = 'DISABLED'
+            user.status = AccountStatus.DISABLED
             user.is_active = False
             user.save()
 
@@ -274,7 +284,7 @@ class AccountService:
         cls._revoke_supabase_sessions(user)
 
         # Audit
-        cls._log_account_action(user, caller, "Disable Login", user.school)
+        cls._log_account_action(user, caller, "DISABLE_LOGIN", user.school)
 
         return user
 
@@ -301,7 +311,7 @@ class AccountService:
         if entity_type and entity_id:
             user = User.objects.filter(entity_type=entity_type.lower(), entity_id=entity_id).first()
             if user:
-                return user
+                raise ValueError(AccountService.ENTITY_ALREADY_LINKED_ERROR)
 
         return User.objects.filter(email__iexact=email).first()
 
@@ -453,7 +463,7 @@ class AccountService:
                 school=school,
                 actor=actor,
                 action=action,
-                description=f"Account for {user.email} was {action.replace('_', ' ')}.",
+                description=f"Account action {action} on {user.email}.",
                 metadata={
                     "target_user_id": user.id,
                     "target_email": user.email,

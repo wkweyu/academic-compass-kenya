@@ -1,7 +1,26 @@
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.db.models import Q
 from apps.schools.models import School
+
+
+class LinkedEntityType(models.TextChoices):
+    TEACHER = 'teacher', 'Teacher'
+    STAFF = 'staff', 'Staff'
+    STUDENT = 'student', 'Student'
+    PARENT = 'parent', 'Parent'
+    EXTERNAL_CONTACT = 'external_contact', 'External Contact'
+
+
+class AccountStatus(models.TextChoices):
+    NOT_ENABLED = 'NOT_ENABLED', 'Not Enabled'
+    INVITED = 'INVITED', 'Invited'
+    PENDING_EMAIL_VERIFICATION = 'PENDING_EMAIL_VERIFICATION', 'Pending Email Verification'
+    ACTIVE = 'ACTIVE', 'Active'
+    DISABLED = 'DISABLED', 'Disabled'
+    LOCKED = 'LOCKED', 'Locked'
+    EXPIRED = 'EXPIRED', 'Expired'
 
 class User(AbstractUser):
     """
@@ -15,21 +34,9 @@ class User(AbstractUser):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     role = models.CharField(max_length=50, default='staff')
-    entity_type = models.CharField(max_length=50, blank=True, db_index=True)
+    entity_type = models.CharField(max_length=50, choices=LinkedEntityType.choices, blank=True, db_index=True)
     entity_id = models.PositiveIntegerField(null=True, blank=True, db_index=True)
-    status = models.CharField(
-        max_length=30,
-        choices=[
-            ('INVITED', 'Invited'),
-            ('PENDING_EMAIL_VERIFICATION', 'Pending Email Verification'),
-            ('ACTIVE', 'Active'),
-            ('DISABLED', 'Disabled'),
-            ('LOCKED', 'Locked'),
-            ('EXPIRED', 'Expired'),
-        ],
-        default='ACTIVE',
-        db_index=True,
-    )
+    status = models.CharField(max_length=30, choices=AccountStatus.choices, default=AccountStatus.NOT_ENABLED, db_index=True)
     login_enabled = models.BooleanField(default=False, db_index=True)
     force_password_change = models.BooleanField(default=False)
     expires_at = models.DateTimeField(null=True, blank=True)
@@ -42,6 +49,13 @@ class User(AbstractUser):
         db_table = 'users'
         verbose_name = 'User'
         verbose_name_plural = 'Users'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['entity_type', 'entity_id'],
+                condition=Q(entity_type__gt='') & Q(entity_id__isnull=False),
+                name='users_unique_entity_link',
+            ),
+        ]
     
     def __str__(self):
         return f"{self.first_name} {self.last_name} ({self.email})"

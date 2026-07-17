@@ -1,9 +1,12 @@
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework import authentication
 from rest_framework.exceptions import AuthenticationFailed
 
 import requests
+
+from .services import AccountService
 
 
 User = get_user_model()
@@ -64,6 +67,16 @@ class SupabaseJWTAuthentication(authentication.BaseAuthentication):
 
         if user is None:
             raise AuthenticationFailed('No Django user is linked to this Supabase account.')
+        if user.expires_at and user.expires_at <= timezone.now():
+            if user.school_id and AccountService._is_last_school_admin(user):
+                return (user, token)
+            user.status = 'EXPIRED'
+            user.login_enabled = False
+            user.is_active = False
+            user.save(update_fields=['status', 'login_enabled', 'is_active'])
+            raise AuthenticationFailed('User account has expired.')
+        if not getattr(user, 'login_enabled', True):
+            raise AuthenticationFailed('Login is disabled for this account.')
         if not user.is_active:
             raise AuthenticationFailed('User account is inactive.')
 

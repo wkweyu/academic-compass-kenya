@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from apps.schools.serializers import SchoolSerializer
-from .models import User, LoginHistory
+from .models import LinkedEntityType, LoginHistory, User
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -94,10 +94,17 @@ class UserCreateSerializer(serializers.Serializer):
 
 
 class EnableLoginSerializer(serializers.Serializer):
-    entity_type = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    entity_type = serializers.ChoiceField(choices=LinkedEntityType.choices, required=False, allow_null=True)
     entity_id = serializers.IntegerField(required=False, allow_null=True)
     email = serializers.EmailField()
     role = serializers.CharField(max_length=50, required=False, allow_blank=True)
     send_invite = serializers.BooleanField(default=False)
     login_enabled = serializers.BooleanField(default=True)
     expires_at = serializers.DateTimeField(required=False, allow_null=True)
+
+    def validate(self, attrs):
+        entity_type = attrs.get('entity_type')
+        entity_id = attrs.get('entity_id')
+        if bool(entity_type) != (entity_id is not None):
+            raise serializers.ValidationError('entity_type and entity_id must be provided together.')
+        return attrs

@@ -1,14 +1,17 @@
+import logging
+
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import connection
 from django.db import transaction
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
-from apps.schools.services import change_staff_role, get_role_change_impact, normalize_role
+from apps.schools.services import change_staff_role, get_role_change_impact, log_activity, normalize_role
 
-from .models import User
+from .models import LoginHistory, User
 from .serializers import (
     EnableLoginSerializer,
     LoginHistorySerializer,
@@ -22,6 +25,7 @@ from .services import AccountService
 
 PLATFORM_STAFF_ROLES = {'staff', 'sales_rep', 'onboarding_specialist', 'account_manager', 'marketer', 'manager', 'platform_admin', 'support'}
 SYNCABLE_PLATFORM_ROLES = ('platform_admin', 'support', 'account_manager', 'marketer')
+logger = logging.getLogger(__name__)
 
 def _is_platform_staff(user):
     role = normalize_role(getattr(user, 'role', '')).lower()
@@ -150,8 +154,8 @@ class LoginHistoryListView(generics.ListAPIView):
 
         # Ensure the caller has access to this user's history
         # (Simplified: managers or the user themselves)
-        if request.user.id != user.id:
-             _ensure_manager_access(request.user)
+        if self.request.user.id != user.id:
+            _ensure_manager_access(self.request.user)
 
         return LoginHistory.objects.filter(user=user)
 
@@ -212,6 +216,8 @@ class EnableLoginView(generics.GenericAPIView):
                 request=request,
             )
         except (ValueError, PermissionError) as e:
+            if str(e) == AccountService.ENTITY_ALREADY_LINKED_ERROR:
+                return Response({'detail': str(e)}, status=status.HTTP_409_CONFLICT)
             logger.error(f"Account provisioning failed: {str(e)}")
             raise ValidationError({'detail': str(e)})
         except Exception as e:
@@ -251,6 +257,8 @@ class UserDeleteView(generics.DestroyAPIView):
         user = self.get_object()
         if user.id == request.user.id:
             raise ValidationError({'detail': 'You cannot delete your own account.'})
+        if user.school_id and AccountService._is_last_school_admin(user):
+            raise ValidationError({'detail': 'Cannot delete the last active school administrator for this school.'})
 
         with transaction.atomic():
             # If platform staff, check for portfolio assignments

@@ -9,6 +9,20 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.RunSQL(
+            sql=(
+                "CREATE SEQUENCE IF NOT EXISTS admission_number_seq START 1;"
+                "CREATE OR REPLACE FUNCTION public.generate_admission_number() "
+                "RETURNS text "
+                "LANGUAGE plpgsql "
+                "AS $$ "
+                "BEGIN "
+                "    RETURN to_char(CURRENT_DATE, 'YYYY') || LPAD(nextval('admission_number_seq')::text, 6, '0'); "
+                "END; "
+                "$$;"
+            ),
+            reverse_sql="DROP FUNCTION IF EXISTS public.generate_admission_number();",
+        ),
         migrations.AlterField(
             model_name="student",
             name="admission_number",
