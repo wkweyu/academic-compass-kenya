@@ -11,7 +11,7 @@ from apps.teachers.models import Teacher
 from apps.users.models import LinkedEntityType, User
 from apps.users.serializers import EnableLoginSerializer
 from apps.users.services import AccountService
-from apps.users.views import EnableLoginView, UserDeleteView
+from apps.users.views import EnableLoginView, EntityEnableLoginView, UserDeleteView
 
 
 class UserEntityConstraintTests(TestCase):
@@ -133,6 +133,28 @@ class EnableLoginViewTests(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
         self.assertIn('already has a linked user account', response.data['detail'])
+
+    @patch('apps.users.views.AccountService.provision_account')
+    def test_teacher_resource_endpoint_forces_entity_type(self, mock_provision):
+        mock_provision.return_value = self.admin
+
+        request = self.factory.post(
+            '/api/users/teachers/35/enable-login/',
+            {
+                'email': 'teacher35@example.com',
+                'role': 'teacher',
+                'send_invite': False,
+                'login_enabled': True,
+            },
+            format='json',
+        )
+        force_authenticate(request, user=self.admin)
+        response = EntityEnableLoginView.as_view()(request, entity_type='teacher', entity_id=35)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        _, kwargs = mock_provision.call_args
+        self.assertEqual(kwargs['entity_type'], 'teacher')
+        self.assertEqual(kwargs['entity_id'], 35)
 
 
 class LastSchoolAdminProtectionTests(TestCase):

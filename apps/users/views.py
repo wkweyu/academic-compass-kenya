@@ -198,11 +198,7 @@ class EnableLoginView(generics.GenericAPIView):
     serializer_class = EnableLoginSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        payload = serializer.validated_data
-
+    def _provision_from_payload(self, request, payload):
         try:
             user = AccountService.provision_account(
                 caller=request.user,
@@ -220,7 +216,7 @@ class EnableLoginView(generics.GenericAPIView):
                 return Response({'detail': str(e)}, status=status.HTTP_409_CONFLICT)
             logger.error(f"Account provisioning failed: {str(e)}")
             raise ValidationError({'detail': str(e)})
-        except Exception as e:
+        except Exception:
             logger.exception("Unexpected error during account provisioning")
             raise ValidationError({'detail': 'An unexpected error occurred during account provisioning.'})
 
@@ -236,6 +232,29 @@ class EnableLoginView(generics.GenericAPIView):
             },
             status=status.HTTP_201_CREATED,
         )
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        payload = serializer.validated_data
+
+        return self._provision_from_payload(request, payload)
+
+
+class EntityEnableLoginView(EnableLoginView):
+    serializer_class = EnableLoginSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        payload_data = request.data.copy()
+        payload_data['entity_type'] = kwargs['entity_type']
+        payload_data['entity_id'] = kwargs['entity_id']
+
+        serializer = self.get_serializer(data=payload_data)
+        serializer.is_valid(raise_exception=True)
+        payload = serializer.validated_data
+
+        return self._provision_from_payload(request, payload)
 
 
 class PlatformUserRepairView(generics.GenericAPIView):
