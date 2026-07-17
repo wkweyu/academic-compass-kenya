@@ -15,6 +15,7 @@ from .models import LoginHistory, User
 from .serializers import (
     EnableLoginSerializer,
     LoginHistorySerializer,
+    UserAssignRoleSerializer,
     UserCreateSerializer,
     UserRoleChangePreviewSerializer,
     UserRoleChangeSerializer,
@@ -166,7 +167,14 @@ class UserListView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        queryset = User.objects.filter(school_id__isnull=True).order_by('first_name', 'last_name', 'email')
+        if _is_platform_staff(self.request.user):
+            queryset = User.objects.filter(school_id__isnull=True)
+        elif getattr(self.request.user, 'school_id', None):
+            queryset = User.objects.filter(school_id=self.request.user.school_id)
+        else:
+            queryset = User.objects.none()
+
+        queryset = queryset.order_by('first_name', 'last_name', 'email')
         role = self.request.query_params.get('role')
         if role:
             queryset = queryset.filter(role=role)
@@ -276,6 +284,36 @@ class DisableLoginView(generics.GenericAPIView):
                 'email': user.email,
                 'status': user.status,
                 'login_enabled': user.login_enabled,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class UserAssignRoleView(generics.GenericAPIView):
+    serializer_class = UserAssignRoleSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, user_id, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            user = AccountService.assign_role(
+                user_id=user_id,
+                new_role=serializer.validated_data['role'],
+                caller=request.user,
+                request=request,
+            )
+        except (ValueError, PermissionError) as e:
+            if str(e) == AccountService.USER_NOT_FOUND_ERROR:
+                return Response({'detail': str(e)}, status=status.HTTP_404_NOT_FOUND)
+            raise ValidationError({'detail': str(e)})
+
+        return Response(
+            {
+                'id': user.id,
+                'email': user.email,
+                'role': user.role,
             },
             status=status.HTTP_200_OK,
         )

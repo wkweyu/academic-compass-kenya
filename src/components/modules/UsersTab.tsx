@@ -155,26 +155,49 @@ export function UsersTab() {
   const disabledUsers = useMemo(() => filteredUsers.filter(u => !u.login_enabled || u.status === 'DISABLED'), [filteredUsers]);
 
   const handleToggleLogin = (user: UserProfile) => {
+    if (user.login_enabled) {
+      disableLoginMutation.mutate(user.id);
+      return;
+    }
+
     enableLoginMutation.mutate({
       entity_type: user.entity_type || (user.role === 'teacher' ? 'teacher' : 'staff'),
       entity_id: user.entity_id,
       email: user.email,
-      login_enabled: !user.login_enabled,
+      login_enabled: true,
       role: user.role,
-      send_invite: !user.login_enabled, // Send invite if we are enabling access
+      send_invite: true,
     });
   };
 
   const handleChangeRole = () => {
     if (!selectedUser || !newRole) return;
-    enableLoginMutation.mutate({
-      entity_type: selectedUser.entity_type || (selectedUser.role === 'teacher' ? 'teacher' : 'staff'),
-      entity_id: selectedUser.entity_id,
-      email: selectedUser.email,
-      role: newRole,
-      login_enabled: selectedUser.login_enabled,
-    });
+    assignRoleMutation.mutate({ userId: selectedUser.id, role: newRole });
   };
+
+  const disableLoginMutation = useMutation({
+    mutationFn: (userId: number) => userService.disableLoginByUser(userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["school-users"] });
+      toast.success("User access disabled successfully");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to disable user access");
+    }
+  });
+
+  const assignRoleMutation = useMutation({
+    mutationFn: ({ userId, role }: { userId: number; role: string }) => userService.assignRole(userId, role),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["school-users"] });
+      toast.success("User role updated successfully");
+      setIsRoleDialogOpen(false);
+      setSelectedUser(null);
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to update user role");
+    }
+  });
 
   const resetPasswordMutation = useMutation({
     mutationFn: (userId: number) => userService.resetPassword(userId),

@@ -35,6 +35,7 @@ class AccountService:
     ENTITY_ALREADY_LINKED_ERROR = 'Entity already has a linked user account.'
     LAST_ADMIN_DISABLE_ERROR = 'Cannot disable the last administrator for this school.'
     LINKED_ACCOUNT_NOT_FOUND_ERROR = 'No linked user account was found for this entity.'
+    USER_NOT_FOUND_ERROR = 'User not found.'
 
     @staticmethod
     def _generate_temp_password(length: int = 14) -> str:
@@ -306,6 +307,33 @@ class AccountService:
             raise ValueError(cls.LINKED_ACCOUNT_NOT_FOUND_ERROR)
         return cls.disable_login(user_id=user.id, caller=caller)
 
+    @classmethod
+    def assign_role(cls, *, user_id: int, new_role: str, caller: User, request: Any = None) -> User:
+        with transaction.atomic():
+            user = User.objects.select_for_update().filter(pk=user_id).first()
+            if not user:
+                raise ValueError(cls.USER_NOT_FOUND_ERROR)
+
+            normalized_new_role = normalize_role(new_role)
+            cls._validate_permissions(caller, user.school, normalized_new_role)
+
+            old_role = user.role
+            user.role = normalized_new_role
+            user.save(update_fields=['role', 'updated_at'])
+
+        cls._log_account_action(
+            user,
+            caller,
+            AuditAction.ROLE_CHANGE,
+            user.school,
+            request=request,
+            metadata={
+                'old_role': old_role,
+                'new_role': normalized_new_role,
+            },
+        )
+        return user
+
     @staticmethod
     def _validate_permissions(caller: User, target_school: Optional[Any], target_role: str):
         PLATFORM_STAFF_ROLES = {'staff', 'sales_rep', 'onboarding_specialist', 'account_manager', 'marketer', 'manager', 'platform_admin', 'support'}
@@ -475,20 +503,23 @@ class AccountService:
         return actual_other_admin_count == 0
 
     @staticmethod
-    def _log_account_action(user: User, actor: User, action: str, school: Optional[Any], request: Any = None):
+    def _log_account_action(user: User, actor: User, action: str, school: Optional[Any], request: Any = None, metadata: Optional[dict] = None):
         if school:
+            payload = {
+                "target_user_id": user.id,
+                "target_email": user.email,
+                "role": user.role,
+                "entity_type": user.entity_type,
+                "entity_id": user.entity_id,
+            }
+            if metadata:
+                payload.update(metadata)
             log_activity(
                 school=school,
                 actor=actor,
                 action=action,
                 description=f"Account action {action} on {user.email}.",
-                metadata={
-                    "target_user_id": user.id,
-                    "target_email": user.email,
-                    "role": user.role,
-                    "entity_type": user.entity_type,
-                    "entity_id": user.entity_id
-                },
+                metadata=payload,
                 request=request
             )
 

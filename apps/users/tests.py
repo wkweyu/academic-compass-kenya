@@ -11,7 +11,7 @@ from apps.teachers.models import Teacher
 from apps.users.models import LinkedEntityType, User
 from apps.users.serializers import EnableLoginSerializer
 from apps.users.services import AccountService
-from apps.users.views import DisableLoginView, EnableLoginView, EntityDisableLoginView, EntityEnableLoginView, UserDeleteView
+from apps.users.views import DisableLoginView, EnableLoginView, EntityDisableLoginView, EntityEnableLoginView, UserAssignRoleView, UserDeleteView, UserListView
 
 
 class UserEntityConstraintTests(TestCase):
@@ -253,3 +253,120 @@ class DisableLoginViewTests(TestCase):
         _, kwargs = mock_disable_entity.call_args
         self.assertEqual(kwargs['entity_type'], 'teacher')
         self.assertEqual(kwargs['entity_id'], 77)
+
+
+class UserListScopeTests(TestCase):
+    def setUp(self):
+        self.factory = APIRequestFactory()
+        self.school_a = School.objects.create(name='School A List', code='SCHLA01')
+        self.school_b = School.objects.create(name='School B List', code='SCHLB01')
+
+        self.platform_admin = User.objects.create_user(
+            username='platform-list-admin',
+            email='platform.list.admin@example.com',
+            password='password123',
+            role='platform_admin',
+            is_staff=True,
+            is_superuser=True,
+            login_enabled=True,
+            status='ACTIVE',
+            is_active=True,
+        )
+        self.school_admin = User.objects.create_user(
+            username='school-list-admin',
+            email='school.list.admin@example.com',
+            password='password123',
+            role='schooladmin',
+            school=self.school_a,
+            login_enabled=True,
+            status='ACTIVE',
+            is_active=True,
+        )
+
+        self.school_user_a = User.objects.create_user(
+            username='school-user-a',
+            email='school.user.a@example.com',
+            password='password123',
+            role='teacher',
+            school=self.school_a,
+            login_enabled=True,
+            status='ACTIVE',
+            is_active=True,
+        )
+        User.objects.create_user(
+            username='school-user-b',
+            email='school.user.b@example.com',
+            password='password123',
+            role='teacher',
+            school=self.school_b,
+            login_enabled=True,
+            status='ACTIVE',
+            is_active=True,
+        )
+        self.platform_user = User.objects.create_user(
+            username='platform-user',
+            email='platform.user@example.com',
+            password='password123',
+            role='support',
+            school=None,
+            login_enabled=True,
+            status='ACTIVE',
+            is_active=True,
+            is_staff=True,
+        )
+
+    def test_school_admin_list_is_school_scoped(self):
+        request = self.factory.get('/api/users/')
+        force_authenticate(request, user=self.school_admin)
+        response = UserListView.as_view()(request)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        emails = {row['email'] for row in response.data}
+        self.assertIn(self.school_admin.email, emails)
+        self.assertIn(self.school_user_a.email, emails)
+        self.assertNotIn(self.platform_user.email, emails)
+
+    def test_platform_staff_list_is_platform_scoped(self):
+        request = self.factory.get('/api/users/')
+        force_authenticate(request, user=self.platform_admin)
+        response = UserListView.as_view()(request)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        emails = {row['email'] for row in response.data}
+        self.assertIn(self.platform_user.email, emails)
+        self.assertNotIn(self.school_user_a.email, emails)
+
+
+class AssignRoleViewTests(TestCase):
+    def setUp(self):
+        self.factory = APIRequestFactory()
+        self.school = School.objects.create(name='Assign Role School', code='SCHAR01')
+        self.school_admin = User.objects.create_user(
+            username='assign-admin',
+            email='assign.admin@example.com',
+            password='password123',
+            role='schooladmin',
+            school=self.school,
+            login_enabled=True,
+            status='ACTIVE',
+            is_active=True,
+        )
+        self.user = User.objects.create_user(
+            username='assign-target',
+            email='assign.target@example.com',
+            password='password123',
+            role='teacher',
+            school=self.school,
+            login_enabled=True,
+            status='ACTIVE',
+            is_active=True,
+        )
+
+    def test_assign_role_updates_user_role(self):
+        request = self.factory.post(f'/api/users/{self.user.id}/assign-role/', {'role': 'accountant'}, format='json')
+        force_authenticate(request, user=self.school_admin)
+        response = UserAssignRoleView.as_view()(request, user_id=self.user.id)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.role, 'accountant')

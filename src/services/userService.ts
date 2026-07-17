@@ -15,7 +15,7 @@ export interface UserProfile {
   entity_type?: string;
   entity_id?: number | null;
   linked_entity_name?: string | null;
-  status: 'INVITED' | 'PENDING_EMAIL_VERIFICATION' | 'ACTIVE' | 'DISABLED' | 'LOCKED' | 'EXPIRED';
+  status: 'NOT_ENABLED' | 'INVITED' | 'PENDING_EMAIL_VERIFICATION' | 'ACTIVE' | 'DISABLED' | 'LOCKED' | 'EXPIRED';
   login_enabled: boolean;
   expires_at?: string | null;
   last_login?: string | null;
@@ -30,6 +30,11 @@ export interface EnableLoginPayload {
   login_enabled?: boolean;
   expires_at?: string | null;
   password?: string;
+}
+
+export interface DisableLoginPayload {
+  entity_type: 'teacher' | 'staff' | 'external_contact';
+  entity_id: number;
 }
 
 export interface ActivityLog {
@@ -49,6 +54,27 @@ export const userService = {
 
   async enableLogin(payload: EnableLoginPayload): Promise<UserProfile> {
     const response = await api.post<UserProfile>("/api/users/enable-login/", payload);
+    return response.data;
+  },
+
+  async disableLoginByUser(userId: number): Promise<UserProfile> {
+    const response = await api.post<UserProfile>(`/api/users/${userId}/disable-login/`, {});
+    return response.data;
+  },
+
+  async disableLoginByEntity(payload: DisableLoginPayload): Promise<UserProfile> {
+    const resourceMap: Record<DisableLoginPayload['entity_type'], string> = {
+      teacher: 'teachers',
+      staff: 'staff',
+      external_contact: 'external-contacts',
+    };
+    const resource = resourceMap[payload.entity_type];
+    const response = await api.post<UserProfile>(`/api/users/${resource}/${payload.entity_id}/disable-login/`, {});
+    return response.data;
+  },
+
+  async assignRole(userId: number, role: string): Promise<UserProfile> {
+    const response = await api.post<UserProfile>(`/api/users/${userId}/assign-role/`, { role });
     return response.data;
   },
 

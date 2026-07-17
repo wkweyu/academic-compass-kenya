@@ -108,3 +108,7 @@ class EnableLoginSerializer(serializers.Serializer):
         if bool(entity_type) != (entity_id is not None):
             raise serializers.ValidationError('entity_type and entity_id must be provided together.')
         return attrs
+
+
+class UserAssignRoleSerializer(serializers.Serializer):
+    role = serializers.CharField(max_length=50)
