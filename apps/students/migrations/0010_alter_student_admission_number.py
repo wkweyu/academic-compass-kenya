@@ -15,9 +15,6 @@ class Migration(migrations.Migration):
             model_name="student",
             name="admission_number",
             field=models.CharField(
-                db_default=django.db.models.expressions.RawSQL(
-                    "public.generate_admission_number()", []
-                ),
                 editable=False,
                 max_length=20,
                 unique=True,

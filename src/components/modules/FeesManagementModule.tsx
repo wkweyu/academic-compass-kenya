@@ -103,6 +103,12 @@ export const FeesManagementModule = () => {
     refetchOnWindowFocus: true,
   });
 
+  const { data: canonicalBalance } = useQuery({
+    queryKey: ['canonical-student-balance', statementStudentId, currentYear, currentTerm],
+    queryFn: () => feesService.calculateStudentBalance(statementStudentId!, currentYear, currentTerm),
+    enabled: !!statementStudentId,
+  });
+
   const { data: structureGroups = [] } = useQuery({
     queryKey: ['fee-structure-groups'],
     queryFn: () => feesService.getStructureGroups(),
@@ -616,23 +622,25 @@ export const FeesManagementModule = () => {
             <CardContent>
               {statement ? (
                 <div className="space-y-6">
-                  <div className="border rounded-lg p-4">
+                  <div className="border rounded-lg p-4 space-y-3">
                     <h3 className="font-semibold text-lg">{statement.student_name}</h3>
                     <p className="text-sm text-muted-foreground">Adm: {statement.admission_number} • Class: {statement.class_name}</p>
-                    <div className="mt-3 flex gap-6">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Total Debits</p>
-                        <p className="font-bold">{formatCurrency(Number(statement.ledger?.debit_total || 0))}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Total Credits</p>
-                        <p className="font-bold text-green-600">{formatCurrency(Number(statement.ledger?.credit_total || 0))}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Running Balance</p>
-                        <p className={`font-bold ${statement.running_balance > 0 ? 'text-destructive' : 'text-green-600'}`}>
-                          {formatCurrency(statement.running_balance)}
+                    <div className="flex gap-6 font-medium flex-wrap pt-2 border-t">
+                      <div title="Total lifetime charge debits vs payment credits across all terms">
+                        <p className="text-xs text-muted-foreground">Overall Student Outstanding</p>
+                        <p className={`font-bold text-lg ${(canonicalBalance?.overall_balance || statement.running_balance) > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                          {formatCurrency(canonicalBalance?.overall_balance ?? statement.running_balance)}
                         </p>
+                      </div>
+                      <div title="Net outstanding amount strictly for the selected academic term">
+                        <p className="text-xs text-muted-foreground">Current Term Outstanding (T{currentTerm}/{currentYear})</p>
+                        <p className={`font-bold text-lg ${(canonicalBalance?.current_term_balance || 0) > 0 ? 'text-amber-600' : 'text-green-600'}`}>
+                          {formatCurrency(canonicalBalance?.current_term_balance ?? 0)}
+                        </p>
+                      </div>
+                      <div title="Unpaid arrears carried forward into current term">
+                        <p className="text-xs text-muted-foreground">Arrears B/F</p>
+                        <p className="font-bold">{formatCurrency(canonicalBalance?.opening_balance ?? 0)}</p>
                       </div>
                     </div>
                   </div>
