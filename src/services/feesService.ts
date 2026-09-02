@@ -158,6 +158,22 @@ export interface FeeBalanceRecord {
   school_id: number;
 }
 
+export interface CanonicalStudentBalance {
+  student_id: number;
+  overall_balance: number;
+  opening_balance: number;
+  previous_term_arrears: number;
+  current_term_balance: number;
+  current_term_charges: number;
+  current_term_payments: number;
+  current_term_debits: number;
+  current_term_credits: number;
+  waivers: number;
+  scholarships: number;
+  refunds: number;
+  running_balance: number;
+}
+
 export interface FeesReport {
   trial_balance: { account: string; debit: number; credit: number }[];
   votehead_collections: { votehead: string; amount: number }[];
@@ -186,6 +202,75 @@ async function getUserId(): Promise<number> {
 // ===================== Service =====================
 
 export const feesService = {
+  // ==================== CANONICAL FINANCE BALANCE SERVICE ====================
+
+  /**
+   * Authoritative balance calculation service for any student.
+   * Calculates overall lifetime account balance as well as term-specific net due.
+   */
+  async calculateStudentBalance(
+    studentId: number,
+    academicYear?: number,
+    term?: number
+  ): Promise<CanonicalStudentBalance> {
+    const [debitsRes, receiptsRes, balancesRes] = await Promise.all([
+      supabase.from('fees_debittransaction').select('*').eq('student_id', studentId),
+      supabase.from('fees_receipt').select('*').eq('student_id', studentId).eq('is_reversed', false),
+      supabase.from('fees_feebalance').select('*').eq('student_id', studentId),
+    ]);
+
+    const debits = (debitsRes.data || []) as any[];
+    const receipts = (receiptsRes.data || []) as any[];
+    const balances = (balancesRes.data || []) as any[];
+
+    // 1. Lifetime totals across all academic years and terms
+    const totalDebits = debits.reduce((sum, d) => sum + Number(d.amount || 0), 0);
+    const totalCredits = receipts.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+    const overallBalance = totalDebits - totalCredits;
+
+    // 2. Filter for specific academic year and term if provided
+    let termDebits = 0;
+    let termCredits = 0;
+    let openingBalance = 0;
+
+    if (academicYear && term) {
+      termDebits = debits
+        .filter(d => Number(d.year) === Number(academicYear) && Number(d.term) === Number(term))
+        .reduce((sum, d) => sum + Number(d.amount || 0), 0);
+
+      termCredits = receipts
+        .filter(r => Number(r.year) === Number(academicYear) && Number(r.term) === Number(term))
+        .reduce((sum, r) => sum + Number(r.amount || 0), 0);
+
+      // Opening balance B/F for the target term
+      openingBalance = balances
+        .filter(b => Number(b.year) === Number(academicYear) && Number(b.term) === Number(term))
+        .reduce((sum, b) => sum + Number(b.opening_balance || 0), 0);
+    } else {
+      // Default term charges and credits to latest term
+      termDebits = totalDebits;
+      termCredits = totalCredits;
+    }
+
+    const currentTermBalance = termDebits - termCredits;
+
+    return {
+      student_id: studentId,
+      overall_balance: overallBalance,
+      opening_balance: openingBalance,
+      previous_term_arrears: Math.max(0, openingBalance),
+      current_term_balance: currentTermBalance,
+      current_term_charges: termDebits,
+      current_term_payments: termCredits,
+      current_term_debits: termDebits,
+      current_term_credits: termCredits,
+      waivers: 0,
+      scholarships: 0,
+      refunds: 0,
+      running_balance: overallBalance,
+    };
+  },
+
   // ==================== VOTE HEADS ====================
 
   async getVoteHeads(): Promise<VoteHead[]> {

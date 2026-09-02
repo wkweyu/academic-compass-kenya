@@ -9,25 +9,26 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunSQL(
-            sql=(
-                "CREATE SEQUENCE IF NOT EXISTS admission_number_seq START 1;"
-                "CREATE OR REPLACE FUNCTION public.generate_admission_number() "
-                "RETURNS text "
-                "LANGUAGE plpgsql "
-                "AS $$ "
-                "BEGIN "
-                "    RETURN to_char(CURRENT_DATE, 'YYYY') || LPAD(nextval('admission_number_seq')::text, 6, '0'); "
-                "END; "
-                "$$;"
+        migrations.RunPython(
+            code=lambda apps, schema_editor: (
+                schema_editor.execute(
+                    "CREATE SEQUENCE IF NOT EXISTS admission_number_seq START 1;"
+                    "CREATE OR REPLACE FUNCTION public.generate_admission_number() "
+                    "RETURNS text "
+                    "LANGUAGE plpgsql "
+                    "AS $$ "
+                    "BEGIN "
+                    "    RETURN to_char(CURRENT_DATE, 'YYYY') || LPAD(nextval('admission_number_seq')::text, 6, '0'); "
+                    "END; "
+                    "$$;"
+                ) if schema_editor.connection.vendor == 'postgresql' else None
             ),
-            reverse_sql="DROP FUNCTION IF EXISTS public.generate_admission_number();",
+            reverse_code=migrations.RunPython.noop
         ),
         migrations.AlterField(
             model_name="student",
             name="admission_number",
             field=models.CharField(
-                db_default=RawSQL("public.generate_admission_number()", []),
                 editable=False,
                 max_length=20,
                 unique=True,

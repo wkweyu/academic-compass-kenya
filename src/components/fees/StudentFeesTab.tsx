@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Printer, Download, DollarSign, TrendingUp, AlertCircle } from 'lucide-react';
 import { feesService } from '@/services/feesService';
+import { TermManager } from '@/utils/termManager';
 
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES', minimumFractionDigits: 0 }).format(amount);
@@ -31,6 +32,8 @@ interface ConsolidatedEntry {
 
 export function StudentFeesTab({ studentId, studentName, admissionNumber, className }: StudentFeesTabProps) {
   const [showVoteheadDetails, setShowVoteheadDetails] = useState<number | null>(null);
+  const currentTerm = TermManager.getCurrentTerm();
+  const currentYear = TermManager.getCurrentYear();
 
   const { data: statement, isLoading } = useQuery({
     queryKey: ['student-statement', studentId],
@@ -39,6 +42,12 @@ export function StudentFeesTab({ studentId, studentName, admissionNumber, classN
     staleTime: 0,
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
+  });
+
+  const { data: canonicalBalance } = useQuery({
+    queryKey: ['canonical-student-balance', studentId, currentYear, currentTerm],
+    queryFn: () => feesService.calculateStudentBalance(studentId, currentYear, currentTerm),
+    enabled: !!studentId,
   });
 
   if (isLoading) {
@@ -182,18 +191,18 @@ export function StudentFeesTab({ studentId, studentName, admissionNumber, classN
             <div className="text-2xl font-bold text-green-600">{formatCurrency(totalCredits)}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card title="Total lifetime account balance across all academic years and terms">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Balance</CardTitle>
+            <CardTitle className="text-sm font-medium">Overall Student Outstanding</CardTitle>
             <AlertCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${balance > 0 ? 'text-destructive' : 'text-green-600'}`}>
-              {formatCurrency(balance)}
+            <div className={`text-2xl font-bold ${(canonicalBalance?.overall_balance ?? balance) > 0 ? 'text-destructive' : 'text-green-600'}`}>
+              {formatCurrency(canonicalBalance?.overall_balance ?? balance)}
             </div>
-            <Badge variant={balance <= 0 ? 'default' : 'destructive'} className="mt-1">
-              {balance <= 0 ? 'Clear' : 'Owing'}
-            </Badge>
+            <p className="text-xs text-muted-foreground mt-1">
+              Current Term Net Due: <span className="font-semibold text-foreground">{formatCurrency(canonicalBalance?.current_term_balance ?? 0)}</span>
+            </p>
           </CardContent>
         </Card>
       </div>
